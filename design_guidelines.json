@@ -1,0 +1,145 @@
+{
+  "project_name": "Mfixit",
+  "domain": "Home Services Marketplace",
+  "theme": {
+    "mode": "light",
+    "dark_mode_ready": true,
+    "archetype": "4 (Swiss & High-Contrast adapted for Premium Consumer Utility)",
+    "description": "Premium, clean, trust-oriented UI. Relies on crisp whites, a strong 'Trust Blue', and soft rounded cards with explicit depth. Mobile-first bottom-sheet driven architecture mimicking native app flow."
+  },
+  "typography": {
+    "font_families": {
+      "headings": "Outfit, sans-serif",
+      "body": "Figtree, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-3xl sm:text-4xl font-bold tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl font-semibold tracking-tight",
+      "h4": "text-lg font-semibold",
+      "body": "text-base font-normal leading-relaxed",
+      "small": "text-sm font-medium",
+      "tiny": "text-xs font-medium uppercase tracking-widest"
+    }
+  },
+  "colors": {
+    "light": {
+      "background": "#FFFFFF",
+      "surface": "#F8FAFC",
+      "surface_elevated": "#FFFFFF",
+      "primary": "#2563EB",
+      "primary_hover": "#1D4ED8",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#EFF6FF",
+      "secondary_foreground": "#1E40AF",
+      "text_main": "#0F172A",
+      "text_muted": "#64748B",
+      "border": "#E2E8F0",
+      "success": "#16A34A",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    },
+    "dark": {
+      "background": "#020617",
+      "surface": "#0F172A",
+      "surface_elevated": "#1E293B",
+      "primary": "#3B82F6",
+      "primary_hover": "#60A5FA",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#1E293B",
+      "secondary_foreground": "#93C5FD",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8",
+      "border": "#334155",
+      "success": "#22C55E",
+      "warning": "#FBBF24",
+      "error": "#F87171"
+    }
+  },
+  "layout_and_spacing": {
+    "container": "w-full max-w-md mx-auto h-screen overflow-hidden flex flex-col bg-background relative shadow-2xl",
+    "content_area": "flex-1 overflow-y-auto pb-24 hide-scrollbar",
+    "spacing_scale": "p-4, p-6 for containers. gap-4, gap-6 for lists.",
+    "border_radius": "rounded-2xl for main cards, rounded-xl for inner elements, rounded-full for buttons/avatars",
+    "shadows": {
+      "card": "shadow-sm hover:shadow-md transition-shadow",
+      "bottom_nav": "shadow-[0_-4px_20px_rgba(0,0,0,0.05)]",
+      "floating_action": "shadow-lg"
+    }
+  },
+  "ui_patterns": {
+    "bottom_navigation": "Fixed at bottom, max-w-md mx-auto, 4 tabs (Home, Bookings, Offers, Profile). Uses Lucide icons.",
+    "bottom_sheets": "Use Shadcn Drawer or Dialog for filters, time slot selection, and booking confirmation.",
+    "service_cards": "Rounded cards (rounded-2xl) with top image, padding (p-4), clear title, ratings (star icon + text), and starting price.",
+    "category_grid": "3x3 grid (grid-cols-3 gap-4). Items have a soft background (bg-slate-50), an icon centrally aligned, and a small label below.",
+    "trust_signals": "Always show 'Verified' badge (blue check), average rating, and review count prominently on provider and service details."
+  },
+  "components": {
+    "buttons": "Shadcn Button heavily customized. Primary buttons: rounded-full, h-12, text-base font-semibold. Hover state slightly lighter with transform scale.",
+    "inputs": "Shadcn Input. h-12, rounded-xl, bg-slate-50 border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20.",
+    "tabs": "Shadcn Tabs. Used for 'My Bookings' (Active/Completed/Cancelled). W-full, grid layout for tab list.",
+    "calendar": "Shadcn Calendar for date selection in booking flow. Followed by a custom grid of selectable time slots (pill shape)."
+  },
+  "motion_and_interactions": {
+    "page_transitions": "Slide up for new screens (simulating native mobile navigation stack).",
+    "hover_states": "Cards lift slightly (-translate-y-1) on desktop, active scale down (active:scale-95) on mobile touch.",
+    "splash_screen": "Animated logo fade-in, background subtle pulse, transitioning to Auth/Home after 2.5s."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use stroke-width 2 for clarity. Category icons should be wrapped in a circular or rounded-xl soft background container."
+  },
+  "media": {
+    "splash_background": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/cfc1abea-ed02-4767-9c68-7336c3e0b181/images/0f1bb7577d40f72bd3376c9d76728f1226a1e98060ea27f715dd2a125241f406.png",
+      "description": "Abstract blue and white waves for splash screen background"
+    },
+    "offer_banners": [
+      {
+        "url": "https://static.prod-images.emergentagent.com/jobs/cfc1abea-ed02-4767-9c68-7336c3e0b181/images/ed1d5989654b55b06f6c168024d8b38468ecc7408a4cd1f1736ac1ed5ce7891e.png",
+        "description": "Living room soft background for Cleaning / General offers"
+      },
+      {
+        "url": "https://static.prod-images.emergentagent.com/jobs/cfc1abea-ed02-4767-9c68-7336c3e0b181/images/d8c51e30b16bbc14bafcf5ada0c2972abbfee50d9ecb3a445e0dee659134457e.png",
+        "description": "Clean AC unit background for Appliance/AC repair offers"
+      }
+    ],
+    "services_and_professionals": [
+      {
+        "category": "Electrician/Repair",
+        "url": "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBob21lJTIwcmVwYWlyJTIwdGVjaG5pY2lhbnxlbnwwfHx8fDE3ODAwNzU4MzF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Professional electrician with drill"
+      },
+      {
+        "category": "Electronics Repair",
+        "url": "https://images.pexels.com/photos/32391508/pexels-photo-32391508.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Technician repairing electronics"
+      },
+      {
+        "category": "Cleaning Service",
+        "url": "https://images.pexels.com/photos/6195274/pexels-photo-6195274.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Two women in uniform cleaning a modern living room"
+      },
+      {
+        "category": "Deep Cleaning",
+        "url": "https://images.pexels.com/photos/6196694/pexels-photo-6196694.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Professional cleaner vacuuming"
+      },
+      {
+        "category": "General Repair",
+        "url": "https://images.unsplash.com/photo-1660330589693-99889d60181e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBob21lJTIwcmVwYWlyJTIwdGVjaG5pY2lhbnxlbnwwfHx8fDE3ODAwNzU4MzF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Professional with tools"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "This is a mobile-first web app mimicking React Native. Wrap the entire application routing/views inside a main container: <div className='w-full max-w-md mx-auto h-[100dvh] bg-background relative shadow-2xl overflow-hidden flex flex-col'>. This ensures the app looks like a phone screen on desktop and takes full screen on mobile.",
+    "Use framer-motion for page transitions and micro-interactions.",
+    "Implement the bottom navigation bar as a fixed element inside the max-w-md container, not fixed to the actual window viewport if on desktop. Use absolute positioning at the bottom of the relative container.",
+    "Hide the main scrollbar for the content area using CSS utility '.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; } .hide-scrollbar::-webkit-scrollbar { display: none; }'.",
+    "For date/time picking, combine Shadcn Calendar component with a custom Pill-based grid for Time Slots.",
+    "Every interactive element MUST include a data-testid attribute formatted as kebab-case role-based (e.g., data-testid='book-now-button').",
+    "Never use generic placeholder images. Use the provided URLs in the media section for services, banners, and splash screen."
+  ]
+}
