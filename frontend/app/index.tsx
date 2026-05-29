@@ -2,15 +2,13 @@ import { useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
-  Image,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { Redirect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Wrench } from "lucide-react-native";
 
+import { MfixitLogo } from "@/src/components/MfixitLogo";
 import { useSession } from "@/src/context/SessionContext";
 import { colors } from "@/src/theme";
 
@@ -53,11 +51,7 @@ export default function Splash() {
         ]}
         testID="splash-logo"
       >
-        <View style={styles.logoBubble}>
-          <Wrench size={48} color={colors.primary} strokeWidth={2.5} />
-        </View>
-        <Text style={styles.brand}>Mfixit</Text>
-        <Text style={styles.tag}>Trusted Home Services at Your Doorstep</Text>
+        <MfixitLogo size={120} variant="dark" tagline />
       </Animated.View>
       <Animated.View style={[styles.dotsRow, { opacity: fade }]}>
         <View style={[styles.dot, { opacity: 0.4 }]} />
@@ -68,38 +62,9 @@ export default function Splash() {
   );
 }
 
-// Suppress the unused-import warning when expo-image is not used.
-void Image;
-
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center" },
   logoWrap: { alignItems: "center" },
-  logoBubble: {
-    width: 110,
-    height: 110,
-    borderRadius: 30,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-  },
-  brand: {
-    color: "#FFFFFF",
-    fontSize: 44,
-    fontWeight: "800",
-    letterSpacing: -1,
-  },
-  tag: {
-    color: "#DBEAFE",
-    fontSize: 14,
-    marginTop: 10,
-    fontWeight: "500",
-    letterSpacing: 0.2,
-  },
   dotsRow: {
     position: "absolute",
     bottom: 80,

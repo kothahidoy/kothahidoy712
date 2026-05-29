@@ -13,10 +13,10 @@ import {
   BadgeCheck,
   ChevronRight,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { MfixitLogo } from "@/src/components/MfixitLogo";
 import { colors, radius } from "@/src/theme";
 
 const HERO =
@@ -34,9 +34,12 @@ export default function Welcome() {
       />
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.brandRow}>
-          <View style={styles.brandBadge}>
-            <Sparkles size={16} color={colors.primary} strokeWidth={2.5} />
-            <Text style={styles.brandText}>Mfixit</Text>
+          <View style={styles.brandBadgeWrap}>
+            <MfixitLogo size={32} variant="dark" showWordmark={false} />
+            <View>
+              <Text style={styles.brandText}>Mfixit</Text>
+              <Text style={styles.brandSub}>Verified pros · 24×7</Text>
+            </View>
           </View>
         </View>
 
@@ -117,17 +120,18 @@ const styles = StyleSheet.create({
   gradient: { position: "absolute", width: "100%", height: "100%" },
   safe: { flex: 1, justifyContent: "space-between" },
   brandRow: { paddingHorizontal: 20, paddingTop: 8 },
-  brandBadge: {
+  brandBadgeWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFFFFF",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.95)",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: radius.pill,
     alignSelf: "flex-start",
   },
-  brandText: { fontWeight: "800", color: colors.primary, fontSize: 14 },
+  brandText: { fontWeight: "800", color: colors.textMain, fontSize: 15, letterSpacing: -0.3 },
+  brandSub: { fontSize: 10, color: colors.textMuted, fontWeight: "600", marginTop: -1 },
   content: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 20 },
   heroCopy: { marginBottom: 28 },
   title: {
