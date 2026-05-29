@@ -1,0 +1,79 @@
+{
+  "summary": "End-to-end customer flow tested on Mfixit Expo web preview at mobile viewport 390x844. 15/17 features verified PASSING (splash, welcome, phone+OTP auth, profile setup, home tab w/ 9 categories + 3 offers + popular + recommended, category list, service details, full booking flow with date+slot+address+notes+promo MFIX30 applying 30% discount correctly, booking confirmation w/ booking ID, bookings tab Active showing new booking, booking detail, offers tab with 3 promo cards + copy-code buttons, profile tab with all 8 menu items, saved addresses add-new flow, help & support with WhatsApp/Call/Email cards + 5 FAQ accordion, skip flow to home without OTP, all 4 bottom tabs navigate, real native components rendering via React Native Web, lucide icons display, blue+white theme premium and consistent, no broken images, zero console errors during entire run). CRITICAL BUG: Cancel booking flow (Step 9) does NOT work on web preview — the booking remains in 'Active' tab as 'Confirmed' after tapping Cancel booking. Root cause: react-native's Alert.alert(title, msg, [buttons]) is essentially a no-op on react-native-web — the destructive button's onPress never fires, so dataService.cancelBooking() is never called. Same bug silently affects Sign out (also uses Alert.alert w/ destructive button) and 5 other profile menu items (Notifications, Language, Refer, Privacy, Settings) which display nothing on tap. On native (iOS/Android) it would work, but the web preview is the test surface here.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Booking Cancel button (app/booking/[id].tsx:69-86, onCancel)",
+        "issue": "Tapping 'Cancel booking' does nothing on web preview — booking stays Confirmed in Active tab; never moves to Cancelled. Alert.alert with action buttons is a no-op on react-native-web so the destructive onPress callback (await dataService.cancelBooking) is never invoked.",
+        "testID": "bd-call-btn area (Cancel booking text button)",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "Profile Sign out (app/(tabs)/profile.tsx:89-101)",
+        "issue": "Same Alert.alert-on-web bug — Sign out destructive confirm never fires, so signOut() + router.replace('/(auth)/welcome') never executes on web.",
+        "testID": "profile-item-signout",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Profile info menu items (app/(tabs)/profile.tsx)",
+        "issue": "Notifications, Language, Refer & earn, Privacy policy, Settings — all use Alert.alert(title, body) for stub info. On web, nothing is shown to user when tapped, making them appear broken/dead. Recommend a custom Web modal or expo-router screens.",
+        "testID": "profile-item-notifs / lang / refer / privacy / settings",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Booking cancellation -> Cancelled tab",
+        "issue": "Cancellation never persists because Alert.alert destructive onPress is not invoked on web. dataService.cancelBooking() is unreachable from UI on web.",
+        "affected_testIDs": ["bd-call-btn region (Cancel booking)", "bookings-tab-cancelled"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Global (Metro/expo-router warnings)",
+        "issues": [
+          "Deprecation warning in expo logs: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' — coming from one or more StyleSheet shadow definitions; non-blocking but should migrate."
+        ]
+      }
+    ],
+    "react_native_issues": [
+      {
+        "component": "Alert.alert usage (app/booking/[id].tsx onCancel, onMarkComplete, onSubmitRating; app/(tabs)/profile.tsx 5 menu items + Sign out)",
+        "issue": "react-native's Alert.alert is unsupported/no-op on react-native-web when action buttons are passed. Destructive onPress callbacks never execute on web preview. Replace with a cross-platform confirmation modal (custom RN Modal) or use Platform.select to call window.confirm on web. Reference: app/booking/[id].tsx:69-86, app/(tabs)/profile.tsx:53,59,65,77,83,89-101."
+      },
+      {
+        "component": "shadow* style props",
+        "issue": "Deprecated 'shadow*' style props used somewhere in StyleSheet. RN-Web logs 'shadow* style props are deprecated. Use boxShadow.' Likely in src/theme.ts (shadow export) used across screens."
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix Cancel booking on web: replace Alert.alert in app/booking/[id].tsx onCancel with a Platform-aware confirmation. Easiest fix: `const ok = Platform.OS === 'web' ? window.confirm('Cancel booking? This cannot be undone.') : await new Promise(res => Alert.alert(...)); if (ok) { await dataService.cancelBooking(...); router.back(); }`.",
+    "Apply the same Platform-aware confirmation pattern to Sign out (app/(tabs)/profile.tsx) and to Mark as completed / rating submit Alerts in booking/[id].tsx.",
+    "For info-only Alerts (Notifications/Language/Refer/Privacy/Settings stubs), either render an in-app toast/snackbar that works on web, or implement actual screens. Currently they appear silently dead on web preview.",
+    "Migrate shadow* StyleSheet props (likely in src/theme.ts shadow object) to boxShadow / use Platform.select to keep iOS/Android shadow + use boxShadow on web to remove RN-Web deprecation warnings.",
+    "Optional: After Cancel booking fires, router.back() so user lands on Bookings list to immediately see the booking under Cancelled tab (UX polish)."
+  ],
+  "critical_code_review_comments": [
+    "All 16+ Alert.alert calls in the app should be reviewed for web compatibility. RN-Web treats multi-button Alert.alert as a no-op — destructive flows must use a cross-platform pattern.",
+    "Demo OTP is intentional (any 6-digit code) per test_credentials.md and works as documented.",
+    "EXPO_PUBLIC_SUPABASE_URL / ANON_KEY are empty in frontend/.env — app correctly falls back to AsyncStorage seed data as designed.",
+    "Confirm-booking button is disabled until a time slot is selected (canBook = !!slot && addressLine.length>5). Behaviour is correct but the disabled state is visually subtle — consider a helper text like 'Select a time slot to continue'.",
+    "src/theme.ts shadow constant likely uses deprecated shadowColor/shadowOffset etc. — emits RN-Web warnings on every screen."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "skipped (frontend-only request)",
+    "frontend": "15/17 = 88% (steps 1-8, 10-15, 17 PASS; step 9 Cancel booking FAIL on web; step 16 partial — Alert.alert breaks the web rendering of native dialogs even though components are native)"
+  },
+  "seed_data_creation": "None — used app's built-in demo seed (categories, services, offers). Created one transient booking and one transient saved address during the test which persist in AsyncStorage of the test browser session only.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "After Alert.alert fix lands, re-verify: (a) Cancel booking from booking detail moves the booking to bookings-tab-cancelled, (b) Sign out from profile returns to /(auth)/welcome, (c) Profile info menu stubs (notifs/lang/refer/privacy/settings) give visible feedback on web. Demo OTP is any 6 digits. App is in DEMO mode — no Supabase. Use viewport 390x844. Step 7 booking flow: MUST tap a time slot first (bk-slot-*) else Confirm button is disabled.",
+  "rca_of_issue": "BUG: Tap on 'Cancel booking' does not cancel the booking on web preview. REPRODUCTION: skip flow → home → tap category → tap service → Book Now → pick slot + fill address → Confirm booking → View my bookings → tap booking card → tap 'Cancel booking'. Observed: nothing happens; booking remains Confirmed in Active tab. RCA: app/booking/[id].tsx line 69 calls Alert.alert('Cancel booking?', '...', [...buttons]). react-native-web does NOT implement Alert.alert with action buttons — it is a silent no-op (or shows a basic message-only alert ignoring buttons). The destructive button's onPress (which calls dataService.cancelBooking) is therefore never invoked on web. The same root cause affects Sign out and all destructive/informational Alert.alert usages across the app. MITIGATION: introduce a small helper `confirmAsync(title, msg)` in src/lib that uses `window.confirm` on web and `Alert.alert` on native, and replace all `Alert.alert(..., [buttons])` call sites with `if (await confirmAsync(...)) { ... }`."
+}
