@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { Copy, Tag, Ticket } from "lucide-react-native";
 import { dataService } from "@/src/data/service";
 import { colors, radius, shadow } from "@/src/theme";
 import { Offer } from "@/src/types";
+import { notify } from "@/src/utils/dialogs";
 
 export default function OffersScreen() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -23,7 +23,7 @@ export default function OffersScreen() {
   }, []);
 
   const copy = async (code: string) => {
-    Alert.alert("Promo code copied", `Use ${code} at checkout.`);
+    notify("Promo code copied", `Use ${code} at checkout.`);
   };
 
   return (

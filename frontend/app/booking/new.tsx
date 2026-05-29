@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,6 +28,7 @@ import { dataService } from "@/src/data/service";
 import { CITIES } from "@/src/data/seed";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress, Service } from "@/src/types";
+import { notify } from "@/src/utils/dialogs";
 
 export default function BookingNew() {
   const router = useRouter();
@@ -61,7 +61,7 @@ export default function BookingNew() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
+        notify(
           "Location permission",
           "Enable location to auto-detect your address.",
         );
@@ -87,7 +87,7 @@ export default function BookingNew() {
         // ignore
       }
     } catch (e) {
-      Alert.alert("Could not detect location", String(e));
+      notify("Could not detect location", String(e));
     } finally {
       setLocating(false);
     }
@@ -103,7 +103,7 @@ export default function BookingNew() {
     };
     const d = map[code] ?? 0;
     setDiscount(d);
-    Alert.alert(
+    notify(
       d ? "Promo applied" : "Invalid promo",
       d ? `${d}% off applied to your booking.` : "Try MFIX30 / COOLAC / WEEKEND25",
     );

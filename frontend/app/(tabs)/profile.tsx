@@ -1,5 +1,4 @@
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import {
 
 import { useSession } from "@/src/context/SessionContext";
 import { colors, radius, shadow } from "@/src/theme";
+import { confirmAsync, notify } from "@/src/utils/dialogs";
 
 interface Item {
   icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
@@ -50,19 +50,19 @@ export default function ProfileScreen() {
     {
       icon: Bell,
       label: "Notifications",
-      onPress: () => Alert.alert("Notifications", "Push notifications coming soon."),
+      onPress: () => notify("Notifications", "Push notifications coming soon."),
       testID: "profile-item-notifs",
     },
     {
       icon: Globe,
       label: "Language",
-      onPress: () => Alert.alert("Language", "English (Bengali coming soon)"),
+      onPress: () => notify("Language", "English (Bengali coming soon)"),
       testID: "profile-item-lang",
     },
     {
       icon: Share2,
       label: "Refer & earn",
-      onPress: () => Alert.alert("Referral", "Coming soon — earn ₹100 per friend."),
+      onPress: () => notify("Referral", "Coming soon — earn ₹100 per friend."),
       testID: "profile-item-refer",
     },
     {
@@ -74,30 +74,28 @@ export default function ProfileScreen() {
     {
       icon: Shield,
       label: "Privacy policy",
-      onPress: () => Alert.alert("Privacy", "We respect your data."),
+      onPress: () => notify("Privacy", "We respect your data."),
       testID: "profile-item-privacy",
     },
     {
       icon: Settings,
       label: "Settings",
-      onPress: () => Alert.alert("Settings", "More controls coming soon."),
+      onPress: () => notify("Settings", "More controls coming soon."),
       testID: "profile-item-settings",
     },
     {
       icon: LogOut,
       label: "Sign out",
-      onPress: () => {
-        Alert.alert("Sign out", "Are you sure?", [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Sign out",
-            style: "destructive",
-            onPress: async () => {
-              await signOut();
-              router.replace("/(auth)/welcome");
-            },
-          },
-        ]);
+      onPress: async () => {
+        const ok = await confirmAsync(
+          "Sign out",
+          "Are you sure you want to sign out?",
+          "Sign out",
+          "Cancel",
+        );
+        if (!ok) return;
+        await signOut();
+        router.replace("/(auth)/welcome");
       },
       destructive: true,
       testID: "profile-item-signout",
@@ -130,7 +128,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.editBtn}
             activeOpacity={0.8}
-            onPress={() => Alert.alert("Edit profile", "Coming soon.")}
+            onPress={() => notify("Edit profile", "Coming soon.")}
             testID="profile-edit-btn"
           >
             <Text style={styles.editText}>Edit</Text>

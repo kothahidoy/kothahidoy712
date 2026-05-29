@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,6 +27,7 @@ import { dataService } from "@/src/data/service";
 import { CITIES } from "@/src/data/seed";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress } from "@/src/types";
+import { notify } from "@/src/utils/dialogs";
 
 export default function Addresses() {
   const router = useRouter();
@@ -152,7 +152,7 @@ function AddressForm({
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission denied", "Enable location to auto-fill address.");
+        notify("Permission denied", "Enable location to auto-fill address.");
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
@@ -178,7 +178,7 @@ function AddressForm({
 
   const save = async () => {
     if (addressLine.trim().length < 5) {
-      Alert.alert("Address required", "Please enter your full address.");
+      notify("Address required", "Please enter your full address.");
       return;
     }
     await onSave({

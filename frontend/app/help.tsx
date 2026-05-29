@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react-native";
 
 import { colors, radius, shadow } from "@/src/theme";
+import { notify } from "@/src/utils/dialogs";
 
 const FAQS = [
   {
@@ -50,7 +50,7 @@ export default function HelpScreen() {
   const dial = (n: string) => Linking.openURL(`tel:${n}`);
   const wa = () =>
     Linking.openURL("https://wa.me/919999999999?text=Hi%20Mfixit%20Support").catch(
-      () => Alert.alert("WhatsApp not installed"),
+      () => notify("WhatsApp not installed"),
     );
   const mail = () => Linking.openURL("mailto:support@mfixit.app");
 

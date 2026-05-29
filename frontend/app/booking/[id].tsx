@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { dataService } from "@/src/data/service";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus } from "@/src/types";
+import { confirmAsync, notify } from "@/src/utils/dialogs";
 
 const STATUS: Record<BookingStatus, { label: string; bg: string; fg: string }> = {
   pending: { label: "Pending", bg: colors.warningLight, fg: "#B45309" },
@@ -66,18 +66,16 @@ export default function BookingDetail() {
   const date = new Date(booking.scheduledDate);
   const sc = STATUS[booking.status];
 
-  const onCancel = () => {
-    Alert.alert("Cancel booking?", "This action cannot be undone.", [
-      { text: "Keep booking", style: "cancel" },
-      {
-        text: "Cancel",
-        style: "destructive",
-        onPress: async () => {
-          await dataService.cancelBooking(booking.id);
-          await load();
-        },
-      },
-    ]);
+  const onCancel = async () => {
+    const ok = await confirmAsync(
+      "Cancel booking?",
+      "This action cannot be undone.",
+      "Cancel booking",
+      "Keep booking",
+    );
+    if (!ok) return;
+    await dataService.cancelBooking(booking.id);
+    await load();
   };
 
   const onMarkDone = async () => {
@@ -87,7 +85,7 @@ export default function BookingDetail() {
 
   const submitReview = async () => {
     await dataService.submitReview(booking.id, rating, "");
-    Alert.alert("Thank you!", "Your rating has been submitted.");
+    notify("Thank you!", "Your rating has been submitted.");
     await load();
   };
 
