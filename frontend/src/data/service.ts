@@ -94,7 +94,27 @@ export const dataService = {
 
   getTopProfessionals: async (): Promise<Professional[]> => PROFESSIONALS,
 
-  getOffers: async (): Promise<Offer[]> => OFFERS,
+  getOffers: async (): Promise<Offer[]> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from("offers")
+        .select("id, title, subtitle, code, discount_percent, valid_until, banner_url, bg_color")
+        .order("id");
+      if (!error && data && data.length) {
+        return data.map((o) => ({
+          id: o.id,
+          title: o.title,
+          subtitle: o.subtitle ?? "",
+          code: o.code,
+          discountPercent: Number(o.discount_percent),
+          validUntil: o.valid_until,
+          bannerUrl: o.banner_url,
+          bgColor: o.bg_color,
+        }));
+      }
+    }
+    return OFFERS;
+  },
 
   getTimeSlots: (): string[] => TIME_SLOTS,
 
