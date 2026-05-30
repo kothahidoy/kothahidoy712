@@ -3,6 +3,7 @@
 // Supabase URL + anon key into .env, real backend kicks in automatically.
 
 import "react-native-url-polyfill/auto";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
@@ -13,15 +14,54 @@ export const isSupabaseConfigured = Boolean(
   SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.startsWith("http"),
 );
 
-// Create the client only if configured. Otherwise expose `null` and let the
-// data layer fall back to in-memory seed data + local AsyncStorage.
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
-      auth: {
-        storage: AsyncStorage as never,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+/**
+ * SSR-safe storage adapter for Supabase auth sessions.
+ *  - Native (iOS/Android): real AsyncStorage.
+ *  - Web (browser): localStorage.
+ *  - Web (SSR / Node — Expo static rendering): no-op so it doesn't crash
+ *    on the initial server pass where `window` is undefined.
+ */
+const sessionStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return null;
+      return window.localStorage.getItem(key);
+    }
+    return AsyncStorage.getItem(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(key, value);
+      return;
+    }
+    await AsyncStorage.setItem(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return;
+      window.localStorage.removeItem(key);
+      return;
+    }
+    await AsyncStorage.removeItem(key);
+  },
+};
+
+// During Expo static rendering on web (Node SSR pass) there's no `window`
+// and Supabase's realtime client crashes because it tries to open a
+// WebSocket. We only construct the client on the client side; during SSR
+// the data layer falls back to seed data (same as demo mode), then on
+// hydration the real client takes over.
+const isSSR = Platform.OS === "web" && typeof window === "undefined";
+
+export const supabase: SupabaseClient | null =
+  isSupabaseConfigured && !isSSR
+    ? createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
+        auth: {
+          storage: sessionStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
+    : null;
