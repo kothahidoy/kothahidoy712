@@ -8,12 +8,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import React from "react";
 import {
   Bell,
   ChevronRight,
   Globe,
   HeadphonesIcon,
   HelpCircle,
+  LayoutDashboard,
   LogOut,
   MapPin,
   Settings,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react-native";
 
 import { useSession } from "@/src/context/SessionContext";
+import { adminService } from "@/src/data/admin";
 import { colors, radius, shadow } from "@/src/theme";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
 
@@ -39,8 +42,23 @@ interface Item {
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, signOut } = useSession();
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    adminService.isAdmin().then(setIsAdmin);
+  }, [profile?.id]);
 
   const items: Item[] = [
+    ...(isAdmin
+      ? [
+          {
+            icon: LayoutDashboard,
+            label: "Admin Panel",
+            onPress: () => router.push("/admin"),
+            testID: "profile-item-admin",
+          } as Item,
+        ]
+      : []),
     {
       icon: MapPin,
       label: "Saved addresses",
