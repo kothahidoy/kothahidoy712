@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
 import {
   Image,
+  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,12 +20,37 @@ import {
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { MfixitLogo } from "@/src/components/MfixitLogo";
 import { colors, radius } from "@/src/theme";
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { notify } from "@/src/utils/dialogs";
 
 const HERO =
   "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBob21lJTIwcmVwYWlyJTIwdGVjaG5pY2lhbnxlbnwwfHx8fDE3ODAwNzU4MzF8MA&ixlib=rb-4.1.0&q=85&w=900";
 
 export default function Welcome() {
   const router = useRouter();
+
+  const onGoogleSignIn = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      notify("Google sign-in", "Configure Supabase Google provider first.");
+      return;
+    }
+    const redirectTo =
+      Platform.OS === "web" && typeof window !== "undefined"
+        ? `${window.location.origin}/`
+        : Linking.createURL("/");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+    if (error) {
+      notify(
+        "Google sign-in failed",
+        error.message.includes("provider is not enabled")
+          ? "Please enable Google provider in your Supabase dashboard first."
+          : error.message,
+      );
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -74,6 +101,22 @@ export default function Welcome() {
               onPress={() => router.push("/(auth)/email")}
               testID="welcome-email-btn"
             />
+
+            <TouchableOpacity
+              style={styles.googleBtn}
+              activeOpacity={0.85}
+              onPress={onGoogleSignIn}
+              testID="welcome-google-btn"
+            >
+              <Image
+                source={{
+                  uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
+                }}
+                style={styles.googleIcon}
+              />
+              <Text style={styles.googleLabel}>Continue with Google</Text>
+              <ChevronRight size={18} color={colors.textMuted} />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.googleBtn}

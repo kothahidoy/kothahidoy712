@@ -65,6 +65,10 @@ export const supabase: SupabaseClient | null =
           // the app with the session in the URL hash — Supabase auto-extracts
           // and stores it. On native we use deep links (future).
           detectSessionInUrl: Platform.OS === "web",
+          // Use the simpler implicit flow. PKCE (the newer default) breaks
+          // `verifyOtp` for email/phone codes because it expects a code
+          // verifier stored on the same device that called signInWithOtp.
+          flowType: "implicit",
         },
       })
     : null;
