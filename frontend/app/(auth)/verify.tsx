@@ -21,7 +21,7 @@ const SLOTS = 6;
 
 export default function VerifyScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone?: string }>();
+  const { phone, email } = useLocalSearchParams<{ phone?: string; email?: string }>();
   const [digits, setDigits] = useState<string[]>(Array(SLOTS).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +48,28 @@ export default function VerifyScreen() {
     setError(null);
     setLoading(true);
     try {
-      if (isSupabaseConfigured && supabase && phone) {
-        const e164 = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
-        const { error: e } = await supabase.auth.verifyOtp({
-          phone: e164,
-          token: code,
-          type: "sms",
-        });
-        if (e) throw e;
+      if (isSupabaseConfigured && supabase) {
+        if (email) {
+          const { error: e } = await supabase.auth.verifyOtp({
+            email,
+            token: code,
+            type: "email",
+          });
+          if (e) throw e;
+        } else if (phone) {
+          const e164 = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
+          const { error: e } = await supabase.auth.verifyOtp({
+            phone: e164,
+            token: code,
+            type: "sms",
+          });
+          if (e) throw e;
+        }
       }
       // Always continue — in demo mode any 6-digit code works.
       router.replace({
         pathname: "/(auth)/profile-setup",
-        params: { phone },
+        params: { phone, email },
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid code");
@@ -91,7 +100,9 @@ export default function VerifyScreen() {
           <Text style={styles.title}>Enter verification code</Text>
           <Text style={styles.subtitle}>
             We sent a 6-digit code to{" "}
-            <Text style={styles.phone}>+91 {phone ?? "your number"}</Text>
+            <Text style={styles.phone}>
+              {email ?? (phone ? `+91 ${phone}` : "your account")}
+            </Text>
           </Text>
 
           <View style={styles.otpRow}>

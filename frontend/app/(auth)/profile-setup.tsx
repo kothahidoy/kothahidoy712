@@ -21,7 +21,7 @@ import { colors, radius } from "@/src/theme";
 
 export default function ProfileSetup() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone?: string }>();
+  const { phone, email } = useLocalSearchParams<{ phone?: string; email?: string }>();
   const { setProfile } = useSession();
   const [name, setName] = useState("");
   const [city, setCity] = useState(CITIES[0]);
@@ -36,6 +36,7 @@ export default function ProfileSetup() {
       name: name.trim(),
       city,
       phone: phone ? `+91 ${phone}` : undefined,
+      email: email ?? undefined,
     });
     setProfile(saved);
     setLoading(false);

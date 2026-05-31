@@ -70,24 +70,21 @@ export default function Welcome() {
 
           <View style={styles.actions}>
             <PrimaryButton
-              label="Continue with Phone"
-              onPress={() => router.push("/(auth)/phone")}
-              testID="welcome-phone-btn"
+              label="Continue with Email"
+              onPress={() => router.push("/(auth)/email")}
+              testID="welcome-email-btn"
             />
 
             <TouchableOpacity
               style={styles.googleBtn}
               activeOpacity={0.85}
               onPress={() => router.push("/(auth)/phone")}
-              testID="welcome-google-btn"
+              testID="welcome-phone-btn"
             >
-              <Image
-                source={{
-                  uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
-                }}
-                style={styles.googleIcon}
-              />
-              <Text style={styles.googleLabel}>Continue with Google</Text>
+              <View style={styles.phoneIconWrap}>
+                <Text style={styles.phoneIcon}>📱</Text>
+              </View>
+              <Text style={styles.googleLabel}>Continue with Phone</Text>
               <ChevronRight size={18} color={colors.textMuted} />
             </TouchableOpacity>
 
@@ -168,6 +165,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     gap: 12,
   },
+  phoneIconWrap: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  phoneIcon: { fontSize: 18 },
   googleIcon: { width: 20, height: 20 },
   googleLabel: { fontSize: 16, fontWeight: "700", color: colors.textMain, flex: 1 },
   skip: { alignItems: "center", paddingVertical: 10 },
