@@ -61,7 +61,11 @@ export const supabase: SupabaseClient | null =
           storage: sessionStorage,
           autoRefreshToken: true,
           persistSession: true,
-          detectSessionInUrl: false,
+          // On web, after the user clicks the magic link they land back on
+          // the app with the session in the URL hash — Supabase auto-extracts
+          // and stores it. On native we use deep links (future).
+          detectSessionInUrl: Platform.OS === "web",
+          flowType: "pkce",
         },
       })
     : null;

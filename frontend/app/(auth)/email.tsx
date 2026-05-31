@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { Linking, Platform } from "react-native";
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,32 +21,68 @@ export default function EmailScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  const onContinue = async () => {
+  const onVerifyOtp = async () => {
+    if (otp.length !== 6) return;
+    setOtpError(null);
+    setVerifying(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error: e } = await supabase.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: otp,
+          type: "email",
+        });
+        if (e) throw e;
+      }
+      // SessionContext listener will pick up the new session; navigate to
+      // profile setup so first-time users can enter their name + city.
+      router.replace({
+        pathname: "/(auth)/profile-setup",
+        params: { email: email.trim().toLowerCase() },
+      });
+    } catch (e) {
+      setOtpError(e instanceof Error ? e.message : "Invalid or expired code");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const onSendLink = async () => {
     if (!isValid) return;
     setError(null);
     setLoading(true);
     try {
       if (isSupabaseConfigured && supabase) {
+        // Build a redirect URL that Supabase will append session tokens to
+        // after the user clicks the magic link. On web preview that's just
+        // window.location.origin; on native it's the app deep link scheme.
+        const redirectTo =
+          Platform.OS === "web" && typeof window !== "undefined"
+            ? `${window.location.origin}/`
+            : Linking.createURL("/");
         const { error: e } = await supabase.auth.signInWithOtp({
           email: email.trim().toLowerCase(),
-          options: {
-            // shouldCreateUser true is the default; we keep it explicit so
-            // first-time users can sign up + sign in in a single step.
-            shouldCreateUser: true,
-          },
+          options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
         });
         if (e) throw e;
+        setSent(true);
+      } else {
+        // Demo mode — no real email, just go to profile setup.
+        router.push({
+          pathname: "/(auth)/profile-setup",
+          params: { email: email.trim().toLowerCase() },
+        });
       }
-      router.push({
-        pathname: "/(auth)/verify",
-        params: { email: email.trim().toLowerCase() },
-      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send code");
+      setError(e instanceof Error ? e.message : "Could not send link");
     } finally {
       setLoading(false);
     }
@@ -58,11 +94,7 @@ export default function EmailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity
             style={styles.back}
             onPress={() => router.back()}
@@ -75,43 +107,101 @@ export default function EmailScreen() {
           <View style={styles.iconWrap}>
             <Mail size={28} color={colors.primary} />
           </View>
-          <Text style={styles.title}>Enter your email</Text>
-          <Text style={styles.subtitle}>
-            We&apos;ll email you a 6-digit code to sign you in. No password
-            needed.
-          </Text>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textSubtle}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.input}
-            testID="email-input"
-          />
-
-          {error ? <Text style={styles.err}>{error}</Text> : null}
-
-          {!isSupabaseConfigured ? (
-            <View style={styles.demoNote}>
-              <Text style={styles.demoNoteText}>
-                Demo mode — any 6-digit code will work on the next screen.
+          {sent ? (
+            <>
+              <Text style={styles.title}>Check your email 📬</Text>
+              <Text style={styles.subtitle}>
+                We&apos;ve sent a sign-in link + a 6-digit code to{" "}
+                <Text style={styles.email}>{email}</Text>.
               </Text>
-            </View>
-          ) : null}
+              <View style={styles.tipBox}>
+                <Text style={styles.tipText}>
+                  ✨ <Text style={{ fontWeight: "700" }}>Easiest:</Text> click
+                  the &quot;Sign in to Mfixit&quot; button in the email.{"\n\n"}
+                  🔢 <Text style={{ fontWeight: "700" }}>Or:</Text> type the
+                  6-digit code from the email below.
+                </Text>
+              </View>
 
-          <View style={styles.spacer} />
+              <TextInput
+                value={otp}
+                onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 6))}
+                placeholder="6-digit code"
+                placeholderTextColor={colors.textSubtle}
+                keyboardType="number-pad"
+                maxLength={6}
+                style={[styles.input, { letterSpacing: 8, textAlign: "center" }]}
+                testID="email-otp-input"
+              />
+              {otpError ? <Text style={styles.err}>{otpError}</Text> : null}
 
-          <PrimaryButton
-            label="Send code"
-            onPress={onContinue}
-            disabled={!isValid}
-            loading={loading}
-            testID="email-continue-btn"
-          />
+              <View style={{ height: 14 }} />
+
+              <PrimaryButton
+                label="Verify code"
+                onPress={onVerifyOtp}
+                disabled={otp.length !== 6}
+                loading={verifying}
+                testID="email-verify-otp-btn"
+              />
+
+              <TouchableOpacity
+                style={styles.resend}
+                onPress={onSendLink}
+                disabled={loading}
+                testID="email-resend-btn"
+              >
+                <Text style={styles.resendText}>
+                  Didn&apos;t get the email?{" "}
+                  <Text style={styles.resendLink}>
+                    {loading ? "Resending…" : "Resend"}
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Sign in with email</Text>
+              <Text style={styles.subtitle}>
+                We&apos;ll email you a magic link. Click it once and you&apos;re
+                in — no password, no code.
+              </Text>
+
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textSubtle}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.input}
+                testID="email-input"
+              />
+
+              {error ? <Text style={styles.err}>{error}</Text> : null}
+
+              {!isSupabaseConfigured ? (
+                <View style={styles.tipBox}>
+                  <Text style={styles.tipText}>
+                    Demo mode — we&apos;ll skip the email and take you straight
+                    to profile setup.
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.spacer} />
+
+              <PrimaryButton
+                label="Send magic link"
+                onPress={onSendLink}
+                disabled={!isValid}
+                loading={loading}
+                testID="email-continue-btn"
+              />
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -151,6 +241,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 20,
   },
+  email: { color: colors.textMain, fontWeight: "700" },
   input: {
     marginTop: 28,
     height: 56,
@@ -164,12 +255,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   err: { color: colors.error, fontSize: 13, marginTop: 10 },
-  demoNote: {
-    marginTop: 16,
-    backgroundColor: colors.warningLight,
-    padding: 12,
+  tipBox: {
+    marginTop: 20,
+    backgroundColor: colors.primaryLight,
+    padding: 14,
     borderRadius: radius.md,
+    marginBottom: 8,
   },
-  demoNoteText: { color: "#92400E", fontSize: 12, fontWeight: "600" },
+  tipText: { color: colors.primary, fontSize: 13, fontWeight: "500", lineHeight: 19 },
+  resend: { alignItems: "center", marginTop: 18 },
+  resendText: { color: colors.textMuted, fontSize: 13 },
+  resendLink: { color: colors.primary, fontWeight: "700" },
   spacer: { flex: 1, minHeight: 40 },
 });

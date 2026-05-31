@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { dataService } from "@/src/data/service";
 import { UserProfile } from "@/src/types";
 
@@ -39,6 +40,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
       await refreshProfile();
       setIsLoading(false);
     })();
+
+    // Subscribe to Supabase auth changes so that when a magic link redirect
+    // creates a session on the web, the app re-fetches the profile and
+    // navigates to the tabs automatically.
+    if (!isSupabaseConfigured || !supabase) return;
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event) => {
+        await refreshProfile();
+      },
+    );
+    return () => listener.subscription.unsubscribe();
   }, [refreshProfile]);
 
   const signOut = useCallback(async () => {
