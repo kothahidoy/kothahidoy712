@@ -65,7 +65,6 @@ export const supabase: SupabaseClient | null =
           // the app with the session in the URL hash — Supabase auto-extracts
           // and stores it. On native we use deep links (future).
           detectSessionInUrl: Platform.OS === "web",
-          flowType: "pkce",
         },
       })
     : null;
