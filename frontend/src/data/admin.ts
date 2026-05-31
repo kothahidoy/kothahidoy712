@@ -31,12 +31,35 @@ export const adminService = {
     const { data } = await supabase.auth.getUser();
     const authUser = data.user;
     if (!authUser) return false;
-    const { data: row } = await supabase
+    // Check role with multiple lookup strategies — RLS-friendly.
+    const { data: byAuthId } = await supabase
       .from("users")
       .select("role")
       .eq("auth_user_id", authUser.id)
       .maybeSingle();
-    return row?.role === "admin";
+    if (byAuthId?.role === "admin") return true;
+    // Fallback — match by email or phone (handles cases where the
+    // public.users row was created via SQL but auth_user_id wasn't linked).
+    if (authUser.email) {
+      const { data: byEmail } = await supabase
+        .from("users")
+        .select("role")
+        .eq("email", authUser.email)
+        .maybeSingle();
+      if (byEmail?.role === "admin") return true;
+    }
+    if (authUser.phone) {
+      const phoneFmt = authUser.phone.startsWith("+")
+        ? authUser.phone
+        : `+${authUser.phone}`;
+      const { data: byPhone } = await supabase
+        .from("users")
+        .select("role")
+        .or(`phone.eq.${phoneFmt},phone.eq.+91 ${phoneFmt.replace("+91", "")}`)
+        .maybeSingle();
+      if (byPhone?.role === "admin") return true;
+    }
+    return false;
   },
 
   listAllBookings: async (): Promise<Booking[]> => {
