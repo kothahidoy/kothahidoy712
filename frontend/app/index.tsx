@@ -13,7 +13,7 @@ import { useSession } from "@/src/context/SessionContext";
 import { colors } from "@/src/theme";
 
 export default function Splash() {
-  const { isAuthenticated, isLoading } = useSession();
+  const { isAuthenticated, isLoading, hasSession, profile } = useSession();
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
 
@@ -34,7 +34,15 @@ export default function Splash() {
   }, [fade, scale]);
 
   if (!isLoading) {
-    return <Redirect href={isAuthenticated ? "/(tabs)" : "/(auth)/welcome"} />;
+    // Decide destination:
+    //  - Authenticated with a complete profile → main tabs
+    //  - Authenticated via Supabase but no profile row yet → profile setup
+    //  - Anonymous → welcome
+    let target = "/(auth)/welcome" as const;
+    if (isAuthenticated) {
+      target = (profile?.name ? "/(tabs)" : hasSession ? "/(auth)/profile-setup" : "/(tabs)") as typeof target;
+    }
+    return <Redirect href={target} />;
   }
 
   return (

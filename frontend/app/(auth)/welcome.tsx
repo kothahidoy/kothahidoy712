@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { useEffect } from "react";
 import {
   Image,
   Linking,
@@ -19,6 +20,7 @@ import {
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { MfixitLogo } from "@/src/components/MfixitLogo";
+import { useSession } from "@/src/context/SessionContext";
 import { colors, radius } from "@/src/theme";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { notify } from "@/src/utils/dialogs";
@@ -28,6 +30,16 @@ const HERO =
 
 export default function Welcome() {
   const router = useRouter();
+  const { hasSession, profile } = useSession();
+
+  // Magic-link / OAuth redirects land here with the session in the URL
+  // hash. Once Supabase has parsed it and our context has updated, push
+  // the user into the app immediately — no extra tap required.
+  useEffect(() => {
+    if (hasSession) {
+      router.replace(profile?.name ? "/(tabs)" : "/(auth)/profile-setup");
+    }
+  }, [hasSession, profile?.name, router]);
 
   const onGoogleSignIn = async () => {
     if (!isSupabaseConfigured || !supabase) {

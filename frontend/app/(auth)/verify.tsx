@@ -16,6 +16,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react-native";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { dataService } from "@/src/data/service";
 
 const SLOTS = 6;
 
@@ -44,6 +45,20 @@ export default function VerifyScreen() {
     }
   };
 
+  const routeAfterAuth = async () => {
+    try {
+      const fresh = await dataService.getProfile();
+      if (fresh?.name) {
+        router.replace("/(tabs)");
+        return;
+      }
+    } catch {}
+    router.replace({
+      pathname: "/(auth)/profile-setup",
+      params: { phone, email },
+    });
+  };
+
   const onVerify = async () => {
     setError(null);
     setLoading(true);
@@ -66,11 +81,7 @@ export default function VerifyScreen() {
           if (e) throw e;
         }
       }
-      // Always continue — in demo mode any 6-digit code works.
-      router.replace({
-        pathname: "/(auth)/profile-setup",
-        params: { phone, email },
-      });
+      await routeAfterAuth();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid code");
     } finally {

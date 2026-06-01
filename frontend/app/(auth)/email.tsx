@@ -16,6 +16,7 @@ import { ArrowLeft, Mail } from "lucide-react-native";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { dataService } from "@/src/data/service";
 
 export default function EmailScreen() {
   const router = useRouter();
@@ -28,6 +29,23 @@ export default function EmailScreen() {
   const [verifying, setVerifying] = useState(false);
 
   const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  /** Route returning users straight to the app and first-time users to
+   *  profile-setup. We fetch a fresh profile right after verify so the
+   *  decision is based on the latest DB state (not stale cache). */
+  const routeAfterAuth = async (emailForSetup: string) => {
+    try {
+      const fresh = await dataService.getProfile();
+      if (fresh?.name) {
+        router.replace("/(tabs)");
+        return;
+      }
+    } catch {}
+    router.replace({
+      pathname: "/(auth)/profile-setup",
+      params: { email: emailForSetup },
+    });
+  };
 
   const onVerifyOtp = async () => {
     if (otp.length !== 6) return;
@@ -42,12 +60,7 @@ export default function EmailScreen() {
         });
         if (e) throw e;
       }
-      // SessionContext listener will pick up the new session; navigate to
-      // profile setup so first-time users can enter their name + city.
-      router.replace({
-        pathname: "/(auth)/profile-setup",
-        params: { email: email.trim().toLowerCase() },
-      });
+      await routeAfterAuth(email.trim().toLowerCase());
     } catch (e) {
       setOtpError(e instanceof Error ? e.message : "Invalid or expired code");
     } finally {
