@@ -108,13 +108,14 @@ export const adminService = {
     };
     if (!isSupabaseConfigured || !supabase) return empty;
 
+    // Use RPCs to bypass any RLS recursion on public.users / bookings.
     const [bookingsRes, customersRes] = await Promise.all([
-      supabase.from("bookings").select("status, price"),
-      supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "customer"),
+      supabase.rpc("list_all_bookings"),
+      supabase.rpc("list_all_customers"),
     ]);
 
     if (bookingsRes.error || !bookingsRes.data) return empty;
-    const rows = bookingsRes.data;
+    const rows = bookingsRes.data as any[];
     const totalRevenue = rows
       .filter((b) => b.status === "completed")
       .reduce((sum, b) => sum + Number(b.price ?? 0), 0);
@@ -128,9 +129,10 @@ export const adminService = {
         status: s as BookingStatus,
         count: rows.filter((b) => b.status === s).length,
       }));
+    const customers = (customersRes.data as any[]) ?? [];
     return {
       totalBookings: rows.length,
-      totalCustomers: customersRes.count ?? 0,
+      totalCustomers: customers.filter((u) => u.role !== "admin").length,
       totalRevenue,
       activeBookings: active,
       completedBookings: completed,

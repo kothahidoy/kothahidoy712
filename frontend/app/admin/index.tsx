@@ -22,24 +22,32 @@ import {
 } from "lucide-react-native";
 
 import { adminService, AdminStats } from "@/src/data/admin";
+import { useSession } from "@/src/context/SessionContext";
 import { colors, radius, shadow } from "@/src/theme";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { isAdmin, isLoading, hasSession, refreshProfile } = useSession();
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
+  // Pull fresh role + stats whenever this screen comes into focus.
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const ok = await adminService.isAdmin();
-        setIsAdmin(ok);
-        if (ok) setStats(await adminService.getStats());
+        await refreshProfile();
+        if (isAdmin) setStats(await adminService.getStats());
       })();
-    }, []),
+    }, [isAdmin, refreshProfile]),
   );
 
-  if (isAdmin === false) {
+  // While the session is still resolving, render nothing (avoids a
+  // flash of "Access denied" before the role is loaded).
+  if (isLoading || (hasSession && isAdmin === false && stats === null)) {
+    // Small delay window — when we have a session but role hasn't been
+    // confirmed yet, stay silent.
+  }
+
+  if (!isAdmin) {
     return (
       <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
         <View style={styles.deny}>
