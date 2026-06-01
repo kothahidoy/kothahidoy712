@@ -72,11 +72,9 @@ export const adminService = {
 
   listAllCustomers: async (): Promise<AdminCustomer[]> => {
     if (!isSupabaseConfigured || !supabase) return [];
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, auth_user_id, full_name, phone, email, city, created_at, role")
-      .eq("role", "customer")
-      .order("created_at", { ascending: false });
+    // Use the SECURITY-DEFINER RPC (defined in /app/admin-policies.sql)
+    // to bypass RLS recursion when listing every public.users row.
+    const { data, error } = await supabase.rpc("list_all_customers");
     if (error || !data) return [];
     return data.map((u) => ({
       id: u.id,
