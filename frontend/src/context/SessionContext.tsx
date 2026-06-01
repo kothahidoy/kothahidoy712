@@ -35,6 +35,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [hasSession, setHasSession] = useState(false);
+  const [authProvider, setAuthProvider] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Track whether we've seen Supabase's INITIAL_SESSION event so the splash
   // doesn't redirect before the URL hash (magic-link tokens) has been parsed.
@@ -70,6 +71,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
         if (cancelled) return;
         const sessionPresent = !!data.session;
         setHasSession(sessionPresent);
+        // Capture which provider the user signed in with (email, phone, google …)
+        const provider =
+          (data.session?.user?.app_metadata?.provider as string | undefined) ??
+          null;
+        setAuthProvider(provider);
         if (sessionPresent) await refreshProfile();
         else await refreshProfile(); // still try local cache fallback
       } catch (e) {
@@ -81,6 +87,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
       async (event, session) => {
         const present = !!session;
         setHasSession(present);
+        setAuthProvider(
+          (session?.user?.app_metadata?.provider as string | undefined) ?? null,
+        );
         await refreshProfile();
         // The first event Supabase emits is INITIAL_SESSION — once it fires
         // we know URL-hash parsing is done and it's safe to unblock the
@@ -116,6 +125,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
     await dataService.signOut();
     setProfile(null);
     setHasSession(false);
+    setAuthProvider(null);
   }, []);
 
   const value = useMemo(
@@ -124,12 +134,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
       isLoading,
       isAuthenticated: hasSession || !!profile,
       hasSession,
-      isAdmin: profile?.role === "admin",
+      // SECURITY: Admin Panel is gated to EMAIL logins only. A user with
+      // role='admin' in the DB who signs in via phone OTP will NOT see
+      // the Admin section. This protects against shared device scenarios
+      // and ensures admin access goes through verified email accounts.
+      isAdmin: profile?.role === "admin" && authProvider === "email",
       refreshProfile,
       setProfile,
       signOut,
     }),
-    [profile, isLoading, hasSession, refreshProfile, signOut],
+    [profile, isLoading, hasSession, authProvider, refreshProfile, signOut],
   );
 
   return (
