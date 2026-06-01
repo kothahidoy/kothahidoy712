@@ -41,16 +41,12 @@ export const adminService = {
 
   listAllBookings: async (): Promise<Booking[]> => {
     if (!isSupabaseConfigured || !supabase) return [];
-    const { data, error } = await supabase
-      .from("bookings")
-      .select(
-        "id, customer_id, service_id, scheduled_date, time_slot, address, notes, price, status, rating, review, created_at",
-      )
-      .order("created_at", { ascending: false });
+    // SECURITY-DEFINER RPC bypasses RLS entirely — see /app/admin-policies.sql
+    const { data, error } = await supabase.rpc("list_all_bookings");
     if (error || !data) return [];
     const services = await dataService.getServices();
     const byId = new Map(services.map((s) => [s.id, s]));
-    return data.map((b) => {
+    return data.map((b: any) => {
       const svc = byId.get(b.service_id);
       return {
         id: b.id,
@@ -92,7 +88,12 @@ export const adminService = {
     status: BookingStatus,
   ): Promise<void> => {
     if (!isSupabaseConfigured || !supabase) return;
-    await supabase.from("bookings").update({ status }).eq("id", id);
+    // SECURITY-DEFINER RPC so an admin can update any booking regardless
+    // of who owns it. See /app/admin-policies.sql.
+    await supabase.rpc("admin_update_booking_status", {
+      bk_id: id,
+      new_status: status,
+    });
   },
 
   getStats: async (): Promise<AdminStats> => {
