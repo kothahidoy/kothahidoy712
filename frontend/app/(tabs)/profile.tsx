@@ -1,5 +1,6 @@
 import {
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -7,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React from "react";
 import {
   Bell,
@@ -26,7 +27,6 @@ import {
 } from "lucide-react-native";
 
 import { useSession } from "@/src/context/SessionContext";
-import { adminService } from "@/src/data/admin";
 import { colors, radius, shadow } from "@/src/theme";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
 
@@ -41,12 +41,22 @@ interface Item {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, signOut } = useSession();
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const { profile, isAdmin, signOut, refreshProfile } = useSession();
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  React.useEffect(() => {
-    adminService.isAdmin().then(setIsAdmin);
-  }, [profile?.id]);
+  // Re-fetch profile (and therefore role) whenever the tab gains focus so
+  // role changes made in the DB show up without a hard reload.
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+    }, [refreshProfile]),
+  );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refreshProfile();
+    setRefreshing(false);
+  }, [refreshProfile]);
 
   const items: Item[] = [
     ...(isAdmin
@@ -122,7 +132,17 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <Text style={styles.headerTitle}>Profile</Text>
 
         <View style={styles.card}>

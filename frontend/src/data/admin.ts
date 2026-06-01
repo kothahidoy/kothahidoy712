@@ -29,10 +29,14 @@ export const adminService = {
   isAdmin: async (): Promise<boolean> => {
     if (!isSupabaseConfigured || !supabase) return false;
     const { data } = await supabase.auth.getUser();
-    // Any authenticated user sees the Admin Panel link. Postgres RLS
-    // policies on bookings / users / addresses ensure only real admins
-    // actually get data back when they open it.
-    return !!data.user;
+    const authUser = data.user;
+    if (!authUser) return false;
+    const { data: row } = await supabase
+      .from("users")
+      .select("role")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
+    return row?.role === "admin";
   },
 
   listAllBookings: async (): Promise<Booking[]> => {

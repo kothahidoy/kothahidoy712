@@ -15,6 +15,7 @@ interface SessionContextValue {
   profile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   setProfile: (p: UserProfile | null) => void;
   signOut: () => Promise<void>;
@@ -63,6 +64,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
       profile,
       isLoading,
       isAuthenticated: !!profile,
+      isAdmin: profile?.role === "admin",
       refreshProfile,
       setProfile,
       signOut,

@@ -40,16 +40,18 @@ export default function HomeScreen() {
   const [recommended, setRecommended] = useState<Service[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [pros, setPros] = useState<Professional[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
-    const [c, p, t, r, o, pr] = await Promise.all([
+    const [c, p, t, r, o, pr, all] = await Promise.all([
       dataService.getCategories(),
       dataService.getPopularServices(),
       dataService.getTopRatedServices(),
       dataService.getRecommendedServices(),
       dataService.getOffers(),
       dataService.getTopProfessionals(),
+      dataService.getServices(),
     ]);
     setCategories(c);
     setPopular(p);
@@ -57,6 +59,7 @@ export default function HomeScreen() {
     setRecommended(r);
     setOffers(o);
     setPros(pr);
+    setAllServices(all);
   }, []);
 
   useEffect(() => {
@@ -91,14 +94,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Search */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.searchBar}
-          onPress={() => {
-            /* future search route */
-          }}
-          testID="home-search-btn"
-        >
+        <View style={styles.searchBar}>
           <Search size={18} color={colors.textMuted} />
           <TextInput
             value={search}
@@ -107,8 +103,60 @@ export default function HomeScreen() {
             placeholderTextColor={colors.textSubtle}
             style={styles.searchInput}
             testID="home-search-input"
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
-        </TouchableOpacity>
+          {search.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => setSearch("")}
+              hitSlop={10}
+              testID="home-search-clear"
+            >
+              <Text style={styles.searchClear}>Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Search results — show filtered services while typing */}
+        {search.trim().length > 0 ? (() => {
+          const q = search.toLowerCase().trim();
+          const catMap = new Map(categories.map((c) => [c.id, c.name.toLowerCase()]));
+          const results = allServices
+            .filter((s) => {
+              const catName = catMap.get(s.categoryId) ?? "";
+              return (
+                s.title.toLowerCase().includes(q) ||
+                (s.description ?? "").toLowerCase().includes(q) ||
+                catName.includes(q)
+              );
+            })
+            .slice(0, 12);
+          return (
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <Text style={styles.h2}>
+                {results.length > 0
+                  ? `${results.length} result${results.length === 1 ? "" : "s"} for "${search.trim()}"`
+                  : `No services match "${search.trim()}"`}
+              </Text>
+              {results.length === 0 ? (
+                <Text style={[styles.sectionSub, { marginTop: 6 }]}>
+                  Try searching for AC, cleaning, plumbing, salon, etc.
+                </Text>
+              ) : (
+                results.map((s) => (
+                  <ServiceCard
+                    key={s.id}
+                    service={s}
+                    variant="wide"
+                    onPress={() => router.push(`/service/${s.id}`)}
+                    testID={`home-search-result-${s.id}`}
+                  />
+                ))
+              )}
+            </View>
+          );
+        })() : null}
 
         {/* Hero offer banner */}
         <FlatList
@@ -335,6 +383,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMain,
     paddingVertical: 0,
+  },
+  searchClear: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
+    paddingHorizontal: 6,
   },
   offer: {
     width: 320,

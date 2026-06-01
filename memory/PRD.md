@@ -43,3 +43,12 @@
 - Live technician tracking with `Location.watchPosition` + Supabase realtime.
 - Vendor app (file scaffold under `app/(vendor)`).
 - Admin dashboard (React-based, separate `/admin` deploy).
+
+## Session updates — June 2025
+
+- **Admin role sync fix**: `getProfile` now returns the public.users row even when `full_name` is null; `role` is included in `UserProfile`. `useSession()` exposes a reactive `isAdmin` flag.
+- **Profile screen**: pull-to-refresh + auto-refresh on focus to instantly pick up role changes.
+- **Sign-out**: hardened — clears Supabase session, AsyncStorage caches, and `sb-*` localStorage keys; hard redirects to `/welcome` on web.
+- **Home search**: now filters across the full service catalog (title + description + category name) with empty-state messaging and a Clear button.
+- **Admin RLS**: added `/app/admin-policies.sql` with an `is_admin()` helper + policies so users with `role='admin'` can read all bookings / customers / addresses from the Admin Panel.
+

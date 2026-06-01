@@ -81,6 +81,8 @@ export interface Offer {
   bgColor: string;
 }
 
+export type UserRole = "customer" | "admin";
+
 export interface UserProfile {
   id: ID;
   name: string;
@@ -89,4 +91,5 @@ export interface UserProfile {
   avatar?: string;
   city: string;
   createdAt: string;
+  role?: UserRole;
 }

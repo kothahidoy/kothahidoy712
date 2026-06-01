@@ -426,18 +426,21 @@ export const dataService = {
       if (authUser) {
         const { data: row } = await supabase
           .from("users")
-          .select("id, full_name, phone, email, avatar_url, city, created_at")
+          .select(
+            "id, full_name, phone, email, avatar_url, city, created_at, role",
+          )
           .eq("auth_user_id", authUser.id)
           .maybeSingle();
-        if (row?.full_name) {
+        if (row) {
           const profile: UserProfile = {
             id: row.id,
-            name: row.full_name,
-            phone: row.phone ?? undefined,
-            email: row.email ?? undefined,
+            name: row.full_name ?? authUser.email?.split("@")[0] ?? "Guest",
+            phone: row.phone ?? authUser.phone ?? undefined,
+            email: row.email ?? authUser.email ?? undefined,
             avatar: row.avatar_url ?? undefined,
             city: row.city ?? "Durgapur",
             createdAt: row.created_at,
+            role: (row.role as "customer" | "admin") ?? "customer",
           };
           // Cache locally for fast cold-start.
           await writeJSON(PROFILE_KEY, profile);
@@ -500,11 +503,32 @@ export const dataService = {
   },
 
   signOut: async (): Promise<void> => {
-    if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured && supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (e) {
+      // Even if Supabase signOut fails (network), clear everything locally.
+      console.warn("[signOut] supabase.auth.signOut failed", e);
     }
-    await storage.removeItem(PROFILE_KEY);
-    await storage.removeItem(BOOKINGS_KEY);
-    await storage.removeItem(ADDRESSES_KEY);
+    try {
+      await storage.removeItem(PROFILE_KEY);
+      await storage.removeItem(BOOKINGS_KEY);
+      await storage.removeItem(ADDRESSES_KEY);
+    } catch (e) {
+      console.warn("[signOut] local storage clear failed", e);
+    }
+    // On web, also nuke any lingering Supabase session keys from localStorage
+    // (e.g. magic-link redirect tokens) and hard reload so React state is
+    // completely reset.
+    if (typeof window !== "undefined") {
+      try {
+        const keys = Object.keys(window.localStorage);
+        keys
+          .filter((k) => k.startsWith("sb-") || k.startsWith("supabase."))
+          .forEach((k) => window.localStorage.removeItem(k));
+      } catch {}
+      window.location.href = "/welcome";
+    }
   },
 };
