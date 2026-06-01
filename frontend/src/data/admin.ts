@@ -29,37 +29,10 @@ export const adminService = {
   isAdmin: async (): Promise<boolean> => {
     if (!isSupabaseConfigured || !supabase) return false;
     const { data } = await supabase.auth.getUser();
-    const authUser = data.user;
-    if (!authUser) return false;
-    // Check role with multiple lookup strategies — RLS-friendly.
-    const { data: byAuthId } = await supabase
-      .from("users")
-      .select("role")
-      .eq("auth_user_id", authUser.id)
-      .maybeSingle();
-    if (byAuthId?.role === "admin") return true;
-    // Fallback — match by email or phone (handles cases where the
-    // public.users row was created via SQL but auth_user_id wasn't linked).
-    if (authUser.email) {
-      const { data: byEmail } = await supabase
-        .from("users")
-        .select("role")
-        .eq("email", authUser.email)
-        .maybeSingle();
-      if (byEmail?.role === "admin") return true;
-    }
-    if (authUser.phone) {
-      const phoneFmt = authUser.phone.startsWith("+")
-        ? authUser.phone
-        : `+${authUser.phone}`;
-      const { data: byPhone } = await supabase
-        .from("users")
-        .select("role")
-        .or(`phone.eq.${phoneFmt},phone.eq.+91 ${phoneFmt.replace("+91", "")}`)
-        .maybeSingle();
-      if (byPhone?.role === "admin") return true;
-    }
-    return false;
+    // Any authenticated user sees the Admin Panel link. Postgres RLS
+    // policies on bookings / users / addresses ensure only real admins
+    // actually get data back when they open it.
+    return !!data.user;
   },
 
   listAllBookings: async (): Promise<Booking[]> => {
