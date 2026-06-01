@@ -1,35 +1,35 @@
 -- ============================================================
--- MFIXIT — DEFINITIVE ADMIN RLS FIX (v2)
+-- MFIXIT — FINAL FIX (v3): get_my_profile RPC + nuke recursive policies
 -- This SUPERSEDES every previous admin-policies SQL.
--- It removes the recursive is_admin() helper entirely and
--- exposes admin operations as SECURITY-DEFINER RPC functions
--- so RLS never recurses.
+-- The frontend now reads profiles through get_my_profile() so even if
+-- a stray recursive RLS policy ever sneaks in again, login still works.
 -- ============================================================
 
--- 1. Drop every policy that referenced is_admin() (these caused the
---    infinite recursion on public.users reads).
-drop policy if exists "users admin read"   on public.users;
-drop policy if exists "users admin update" on public.users;
+-- 1. NUCLEAR DROP: remove any policy on public.users whose condition
+--    references is_admin() (these caused the infinite recursion).
+do $$
+declare r record;
+begin
+  for r in
+    select policyname from pg_policies
+    where schemaname='public' and tablename='users'
+      and (qual like '%is_admin%' or with_check like '%is_admin%')
+  loop
+    execute format('drop policy if exists %I on public.users', r.policyname);
+  end loop;
+end$$;
+
+-- Also drop any leftover admin policies on bookings / addresses.
 drop policy if exists "bk admin read"      on public.bookings;
 drop policy if exists "bk admin write"     on public.bookings;
 drop policy if exists "addr admin read"    on public.saved_addresses;
 
--- 2. Drop the recursive helper itself.
+-- 2. Re-create a clean, non-recursive is_admin() helper.
 drop function if exists public.is_admin();
-drop function if exists public.list_all_customers();
-drop function if exists public.list_all_bookings();
-
--- 3. Re-create a simple is_admin() that DOES NOT call any RLS-protected
---    table. It only reads the auth.jwt() claim — no recursion possible.
---    We also keep a fallback that reads public.users via a SECURITY-
---    DEFINER lookup that does NOT touch any policy that calls is_admin.
 create or replace function public.is_admin() returns boolean
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare ok boolean := false;
 begin
-  -- This SELECT runs as the function-owner (postgres in Supabase),
-  -- and because no policy on public.users calls is_admin() any more,
-  -- there is no possibility of recursion.
   select exists(
     select 1 from public.users
     where auth_user_id = auth.uid() and role = 'admin'
@@ -37,56 +37,64 @@ begin
   return coalesce(ok, false);
 end;
 $$;
-
 grant execute on function public.is_admin() to authenticated, anon;
 
--- 4. SECURITY-DEFINER RPC: list all customers (used by Admin → Customers).
+-- 3. RPC the app uses for profile reads — bypasses RLS entirely.
+create or replace function public.get_my_profile()
+returns table(
+  id uuid, full_name text, phone text, email text, avatar_url text,
+  city text, created_at timestamptz, role text, auth_user_id uuid
+)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  return query
+    select u.id, u.full_name, u.phone, u.email, u.avatar_url,
+           u.city, u.created_at, u.role::text, u.auth_user_id
+    from public.users u
+    where u.auth_user_id = auth.uid();
+end;
+$$;
+grant execute on function public.get_my_profile() to authenticated, anon;
+
+-- 4. Admin RPCs used by the Admin Panel.
+drop function if exists public.list_all_customers();
 create or replace function public.list_all_customers()
 returns setof public.users
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
-  if not public.is_admin() then
-    raise exception 'not authorised';
-  end if;
+  if not public.is_admin() then raise exception 'not authorised'; end if;
   return query select * from public.users order by created_at desc;
 end;
 $$;
-
 grant execute on function public.list_all_customers() to authenticated;
 
--- 5. SECURITY-DEFINER RPC: list all bookings (used by Admin → Bookings).
+drop function if exists public.list_all_bookings();
 create or replace function public.list_all_bookings()
 returns setof public.bookings
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
-  if not public.is_admin() then
-    raise exception 'not authorised';
-  end if;
+  if not public.is_admin() then raise exception 'not authorised'; end if;
   return query select * from public.bookings order by created_at desc;
 end;
 $$;
-
 grant execute on function public.list_all_bookings() to authenticated;
 
--- 6. SECURITY-DEFINER RPC: update any booking status (used by Admin).
-create or replace function public.admin_update_booking_status(
-  bk_id uuid, new_status text
-) returns void
+drop function if exists public.admin_update_booking_status(uuid, text);
+create or replace function public.admin_update_booking_status(bk_id uuid, new_status text)
+returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
-  if not public.is_admin() then
-    raise exception 'not authorised';
-  end if;
+  if not public.is_admin() then raise exception 'not authorised'; end if;
   update public.bookings set status = new_status where id = bk_id;
 end;
 $$;
-
 grant execute on function public.admin_update_booking_status(uuid, text) to authenticated;
 
 -- ============================================================
--- Sanity check — run this separately after to verify your admin
--- access:
---   select public.is_admin();              -- should return true
---   select count(*) from public.list_all_customers();
---   select count(*) from public.list_all_bookings();
+-- Sanity checks (run separately AS the authenticated user via the app
+-- if you want; from the SQL editor they'll return false because no JWT
+-- is present in raw editor sessions):
+--   select public.is_admin();
+--   select * from public.get_my_profile();
+--   select * from public.list_all_customers();
 -- ============================================================

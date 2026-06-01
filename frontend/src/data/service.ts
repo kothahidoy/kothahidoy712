@@ -421,31 +421,62 @@ export const dataService = {
 
   getProfile: async (): Promise<UserProfile | null> => {
     if (isSupabaseConfigured && supabase) {
-      const { data } = await supabase.auth.getUser();
-      const authUser = data.user;
+      const { data: authData } = await supabase.auth.getUser();
+      const authUser = authData.user;
       if (authUser) {
-        const { data: row } = await supabase
-          .from("users")
-          .select(
-            "id, full_name, phone, email, avatar_url, city, created_at, role",
-          )
-          .eq("auth_user_id", authUser.id)
-          .maybeSingle();
-        if (row) {
+        // Try the SECURITY-DEFINER RPC first — bypasses RLS completely so
+        // a lingering recursive policy on public.users can never break
+        // the login flow.
+        const { data: rpcRow, error: rpcErr } = await supabase.rpc(
+          "get_my_profile",
+        );
+        const row = !rpcErr && rpcRow
+          ? Array.isArray(rpcRow)
+            ? rpcRow[0]
+            : rpcRow
+          : null;
+
+        // Fallback to direct table read if the RPC isn't installed yet
+        // (older databases). Will return null on recursion errors.
+        let finalRow = row;
+        if (!finalRow) {
+          const { data: directRow } = await supabase
+            .from("users")
+            .select(
+              "id, full_name, phone, email, avatar_url, city, created_at, role",
+            )
+            .eq("auth_user_id", authUser.id)
+            .maybeSingle();
+          finalRow = directRow;
+        }
+
+        if (finalRow) {
           const profile: UserProfile = {
-            id: row.id,
-            name: row.full_name ?? authUser.email?.split("@")[0] ?? "Guest",
-            phone: row.phone ?? authUser.phone ?? undefined,
-            email: row.email ?? authUser.email ?? undefined,
-            avatar: row.avatar_url ?? undefined,
-            city: row.city ?? "Durgapur",
-            createdAt: row.created_at,
-            role: (row.role as "customer" | "admin") ?? "customer",
+            id: finalRow.id,
+            name:
+              finalRow.full_name ?? authUser.email?.split("@")[0] ?? "Guest",
+            phone: finalRow.phone ?? authUser.phone ?? undefined,
+            email: finalRow.email ?? authUser.email ?? undefined,
+            avatar: finalRow.avatar_url ?? undefined,
+            city: finalRow.city ?? "Durgapur",
+            createdAt: finalRow.created_at,
+            role: (finalRow.role as "customer" | "admin") ?? "customer",
           };
-          // Cache locally for fast cold-start.
           await writeJSON(PROFILE_KEY, profile);
           return profile;
         }
+        // Authenticated but no profile row yet — return a stub so the
+        // UI knows the user is signed in (profile-setup will fill it).
+        const stub: UserProfile = {
+          id: authUser.id,
+          name: authUser.user_metadata?.full_name ?? "",
+          phone: authUser.phone ?? undefined,
+          email: authUser.email ?? undefined,
+          city: "Durgapur",
+          createdAt: new Date().toISOString(),
+          role: "customer",
+        };
+        return stub;
       }
     }
     return readJSON<UserProfile | null>(PROFILE_KEY, null);
