@@ -143,19 +143,45 @@ serve(async (req) => {
       { success: false, error: "Not authenticated" },
       { status: 401 },
     );
-  const { data: profileRow } = await supa
+
+  let { data: profileRow } = await supa
     .from("users")
     .select("id")
     .eq("auth_user_id", authUser.user.id)
     .maybeSingle();
-  if (!profileRow?.id)
-    return json(
-      {
-        success: false,
-        error: "No customer profile — please finish profile setup first.",
-      },
-      { status: 400 },
-    );
+
+  // Auto-create a customer profile on first payment so new sign-ins
+  // (phone OTP, Google, email magic-link) aren't blocked here.
+  if (!profileRow?.id) {
+    const u = authUser.user;
+    const derivedName =
+      (u.user_metadata?.full_name as string | undefined) ??
+      (u.user_metadata?.name as string | undefined) ??
+      (u.email ? u.email.split("@")[0] : null) ??
+      "Customer";
+    const upsert = await supa
+      .from("users")
+      .insert({
+        auth_user_id: u.id,
+        full_name: derivedName,
+        email: u.email ?? null,
+        phone: u.phone ?? null,
+        role: "customer",
+        city: "Durgapur",
+      })
+      .select("id")
+      .single();
+    if (upsert.error || !upsert.data) {
+      return json(
+        {
+          success: false,
+          error: `Could not auto-create profile: ${upsert.error?.message ?? "unknown"}`,
+        },
+        { status: 400 },
+      );
+    }
+    profileRow = upsert.data;
+  }
 
   // Idempotency: if a row with this payment_id already exists, return it.
   const existing = await supa
