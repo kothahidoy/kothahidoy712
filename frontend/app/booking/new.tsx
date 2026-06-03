@@ -52,7 +52,9 @@ export default function BookingNew() {
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  // No default — the customer MUST pick a payment method explicitly so the
+  // booking can't be confirmed by accident with the wrong option.
+  const [payMethod, setPayMethod] = useState<PayMethod | null>(null);
 
   const slots = dataService.getTimeSlots();
   const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -120,7 +122,11 @@ export default function BookingNew() {
   const total = subtotal - discountAmount;
 
   const canBook =
-    !!service && !!slot && addressLine.trim().length > 5 && !loading;
+    !!service &&
+    !!slot &&
+    addressLine.trim().length > 5 &&
+    !!payMethod &&
+    !loading;
 
   const onBook = async () => {
     if (!service || !slot) return;
@@ -419,8 +425,18 @@ export default function BookingNew() {
             <Row label="Total" value={`₹${total}`} bold />
           </View>
 
-          {/* Payment method */}
-          <Text style={styles.sectionTitle}>How do you want to pay?</Text>
+          {/* Payment method — REQUIRED */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>How do you want to pay?</Text>
+            <View style={styles.requiredBadge}>
+              <Text style={styles.requiredText}>Required</Text>
+            </View>
+          </View>
+          {!payMethod ? (
+            <Text style={styles.payHint}>
+              Choose Pay online or Cash on Service to continue.
+            </Text>
+          ) : null}
           <View style={styles.payRow}>
             <TouchableOpacity
               style={[styles.payCard, payMethod === "razorpay" && styles.payCardActive]}
@@ -429,7 +445,7 @@ export default function BookingNew() {
               testID="bk-pay-online"
             >
               <View style={styles.payCardHeader}>
-                <Text style={styles.payCardTitle}>Pay online</Text>
+                <Text style={styles.payCardTitle}>💳 Pay online</Text>
                 {payMethod === "razorpay" ? (
                   <View style={styles.payDot}>
                     <Check size={12} color="#fff" strokeWidth={3} />
@@ -439,7 +455,7 @@ export default function BookingNew() {
                 )}
               </View>
               <Text style={styles.payCardSub}>
-                UPI / Card / NetBanking via Razorpay
+                UPI / Card / NetBanking — Razorpay
               </Text>
             </TouchableOpacity>
 
@@ -450,7 +466,7 @@ export default function BookingNew() {
               testID="bk-pay-cash"
             >
               <View style={styles.payCardHeader}>
-                <Text style={styles.payCardTitle}>Cash on Service</Text>
+                <Text style={styles.payCardTitle}>💵 Cash on Service</Text>
                 {payMethod === "cash" ? (
                   <View style={styles.payDot}>
                     <Check size={12} color="#fff" strokeWidth={3} />
@@ -472,9 +488,11 @@ export default function BookingNew() {
       <SafeAreaView edges={["bottom"]} style={styles.cta}>
         <PrimaryButton
           label={
-            payMethod === "razorpay"
-              ? `Pay ₹${total} & Book`
-              : `Confirm booking · ₹${total}`
+            !payMethod
+              ? "Choose a payment method"
+              : payMethod === "razorpay"
+                ? `Pay ₹${total} & Book`
+                : `Confirm booking · ₹${total}`
           }
           onPress={onBook}
           disabled={!canBook}
@@ -521,6 +539,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 10,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  requiredBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  requiredText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#B91C1C",
+    letterSpacing: 0.2,
+  },
+  payHint: {
+    fontSize: 12,
+    color: "#B91C1C",
+    marginTop: 6,
+    fontWeight: "500",
   },
   payCard: {
     flex: 1,
