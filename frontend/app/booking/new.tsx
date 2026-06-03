@@ -27,7 +27,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
 import { CITIES } from "@/src/data/seed";
-import { payForBooking } from "@/src/lib/razorpay";
+import { runRazorpayCheckout } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress, Service } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
@@ -129,8 +129,9 @@ export default function BookingNew() {
     !loading;
 
   const onBook = async () => {
-    if (!service || !slot) return;
+    if (!service || !slot || !payMethod) return;
     setLoading(true);
+
     const address: SavedAddress = {
       id: "ad-" + Date.now(),
       label: "Home",
@@ -140,19 +141,21 @@ export default function BookingNew() {
       latitude: coords?.lat ?? 23.5204,
       longitude: coords?.lng ?? 87.3119,
     };
-    const booking = await dataService.createBooking({
-      serviceId: service.id,
-      serviceTitle: service.title,
-      serviceImage: service.image,
-      scheduledDate: date.toISOString(),
-      timeSlot: slot,
-      address,
-      notes: notes.trim() || undefined,
-      price: total,
-    });
 
-    // Cash on Service → booking is confirmed immediately, payment later.
+    // ───────── Cash on Service ─────────
     if (payMethod === "cash") {
+      const booking = await dataService.createBooking({
+        serviceId: service.id,
+        serviceTitle: service.title,
+        serviceImage: service.image,
+        scheduledDate: date.toISOString(),
+        timeSlot: slot,
+        address,
+        notes: notes.trim() || undefined,
+        price: total,
+        paymentStatus: "unpaid",
+        paymentMethod: "cash",
+      });
       setLoading(false);
       router.replace({
         pathname: "/booking/confirmation",
@@ -161,37 +164,59 @@ export default function BookingNew() {
       return;
     }
 
-    // Razorpay → open Checkout, verify, mark booking as paid.
-    const result = await payForBooking({
-      bookingId: booking.id,
+    // ───────── Razorpay — PAY FIRST, BOOK ONLY ON SUCCESS ─────────
+    const result = await runRazorpayCheckout({
       amountInr: total,
       customerName: profile?.name,
       customerEmail: profile?.email,
       customerPhone: profile?.phone,
       description: `${service.title} • ${format(date, "EEE d MMM")} ${slot}`,
     });
-    setLoading(false);
 
-    if (result.status === "paid") {
+    if (result.status !== "paid") {
+      setLoading(false);
+      if (result.status === "dismissed") {
+        notify(
+          "Payment cancelled",
+          "No charge was made. Your booking has not been created.",
+        );
+      } else {
+        notify("Payment failed", result.reason);
+      }
+      // IMPORTANT: do NOT create a booking — return to the form.
+      return;
+    }
+
+    // Signature verified server-side → safe to create the booking now.
+    try {
+      const booking = await dataService.createBooking({
+        serviceId: service.id,
+        serviceTitle: service.title,
+        serviceImage: service.image,
+        scheduledDate: date.toISOString(),
+        timeSlot: slot,
+        address,
+        notes: notes.trim() || undefined,
+        price: total,
+        paymentStatus: "paid",
+        paymentMethod: "razorpay",
+        paymentId: result.paymentId,
+        paymentOrder: result.orderId,
+      });
+      setLoading(false);
       router.replace({
         pathname: "/booking/confirmation",
         params: { id: booking.id, pay: "paid", pid: result.paymentId },
       });
-    } else if (result.status === "dismissed") {
+    } catch (e) {
+      setLoading(false);
+      // Edge case: payment captured but booking insert failed (network /
+      // RLS). Tell the user clearly and keep the payment id visible so
+      // support can reconcile.
       notify(
-        "Payment cancelled",
-        "Your booking is saved but unpaid. You can pay later from My Bookings.",
+        "Payment captured — saving failed",
+        `We received your payment (${result.paymentId}) but couldn't save the booking. Please contact support with this id.`,
       );
-      router.replace({
-        pathname: "/booking/confirmation",
-        params: { id: booking.id, pay: "unpaid" },
-      });
-    } else {
-      notify("Payment failed", result.reason);
-      router.replace({
-        pathname: "/booking/confirmation",
-        params: { id: booking.id, pay: "failed" },
-      });
     }
   };
 

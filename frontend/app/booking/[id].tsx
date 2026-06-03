@@ -24,7 +24,8 @@ import {
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
-import { payForBooking } from "@/src/lib/razorpay";
+import { supabase } from "@/src/lib/supabase";
+import { runRazorpayCheckout } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
@@ -103,22 +104,39 @@ export default function BookingDetail() {
   const onPayNow = async () => {
     if (!booking || paying) return;
     setPaying(true);
-    const result = await payForBooking({
-      bookingId: booking.id,
+    const result = await runRazorpayCheckout({
+      receiptId: `bk_${booking.id}`,
       amountInr: booking.price,
       customerName: profile?.name,
       customerEmail: profile?.email,
       customerPhone: profile?.phone,
       description: `${booking.serviceTitle} • ${booking.timeSlot}`,
     });
-    setPaying(false);
     if (result.status === "paid") {
+      // Persist the verified payment onto the existing booking row.
+      try {
+        if (supabase) {
+          await supabase
+            .from("bookings")
+            .update({
+              payment_status: "paid",
+              payment_method: "razorpay",
+              payment_id: result.paymentId,
+              payment_order: result.orderId,
+              paid_at: new Date().toISOString(),
+            })
+            .eq("id", booking.id);
+        }
+      } catch (e) {
+        console.warn("[pay-now] update booking failed", e);
+      }
       notify("Payment successful", `Paid ₹${booking.price} via Razorpay.`);
       await load();
     } else if (result.status === "failed") {
       notify("Payment failed", result.reason);
     }
     // dismissed → silent
+    setPaying(false);
   };
 
   return (

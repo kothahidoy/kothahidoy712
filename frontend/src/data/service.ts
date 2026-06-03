@@ -223,7 +223,9 @@ export const dataService = {
   },
 
   createBooking: async (
-    input: Omit<Booking, "id" | "createdAt" | "status">,
+    input: Omit<Booking, "id" | "createdAt" | "status"> & {
+      paymentOrder?: string;
+    },
   ): Promise<Booking> => {
     const userId = await getCurrentUserId();
     if (userId && supabase) {
@@ -238,9 +240,17 @@ export const dataService = {
           notes: input.notes ?? null,
           price: input.price,
           status: "confirmed",
+          payment_status: input.paymentStatus ?? "unpaid",
+          payment_method: input.paymentMethod ?? null,
+          payment_id: input.paymentId ?? null,
+          payment_order: input.paymentOrder ?? null,
+          paid_at:
+            input.paymentStatus === "paid"
+              ? input.paidAt ?? new Date().toISOString()
+              : null,
         })
         .select(
-          "id, service_id, scheduled_date, time_slot, address, notes, price, status, created_at",
+          "id, service_id, scheduled_date, time_slot, address, notes, price, status, created_at, payment_status, payment_method, payment_id, paid_at",
         )
         .single();
       if (!error && data) {
@@ -256,6 +266,10 @@ export const dataService = {
           price: Number(data.price),
           status: data.status as BookingStatus,
           createdAt: data.created_at,
+          paymentStatus: (data.payment_status ?? "unpaid") as any,
+          paymentMethod: data.payment_method ?? undefined,
+          paymentId: data.payment_id ?? undefined,
+          paidAt: data.paid_at ?? undefined,
         };
       }
     }

@@ -1,16 +1,21 @@
 /**
  * Mfixit — Razorpay payment helper (Expo Web).
  *
- * On Expo Web we use Razorpay's hosted Checkout JS (window.Razorpay).
- * The script is loaded on-demand the first time we need it.
+ * Pay-first / book-after flow:
+ *   1. Caller calls `runRazorpayCheckout()` with the amount + customer
+ *      info. We generate a client-side receipt id and ask our backend
+ *      to create a Razorpay order.
+ *   2. Razorpay Checkout opens; the customer pays.
+ *   3. On success we call the backend `verify` endpoint which HMAC-checks
+ *      the signature with the server-side secret.
+ *   4. We resolve with { status: 'paid', paymentId, orderId } — the
+ *      caller (booking/new.tsx) then creates the booking row.
  *
- * For native (Expo dev-client) we'd swap this for `react-native-razorpay`
- * later — the same `payForBooking()` API stays the same so call-sites
- * don't need to change.
+ * Nothing is written to the database from this helper any more. That is
+ * the caller's job, so the booking can only exist after a verified
+ * payment.
  */
 import { Platform } from "react-native";
-
-import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 const BACKEND =
@@ -23,21 +28,26 @@ declare global {
 }
 
 export type PayResult =
-  | { status: "paid"; paymentId: string; orderId: string }
+  | {
+      status: "paid";
+      paymentId: string;
+      orderId: string;
+      signature: string;
+    }
   | { status: "failed"; reason: string }
   | { status: "dismissed" };
 
-interface PayInput {
-  bookingId: string;
+interface CheckoutInput {
   amountInr: number;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   description?: string;
+  /** Optional — pass a stable receipt id so duplicate clicks don't create
+   *  duplicate orders. If omitted we generate one. */
+  receiptId?: string;
 }
 
-/** Promise-based loader — only runs on web. Resolves once window.Razorpay
- *  is available. Caches the loader so we don't re-inject the script. */
 let _loader: Promise<void> | null = null;
 function loadCheckout(): Promise<void> {
   if (Platform.OS !== "web") return Promise.resolve();
@@ -69,32 +79,60 @@ async function api<T>(path: string, body: any): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** Main entry: open Razorpay Checkout, run the full pay+verify+persist
- *  pipeline, and return a normalised PayResult. */
-export async function payForBooking(input: PayInput): Promise<PayResult> {
-  // 1. Get an order from our FastAPI backend.
-  const order = await api<{
-    order_id: string;
-    amount_paise: number;
-    currency: string;
-    key_id: string;
-  }>("/api/payments/create-order", {
-    booking_id: input.bookingId,
-    amount_inr: input.amountInr,
-  });
-
-  // 2. Web → Razorpay Checkout JS.
+/** Run the full Razorpay Checkout flow. Returns a normalised PayResult.
+ *  The caller is responsible for persisting the booking only when
+ *  status === 'paid'. */
+export async function runRazorpayCheckout(
+  input: CheckoutInput,
+): Promise<PayResult> {
   if (Platform.OS !== "web") {
     return {
       status: "failed",
       reason:
-        "Razorpay native checkout is not bundled in Expo Go. Use a dev-build, or pay from a web browser for now.",
+        "Online payments need the web preview or a native dev-build. Try Cash on Service for now.",
     };
   }
 
-  await loadCheckout();
+  // Idempotency: stable receipt id prevents the user double-tapping the
+  // button from creating two orders.
+  const receiptId =
+    input.receiptId ?? `mfx_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;
+
+  let order: {
+    order_id: string;
+    amount_paise: number;
+    currency: string;
+    key_id: string;
+  };
+  try {
+    order = await api("/api/payments/create-order", {
+      booking_id: receiptId,
+      amount_inr: input.amountInr,
+    });
+  } catch (e) {
+    return {
+      status: "failed",
+      reason: e instanceof Error ? e.message : "Could not start payment",
+    };
+  }
+
+  try {
+    await loadCheckout();
+  } catch (e) {
+    return {
+      status: "failed",
+      reason: e instanceof Error ? e.message : "Razorpay failed to load",
+    };
+  }
 
   return new Promise<PayResult>((resolve) => {
+    let settled = false;
+    const finish = (r: PayResult) => {
+      if (settled) return;
+      settled = true;
+      resolve(r);
+    };
+
     const rzp = new (window as any).Razorpay({
       key: order.key_id,
       order_id: order.order_id,
@@ -109,7 +147,7 @@ export async function payForBooking(input: PayInput): Promise<PayResult> {
       },
       theme: { color: "#1F4FFF" },
       modal: {
-        ondismiss: () => resolve({ status: "dismissed" }),
+        ondismiss: () => finish({ status: "dismissed" }),
       },
       handler: async (resp: {
         razorpay_payment_id: string;
@@ -117,42 +155,29 @@ export async function payForBooking(input: PayInput): Promise<PayResult> {
         razorpay_signature: string;
       }) => {
         try {
-          // 3. Verify the signature on our backend.
           const verify = await api<{ verified: boolean }>(
             "/api/payments/verify",
             {
               razorpay_order_id: resp.razorpay_order_id,
               razorpay_payment_id: resp.razorpay_payment_id,
               razorpay_signature: resp.razorpay_signature,
-              booking_id: input.bookingId,
+              booking_id: receiptId,
             },
           );
           if (!verify.verified) {
-            return resolve({
+            return finish({
               status: "failed",
               reason: "Signature verification failed",
             });
           }
-          // 4. Persist on the booking row via Supabase (RLS-safe, owner).
-          if (isSupabaseConfigured && supabase) {
-            await supabase
-              .from("bookings")
-              .update({
-                payment_status: "paid",
-                payment_method: "razorpay",
-                payment_id: resp.razorpay_payment_id,
-                payment_order: resp.razorpay_order_id,
-                paid_at: new Date().toISOString(),
-              })
-              .eq("id", input.bookingId);
-          }
-          resolve({
+          finish({
             status: "paid",
             paymentId: resp.razorpay_payment_id,
             orderId: resp.razorpay_order_id,
+            signature: resp.razorpay_signature,
           });
         } catch (e) {
-          resolve({
+          finish({
             status: "failed",
             reason: e instanceof Error ? e.message : String(e),
           });
@@ -160,9 +185,12 @@ export async function payForBooking(input: PayInput): Promise<PayResult> {
       },
     });
     rzp.on("payment.failed", (resp: any) => {
-      resolve({
+      finish({
         status: "failed",
-        reason: resp?.error?.description ?? "Payment failed",
+        reason:
+          resp?.error?.description ??
+          resp?.error?.reason ??
+          "Payment failed at gateway",
       });
     });
     rzp.open();
