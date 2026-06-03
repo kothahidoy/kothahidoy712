@@ -22,7 +22,9 @@ import {
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
+import { payForBooking } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
@@ -38,8 +40,10 @@ const STATUS: Record<BookingStatus, { label: string; bg: string; fg: string }> =
 export default function BookingDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useSession();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [rating, setRating] = useState(0);
+  const [paying, setPaying] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -92,6 +96,30 @@ export default function BookingDetail() {
   const canCancel = ["pending", "confirmed", "in_progress"].includes(
     booking.status,
   );
+
+  const isUnpaid =
+    booking.paymentStatus === "unpaid" || booking.paymentStatus === "failed";
+
+  const onPayNow = async () => {
+    if (!booking || paying) return;
+    setPaying(true);
+    const result = await payForBooking({
+      bookingId: booking.id,
+      amountInr: booking.price,
+      customerName: profile?.name,
+      customerEmail: profile?.email,
+      customerPhone: profile?.phone,
+      description: `${booking.serviceTitle} • ${booking.timeSlot}`,
+    });
+    setPaying(false);
+    if (result.status === "paid") {
+      notify("Payment successful", `Paid ₹${booking.price} via Razorpay.`);
+      await load();
+    } else if (result.status === "failed") {
+      notify("Payment failed", result.reason);
+    }
+    // dismissed → silent
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
@@ -222,6 +250,36 @@ export default function BookingDetail() {
 
         {/* Actions */}
         <View style={{ marginTop: 20, gap: 10 }}>
+          {isUnpaid && booking.status !== "cancelled" ? (
+            <View style={styles.payBanner}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payBannerTitle}>Payment pending</Text>
+                <Text style={styles.payBannerSub}>
+                  ₹{booking.price} • pay securely via Razorpay
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.payNowBtn}
+                onPress={onPayNow}
+                disabled={paying}
+                activeOpacity={0.85}
+                testID="bd-pay-now"
+              >
+                <Text style={styles.payNowText}>
+                  {paying ? "Opening…" : `Pay ₹${booking.price}`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          {booking.paymentStatus === "paid" ? (
+            <View style={styles.paidBanner}>
+              <CheckCircle2 size={16} color={colors.success} strokeWidth={2.5} />
+              <Text style={styles.paidText}>
+                Paid via Razorpay
+                {booking.paymentId ? ` · ${booking.paymentId.slice(-8)}` : ""}
+              </Text>
+            </View>
+          ) : null}
           {booking.status === "confirmed" || booking.status === "in_progress" ? (
             <PrimaryButton
               label="Mark as completed"
@@ -248,6 +306,33 @@ export default function BookingDetail() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  payBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight ?? "#EEF2FF",
+    borderRadius: radius.lg,
+    padding: 14,
+    gap: 12,
+  },
+  payBannerTitle: { fontSize: 14, fontWeight: "800", color: colors.textMain },
+  payBannerSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  payNowBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  payNowText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  paidBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.successLight,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  paidText: { fontSize: 13, fontWeight: "700", color: colors.success },
   header: {
     flexDirection: "row",
     alignItems: "center",

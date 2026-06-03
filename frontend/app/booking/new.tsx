@@ -24,14 +24,19 @@ import {
 import * as Location from "expo-location";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
 import { CITIES } from "@/src/data/seed";
+import { payForBooking } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress, Service } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 
+type PayMethod = "razorpay" | "cash";
+
 export default function BookingNew() {
   const router = useRouter();
+  const { profile } = useSession();
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
   const [service, setService] = useState<Service | null>(null);
 
@@ -47,6 +52,7 @@ export default function BookingNew() {
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
 
   const slots = dataService.getTimeSlots();
   const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -138,11 +144,49 @@ export default function BookingNew() {
       notes: notes.trim() || undefined,
       price: total,
     });
-    setLoading(false);
-    router.replace({
-      pathname: "/booking/confirmation",
-      params: { id: booking.id },
+
+    // Cash on Service → booking is confirmed immediately, payment later.
+    if (payMethod === "cash") {
+      setLoading(false);
+      router.replace({
+        pathname: "/booking/confirmation",
+        params: { id: booking.id, pay: "cash" },
+      });
+      return;
+    }
+
+    // Razorpay → open Checkout, verify, mark booking as paid.
+    const result = await payForBooking({
+      bookingId: booking.id,
+      amountInr: total,
+      customerName: profile?.name,
+      customerEmail: profile?.email,
+      customerPhone: profile?.phone,
+      description: `${service.title} • ${format(date, "EEE d MMM")} ${slot}`,
     });
+    setLoading(false);
+
+    if (result.status === "paid") {
+      router.replace({
+        pathname: "/booking/confirmation",
+        params: { id: booking.id, pay: "paid", pid: result.paymentId },
+      });
+    } else if (result.status === "dismissed") {
+      notify(
+        "Payment cancelled",
+        "Your booking is saved but unpaid. You can pay later from My Bookings.",
+      );
+      router.replace({
+        pathname: "/booking/confirmation",
+        params: { id: booking.id, pay: "unpaid" },
+      });
+    } else {
+      notify("Payment failed", result.reason);
+      router.replace({
+        pathname: "/booking/confirmation",
+        params: { id: booking.id, pay: "failed" },
+      });
+    }
   };
 
   if (!service) {
@@ -375,13 +419,63 @@ export default function BookingNew() {
             <Row label="Total" value={`₹${total}`} bold />
           </View>
 
+          {/* Payment method */}
+          <Text style={styles.sectionTitle}>How do you want to pay?</Text>
+          <View style={styles.payRow}>
+            <TouchableOpacity
+              style={[styles.payCard, payMethod === "razorpay" && styles.payCardActive]}
+              onPress={() => setPayMethod("razorpay")}
+              activeOpacity={0.85}
+              testID="bk-pay-online"
+            >
+              <View style={styles.payCardHeader}>
+                <Text style={styles.payCardTitle}>Pay online</Text>
+                {payMethod === "razorpay" ? (
+                  <View style={styles.payDot}>
+                    <Check size={12} color="#fff" strokeWidth={3} />
+                  </View>
+                ) : (
+                  <View style={styles.payRing} />
+                )}
+              </View>
+              <Text style={styles.payCardSub}>
+                UPI / Card / NetBanking via Razorpay
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.payCard, payMethod === "cash" && styles.payCardActive]}
+              onPress={() => setPayMethod("cash")}
+              activeOpacity={0.85}
+              testID="bk-pay-cash"
+            >
+              <View style={styles.payCardHeader}>
+                <Text style={styles.payCardTitle}>Cash on Service</Text>
+                {payMethod === "cash" ? (
+                  <View style={styles.payDot}>
+                    <Check size={12} color="#fff" strokeWidth={3} />
+                  </View>
+                ) : (
+                  <View style={styles.payRing} />
+                )}
+              </View>
+              <Text style={styles.payCardSub}>
+                Pay the professional when work is done
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={{ height: 30 }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
       <SafeAreaView edges={["bottom"]} style={styles.cta}>
         <PrimaryButton
-          label={`Confirm booking · ₹${total}`}
+          label={
+            payMethod === "razorpay"
+              ? `Pay ₹${total} & Book`
+              : `Confirm booking · ₹${total}`
+          }
           onPress={onBook}
           disabled={!canBook}
           loading={loading}
@@ -423,6 +517,46 @@ function Row({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  payRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
+  },
+  payCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: 14,
+  },
+  payCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight ?? "#EEF2FF",
+  },
+  payCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  payCardTitle: { fontSize: 14, fontWeight: "700", color: colors.textMain },
+  payCardSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  payDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  payRing: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

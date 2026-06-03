@@ -187,7 +187,7 @@ export const dataService = {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, service_id, scheduled_date, time_slot, address, notes, price, status, rating, review, created_at",
+          "id, service_id, scheduled_date, time_slot, address, notes, price, status, rating, review, created_at, payment_status, payment_method, payment_id, paid_at",
         )
         .eq("customer_id", userId)
         .order("created_at", { ascending: false });
@@ -195,7 +195,7 @@ export const dataService = {
         // Resolve service title + image client-side from the catalog cache.
         const services = await dataService.getServices();
         const byId = new Map(services.map((s) => [s.id, s]));
-        return data.map((b) => {
+        return data.map((b: any) => {
           const svc = byId.get(b.service_id);
           return {
             id: b.id,
@@ -211,6 +211,10 @@ export const dataService = {
             rating: b.rating ?? undefined,
             review: b.review ?? undefined,
             createdAt: b.created_at,
+            paymentStatus: (b.payment_status ?? "unpaid") as any,
+            paymentMethod: b.payment_method ?? undefined,
+            paymentId: b.payment_id ?? undefined,
+            paidAt: b.paid_at ?? undefined,
           };
         });
       }

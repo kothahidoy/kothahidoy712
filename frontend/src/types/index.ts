@@ -53,6 +53,9 @@ export type BookingStatus =
   | "completed"
   | "cancelled";
 
+export type PaymentStatus = "unpaid" | "paid" | "failed" | "refunded";
+export type PaymentMethod = "razorpay" | "cash";
+
 export interface Booking {
   id: ID;
   serviceId: ID;
@@ -68,6 +71,10 @@ export interface Booking {
   createdAt: string;
   rating?: number;
   review?: string;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  paymentId?: string;
+  paidAt?: string;
 }
 
 export interface Offer {
