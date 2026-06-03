@@ -1,25 +1,39 @@
 /**
  * Mfixit — Razorpay payment helper (Expo Web).
  *
- * Pay-first / book-after flow:
- *   1. Caller calls `runRazorpayCheckout()` with the amount + customer
- *      info. We generate a client-side receipt id and ask our backend
- *      to create a Razorpay order.
- *   2. Razorpay Checkout opens; the customer pays.
- *   3. On success we call the backend `verify` endpoint which HMAC-checks
- *      the signature with the server-side secret.
- *   4. We resolve with { status: 'paid', paymentId, orderId } — the
- *      caller (booking/new.tsx) then creates the booking row.
+ * Pay-first / book-after flow with Supabase Edge Function verification:
  *
- * Nothing is written to the database from this helper any more. That is
- * the caller's job, so the booking can only exist after a verified
- * payment.
+ *   1. Frontend POSTs to FastAPI /api/payments/create-order → backend
+ *      creates a real Razorpay order using the server-side secret and
+ *      returns { order_id, amount_paise, key_id }.
+ *   2. Razorpay Checkout opens on the web; the customer pays.
+ *   3. On payment success Razorpay returns
+ *      { razorpay_payment_id, razorpay_order_id, razorpay_signature }.
+ *   4. We POST those three values **+ bookingData** to the Supabase
+ *      Edge Function "verify-payment" (see supabase/functions/
+ *      verify-payment/index.ts). The Edge Function verifies the HMAC
+ *      signature server-side and, if valid, atomically inserts the
+ *      booking row.
+ *   5. We resolve with { status: 'paid', booking } so the caller can
+ *      navigate to the confirmation screen.
+ *
+ * If the signature is invalid OR the user closes the modal OR the
+ * gateway fails — the resolved status is 'failed' or 'dismissed' and
+ * NO booking exists in the database.
  */
 import { Platform } from "react-native";
+
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { SavedAddress } from "@/src/types";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 const BACKEND =
   (process.env.EXPO_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "") || "";
+const SUPABASE_URL = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? "").replace(
+  /\/+$/,
+  "",
+);
+const VERIFY_FN_URL = `${SUPABASE_URL}/functions/v1/verify-payment`;
 
 declare global {
   interface Window {
@@ -27,24 +41,36 @@ declare global {
   }
 }
 
+export interface BookingDataInput {
+  serviceId: string;
+  scheduledDate: string; // ISO
+  timeSlot: string;
+  address: SavedAddress;
+  notes?: string | null;
+  price: number;
+}
+
 export type PayResult =
   | {
       status: "paid";
       paymentId: string;
       orderId: string;
-      signature: string;
+      booking: any | null; // null when bookingData was not passed (pay-now flow)
     }
   | { status: "failed"; reason: string }
   | { status: "dismissed" };
 
 interface CheckoutInput {
   amountInr: number;
+  /** When present, the Edge Function atomically inserts the booking
+   *  after verifying the signature. When absent (e.g. "Pay now" on an
+   *  already-existing booking) the Edge Function only verifies and the
+   *  caller is responsible for updating the existing row. */
+  bookingData?: BookingDataInput;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   description?: string;
-  /** Optional — pass a stable receipt id so duplicate clicks don't create
-   *  duplicate orders. If omitted we generate one. */
   receiptId?: string;
 }
 
@@ -65,11 +91,12 @@ function loadCheckout(): Promise<void> {
   return _loader;
 }
 
-async function api<T>(path: string, body: any): Promise<T> {
-  const url = `${BACKEND}${path}`;
+async function apiJson<T>(url: string, body: any, jwt?: string): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
   const r = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
   if (!r.ok) {
@@ -79,9 +106,10 @@ async function api<T>(path: string, body: any): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** Run the full Razorpay Checkout flow. Returns a normalised PayResult.
- *  The caller is responsible for persisting the booking only when
- *  status === 'paid'. */
+/** Run the full Razorpay Checkout flow. Returns a PayResult. The booking
+ *  row is created server-side INSIDE the verify-payment Edge Function
+ *  (only after a valid signature), so a 'paid' result already means the
+ *  row exists. Caller just navigates to the confirmation screen. */
 export async function runRazorpayCheckout(
   input: CheckoutInput,
 ): Promise<PayResult> {
@@ -93,11 +121,10 @@ export async function runRazorpayCheckout(
     };
   }
 
-  // Idempotency: stable receipt id prevents the user double-tapping the
-  // button from creating two orders.
   const receiptId =
     input.receiptId ?? `mfx_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;
 
+  // 1. Create a Razorpay order via our FastAPI backend (server-side secret).
   let order: {
     order_id: string;
     amount_paise: number;
@@ -105,7 +132,7 @@ export async function runRazorpayCheckout(
     key_id: string;
   };
   try {
-    order = await api("/api/payments/create-order", {
+    order = await apiJson(`${BACKEND}/api/payments/create-order`, {
       booking_id: receiptId,
       amount_inr: input.amountInr,
     });
@@ -124,6 +151,13 @@ export async function runRazorpayCheckout(
       reason: e instanceof Error ? e.message : "Razorpay failed to load",
     };
   }
+
+  // Pull the caller's JWT so the Edge Function can run as the user (RLS).
+  const sess =
+    isSupabaseConfigured && supabase
+      ? (await supabase.auth.getSession()).data.session
+      : null;
+  const jwt = sess?.access_token;
 
   return new Promise<PayResult>((resolve) => {
     let settled = false;
@@ -155,26 +189,39 @@ export async function runRazorpayCheckout(
         razorpay_signature: string;
       }) => {
         try {
-          const verify = await api<{ verified: boolean }>(
-            "/api/payments/verify",
+          // 2. Verify + atomic-insert via the Supabase Edge Function.
+          const verify = await apiJson<{
+            success: boolean;
+            verified?: boolean;
+            booking?: any;
+            error?: string;
+          }>(
+            VERIFY_FN_URL,
             {
               razorpay_order_id: resp.razorpay_order_id,
               razorpay_payment_id: resp.razorpay_payment_id,
               razorpay_signature: resp.razorpay_signature,
-              booking_id: receiptId,
+              bookingData: input.bookingData,
             },
+            jwt,
           );
-          if (!verify.verified) {
+
+          if (!verify.success) {
             return finish({
               status: "failed",
-              reason: "Signature verification failed",
+              reason:
+                verify.error ?? "Verification failed — payment not confirmed",
             });
           }
+          // When bookingData was passed, the Edge Function returns the
+          // newly-inserted row in `booking`. For "Pay now" on an existing
+          // booking we don't pass bookingData and `booking` is null —
+          // both are valid 'paid' outcomes.
           finish({
             status: "paid",
             paymentId: resp.razorpay_payment_id,
             orderId: resp.razorpay_order_id,
-            signature: resp.razorpay_signature,
+            booking: verify.booking ?? null,
           });
         } catch (e) {
           finish({

@@ -164,17 +164,26 @@ export default function BookingNew() {
       return;
     }
 
-    // ───────── Razorpay — PAY FIRST, BOOK ONLY ON SUCCESS ─────────
+    // ───────── Razorpay — PAY FIRST, BOOK ONLY VIA EDGE FUNCTION ─────────
     const result = await runRazorpayCheckout({
       amountInr: total,
       customerName: profile?.name,
       customerEmail: profile?.email,
       customerPhone: profile?.phone,
       description: `${service.title} • ${format(date, "EEE d MMM")} ${slot}`,
+      bookingData: {
+        serviceId: service.id,
+        scheduledDate: date.toISOString(),
+        timeSlot: slot,
+        address,
+        notes: notes.trim() || null,
+        price: total,
+      },
     });
 
+    setLoading(false);
+
     if (result.status !== "paid") {
-      setLoading(false);
       if (result.status === "dismissed") {
         notify(
           "Payment cancelled",
@@ -187,37 +196,16 @@ export default function BookingNew() {
       return;
     }
 
-    // Signature verified server-side → safe to create the booking now.
-    try {
-      const booking = await dataService.createBooking({
-        serviceId: service.id,
-        serviceTitle: service.title,
-        serviceImage: service.image,
-        scheduledDate: date.toISOString(),
-        timeSlot: slot,
-        address,
-        notes: notes.trim() || undefined,
-        price: total,
-        paymentStatus: "paid",
-        paymentMethod: "razorpay",
-        paymentId: result.paymentId,
-        paymentOrder: result.orderId,
-      });
-      setLoading(false);
-      router.replace({
-        pathname: "/booking/confirmation",
-        params: { id: booking.id, pay: "paid", pid: result.paymentId },
-      });
-    } catch (e) {
-      setLoading(false);
-      // Edge case: payment captured but booking insert failed (network /
-      // RLS). Tell the user clearly and keep the payment id visible so
-      // support can reconcile.
-      notify(
-        "Payment captured — saving failed",
-        `We received your payment (${result.paymentId}) but couldn't save the booking. Please contact support with this id.`,
-      );
-    }
+    // Edge Function verified the signature AND inserted the booking
+    // atomically. We just navigate to confirmation with the new id.
+    router.replace({
+      pathname: "/booking/confirmation",
+      params: {
+        id: result.booking?.id,
+        pay: "paid",
+        pid: result.paymentId,
+      },
+    });
   };
 
   if (!service) {
