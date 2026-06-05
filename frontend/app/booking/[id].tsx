@@ -18,12 +18,14 @@ import {
   MessageSquare,
   Phone,
   Star,
+  User,
   XCircle,
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
+import { providerService } from "@/src/data/providerService";
 import { supabase } from "@/src/lib/supabase";
 import { runRazorpayCheckout } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
@@ -33,7 +35,8 @@ import { confirmAsync, notify } from "@/src/utils/dialogs";
 const STATUS: Record<BookingStatus, { label: string; bg: string; fg: string }> = {
   pending: { label: "Pending", bg: colors.warningLight, fg: "#B45309" },
   confirmed: { label: "Confirmed", bg: colors.primaryLight, fg: colors.primary },
-  in_progress: { label: "On the way", bg: colors.successLight, fg: colors.success },
+  assigned: { label: "Provider Assigned", bg: "#E0E7FF", fg: "#4F46E5" },
+  in_progress: { label: "In Progress", bg: colors.successLight, fg: colors.success },
   completed: { label: "Completed", bg: colors.successLight, fg: colors.success },
   cancelled: { label: "Cancelled", bg: colors.errorLight, fg: colors.error },
 };
@@ -94,7 +97,7 @@ export default function BookingDetail() {
     await load();
   };
 
-  const canCancel = ["pending", "confirmed", "in_progress"].includes(
+  const canCancel = ["pending", "confirmed", "assigned", "in_progress"].includes(
     booking.status,
   );
 
@@ -198,6 +201,24 @@ export default function BookingDetail() {
           </View>
         </View>
 
+        {/* Provider Info */}
+        {booking.providerId && (
+          <View style={styles.providerCard}>
+            <View style={styles.providerAvatar}>
+              <User size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.providerLabel}>Your Service Provider</Text>
+              <Text style={styles.providerName}>{booking.providerName ?? "Assigned Provider"}</Text>
+              <Text style={styles.providerStatus}>
+                {booking.status === "assigned" && "Will arrive on scheduled time"}
+                {booking.status === "in_progress" && "Currently working on your service"}
+                {booking.status === "completed" && "Service completed"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Contact pro */}
         {booking.status !== "cancelled" && booking.status !== "completed" ? (
           <View style={styles.contactRow}>
@@ -298,7 +319,7 @@ export default function BookingDetail() {
               </Text>
             </View>
           ) : null}
-          {booking.status === "confirmed" || booking.status === "in_progress" ? (
+          {booking.status === "confirmed" || booking.status === "assigned" || booking.status === "in_progress" ? (
             <PrimaryButton
               label="Mark as completed"
               variant="secondary"
@@ -401,6 +422,44 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   metaText: { fontSize: 13, color: colors.textBody, flex: 1 },
+  providerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 14,
+    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  providerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  providerLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  providerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textMain,
+    marginTop: 2,
+  },
+  providerStatus: {
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: "600",
+    marginTop: 2,
+  },
   contactRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   contactBtn: {
     flex: 1,

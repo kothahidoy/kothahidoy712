@@ -1,0 +1,434 @@
+// Provider data service — handles both Supabase and AsyncStorage (demo mode)
+// Supports provider login, job management, and admin provider operations.
+
+import { storage } from "@/src/utils/storage";
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { Booking, BookingStatus, Provider, SavedAddress } from "@/src/types";
+import { dataService } from "@/src/data/service";
+import { CATEGORIES } from "@/src/data/seed";
+
+const PROVIDERS_KEY = "mfixit.providers";
+const PROVIDER_SESSION_KEY = "mfixit.provider_session";
+const BOOKINGS_KEY = "mfixit.bookings";
+
+const newId = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+async function readJSON<T>(key: string, fallback: T): Promise<T> {
+  const raw = await storage.getItem<string>(key, "");
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJSON<T>(key: string, value: T): Promise<void> {
+  await storage.setItem(key, JSON.stringify(value));
+}
+
+// Normalize phone number: remove all non-digit characters and trim
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "").trim();
+}
+
+// Get category name by ID
+function getCategoryName(categoryId: string): string {
+  const cat = CATEGORIES.find((c) => c.id === categoryId);
+  return cat?.name ?? categoryId;
+}
+
+export const providerService = {
+  // ================= PROVIDER LOGIN =================
+
+  /**
+   * Login provider by phone number (mock auth - just looks up in DB)
+   * Returns provider data or null if not found
+   */
+  login: async (phone: string): Promise<Provider | null> => {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      return null;
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("provider_login", {
+        p_phone: normalizedPhone,
+      });
+      if (error || !data || data.length === 0) return null;
+      const row = Array.isArray(data) ? data[0] : data;
+      const provider: Provider = {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        serviceType: row.service_type,
+        isAvailable: row.is_available,
+      };
+      // Save session
+      await writeJSON(PROVIDER_SESSION_KEY, provider);
+      return provider;
+    }
+
+    // Demo mode: check local providers
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    const found = providers.find(
+      (p) => normalizePhone(p.phone) === normalizedPhone
+    );
+    if (found) {
+      await writeJSON(PROVIDER_SESSION_KEY, found);
+      return found;
+    }
+    return null;
+  },
+
+  /**
+   * Get current logged-in provider from session
+   */
+  getCurrentProvider: async (): Promise<Provider | null> => {
+    return readJSON<Provider | null>(PROVIDER_SESSION_KEY, null);
+  },
+
+  /**
+   * Logout provider (clear session)
+   */
+  logout: async (): Promise<void> => {
+    await storage.removeItem(PROVIDER_SESSION_KEY);
+  },
+
+  // ================= PROVIDER JOBS =================
+
+  /**
+   * List jobs assigned to provider (only assigned/in_progress status)
+   */
+  listJobs: async (providerId: string): Promise<Booking[]> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("list_provider_jobs", {
+        p_provider_id: providerId,
+      });
+      if (error || !data) return [];
+
+      // Resolve service details
+      const services = await dataService.getServices();
+      const byId = new Map(services.map((s) => [s.id, s]));
+
+      return data.map((b: any) => {
+        const svc = byId.get(b.service_id);
+        return {
+          id: b.id,
+          serviceId: b.service_id,
+          serviceTitle: svc?.title ?? "Service",
+          serviceImage: svc?.image ?? "",
+          scheduledDate: b.scheduled_date,
+          timeSlot: b.time_slot,
+          address: b.address as SavedAddress,
+          notes: b.notes ?? undefined,
+          price: Number(b.price),
+          status: b.status as BookingStatus,
+          createdAt: b.created_at,
+          providerId: b.provider_id,
+        };
+      });
+    }
+
+    // Demo mode: filter local bookings
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    return bookings.filter(
+      (b) =>
+        b.providerId === providerId &&
+        ["assigned", "in_progress"].includes(b.status)
+    );
+  },
+
+  /**
+   * Start job: assigned -> in_progress
+   */
+  startJob: async (providerId: string, bookingId: string): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("provider_start_job", {
+        p_provider_id: providerId,
+        p_booking_id: bookingId,
+      });
+      return !error;
+    }
+
+    // Demo mode
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    const idx = bookings.findIndex(
+      (b) =>
+        b.id === bookingId &&
+        b.providerId === providerId &&
+        b.status === "assigned"
+    );
+    if (idx === -1) return false;
+
+    bookings[idx].status = "in_progress";
+    await writeJSON(BOOKINGS_KEY, bookings);
+    return true;
+  },
+
+  /**
+   * Complete job: in_progress -> completed, provider becomes available
+   */
+  completeJob: async (
+    providerId: string,
+    bookingId: string
+  ): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("provider_complete_job", {
+        p_provider_id: providerId,
+        p_booking_id: bookingId,
+      });
+      return !error;
+    }
+
+    // Demo mode
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    const idx = bookings.findIndex(
+      (b) =>
+        b.id === bookingId &&
+        b.providerId === providerId &&
+        b.status === "in_progress"
+    );
+    if (idx === -1) return false;
+
+    bookings[idx].status = "completed";
+    await writeJSON(BOOKINGS_KEY, bookings);
+
+    // Mark provider as available
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    const provIdx = providers.findIndex((p) => p.id === providerId);
+    if (provIdx !== -1) {
+      providers[provIdx].isAvailable = true;
+      await writeJSON(PROVIDERS_KEY, providers);
+    }
+
+    return true;
+  },
+
+  // ================= ADMIN PROVIDER MANAGEMENT =================
+
+  /**
+   * List all providers (admin only)
+   */
+  listAllProviders: async (): Promise<Provider[]> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("admin_list_providers");
+      if (error || !data) return [];
+      return data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        phone: p.phone,
+        serviceType: p.service_type,
+        isAvailable: p.is_available,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      }));
+    }
+
+    // Demo mode
+    return readJSON<Provider[]>(PROVIDERS_KEY, []);
+  },
+
+  /**
+   * Get available providers for a category (admin only)
+   */
+  getAvailableProvidersFor: async (
+    categoryId: string
+  ): Promise<Provider[]> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc(
+        "admin_available_providers_for",
+        { category_id: categoryId }
+      );
+      if (error || !data) return [];
+      return data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        phone: p.phone,
+        serviceType: p.service_type,
+        isAvailable: p.is_available,
+      }));
+    }
+
+    // Demo mode
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    return providers.filter(
+      (p) => p.serviceType === categoryId && p.isAvailable
+    );
+  },
+
+  /**
+   * Assign provider to booking (admin only)
+   * Sets booking status to 'assigned' and provider to unavailable
+   */
+  assignProvider: async (
+    bookingId: string,
+    providerId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("admin_assign_provider", {
+        booking_id: bookingId,
+        provider_id: providerId,
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    }
+
+    // Demo mode
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+
+    const bookingIdx = bookings.findIndex((b) => b.id === bookingId);
+    const providerIdx = providers.findIndex((p) => p.id === providerId);
+
+    if (bookingIdx === -1) {
+      return { success: false, error: "Booking not found" };
+    }
+    if (providerIdx === -1) {
+      return { success: false, error: "Provider not found" };
+    }
+    if (bookings[bookingIdx].providerId) {
+      return { success: false, error: "Booking already assigned" };
+    }
+    if (!providers[providerIdx].isAvailable) {
+      return { success: false, error: "Provider not available" };
+    }
+
+    // Assign
+    bookings[bookingIdx].providerId = providerId;
+    bookings[bookingIdx].providerName = providers[providerIdx].name;
+    bookings[bookingIdx].status = "assigned";
+    providers[providerIdx].isAvailable = false;
+
+    await writeJSON(BOOKINGS_KEY, bookings);
+    await writeJSON(PROVIDERS_KEY, providers);
+
+    return { success: true };
+  },
+
+  /**
+   * Create a new provider (admin only)
+   */
+  createProvider: async (
+    name: string,
+    phone: string,
+    serviceType: string
+  ): Promise<{ success: boolean; provider?: Provider; error?: string }> => {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      return { success: false, error: "Invalid phone number" };
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("admin_create_provider", {
+        p_name: name.trim(),
+        p_phone: normalizedPhone,
+        p_service_type: serviceType,
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return {
+        success: true,
+        provider: {
+          id: data,
+          name: name.trim(),
+          phone: normalizedPhone,
+          serviceType,
+          isAvailable: true,
+        },
+      };
+    }
+
+    // Demo mode
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    
+    // Check for duplicate phone
+    if (providers.some((p) => normalizePhone(p.phone) === normalizedPhone)) {
+      return { success: false, error: "Phone number already exists" };
+    }
+
+    const newProvider: Provider = {
+      id: newId(),
+      name: name.trim(),
+      phone: normalizedPhone,
+      serviceType,
+      isAvailable: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    await writeJSON(PROVIDERS_KEY, [...providers, newProvider]);
+    return { success: true, provider: newProvider };
+  },
+
+  // ================= UTILITIES =================
+
+  /**
+   * Get category name for display
+   */
+  getCategoryName,
+
+  /**
+   * Initialize demo providers (for testing without Supabase)
+   */
+  initDemoProviders: async (): Promise<void> => {
+    const existing = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    if (existing.length > 0) return; // Already initialized
+
+    const demoProviders: Provider[] = [
+      {
+        id: newId(),
+        name: "Rahul Sharma",
+        phone: "9876543210",
+        serviceType: "electrician",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: newId(),
+        name: "Amit Kumar",
+        phone: "9876543211",
+        serviceType: "plumber",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: newId(),
+        name: "Suresh Patel",
+        phone: "9876543212",
+        serviceType: "ac-repair",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: newId(),
+        name: "Priya Singh",
+        phone: "9876543213",
+        serviceType: "cleaning",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: newId(),
+        name: "Rajesh Verma",
+        phone: "9876543214",
+        serviceType: "electrician",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: newId(),
+        name: "Mohammed Ali",
+        phone: "9876543215",
+        serviceType: "carpenter",
+        isAvailable: true,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    await writeJSON(PROVIDERS_KEY, demoProviders);
+  },
+};

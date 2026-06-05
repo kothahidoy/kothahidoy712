@@ -46,9 +46,11 @@ export interface SavedAddress {
   isDefault?: boolean;
 }
 
+// Updated to include 'assigned' status for provider workflow
 export type BookingStatus =
   | "pending"
   | "confirmed"
+  | "assigned"
   | "in_progress"
   | "completed"
   | "cancelled";
@@ -75,6 +77,9 @@ export interface Booking {
   paymentMethod?: PaymentMethod;
   paymentId?: string;
   paidAt?: string;
+  // Provider assignment fields
+  providerId?: ID;
+  providerName?: string;
 }
 
 export interface Offer {
@@ -99,4 +104,15 @@ export interface UserProfile {
   city: string;
   createdAt: string;
   role?: UserRole;
+}
+
+// Provider types for service technician management
+export interface Provider {
+  id: ID;
+  name: string;
+  phone: string;
+  serviceType: ID; // maps to category.id
+  isAvailable: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }

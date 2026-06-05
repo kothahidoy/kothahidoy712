@@ -16,6 +16,7 @@ import {
   BadgeCheck,
   ChevronRight,
   ShieldCheck,
+  Wrench,
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -154,6 +155,17 @@ export default function Welcome() {
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.providerLogin}
+              activeOpacity={0.85}
+              onPress={() => router.push("/(provider)/login")}
+              testID="welcome-provider-btn"
+            >
+              <Wrench size={16} color={colors.primary} />
+              <Text style={styles.providerLoginText}>Provider Login</Text>
+              <ChevronRight size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+
             <Text style={styles.disclaimer}>
               By continuing you agree to our{" "}
               <Text style={styles.disclaimerLink}>Terms</Text> &{" "}
@@ -231,6 +243,24 @@ const styles = StyleSheet.create({
   googleLabel: { fontSize: 16, fontWeight: "700", color: colors.textMain, flex: 1 },
   skip: { alignItems: "center", paddingVertical: 10 },
   skipText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600", opacity: 0.85 },
+  providerLogin: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  providerLoginText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    flex: 1,
+  },
   disclaimer: {
     color: "#94A3B8",
     fontSize: 11,
