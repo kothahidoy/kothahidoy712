@@ -52,6 +52,7 @@ export default function ProviderLogin() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       providerService.initDemoProviders();
+      providerService.initDemoBookings();
     }
   }, []);
 

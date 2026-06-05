@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -27,6 +27,7 @@ import {
 import { adminService } from "@/src/data/admin";
 import { providerService } from "@/src/data/providerService";
 import { dataService } from "@/src/data/service";
+import { isSupabaseConfigured } from "@/src/lib/supabase";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus, Provider, Service } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
@@ -62,6 +63,14 @@ export default function AdminBookings() {
   const [availableProviders, setAvailableProviders] = useState<Provider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [assigning, setAssigning] = useState(false);
+
+  // Initialize demo data in demo mode
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      providerService.initDemoProviders();
+      providerService.initDemoBookings();
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const [bookingsList, servicesList] = await Promise.all([

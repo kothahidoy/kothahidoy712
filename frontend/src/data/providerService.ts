@@ -431,4 +431,87 @@ export const providerService = {
 
     await writeJSON(PROVIDERS_KEY, demoProviders);
   },
+
+  /**
+   * Initialize demo bookings for testing provider assignment flow
+   */
+  initDemoBookings: async (): Promise<void> => {
+    const existing = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    if (existing.length > 0) return; // Already has bookings
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const demoBookings: Booking[] = [
+      {
+        id: newId(),
+        serviceId: "svc-elec-1",
+        serviceTitle: "Electrical Wiring & Switch Fix",
+        serviceImage: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBob21lJTIwcmVwYWlyJTIwdGVjaG5pY2lhbnxlbnwwfHx8fDE3ODAwNzU4MzF8MA&ixlib=rb-4.1.0&q=85&w=800",
+        scheduledDate: tomorrow.toISOString().split("T")[0],
+        timeSlot: "10:00 AM",
+        address: {
+          id: "addr-1",
+          label: "Home",
+          addressLine: "123 Main Street, Sector 5",
+          city: "Durgapur",
+          latitude: 23.5204,
+          longitude: 87.3119,
+        },
+        notes: "Need switchboard repair in bedroom",
+        price: 499,
+        status: "confirmed",
+        createdAt: new Date().toISOString(),
+        paymentStatus: "paid",
+        paymentMethod: "razorpay",
+      },
+      {
+        id: newId(),
+        serviceId: "svc-plumb-1",
+        serviceTitle: "Tap, Basin & Pipe Leak Fix",
+        serviceImage: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?auto=format&fit=crop&w=800&q=80",
+        scheduledDate: tomorrow.toISOString().split("T")[0],
+        timeSlot: "02:00 PM",
+        address: {
+          id: "addr-2",
+          label: "Office",
+          addressLine: "45 Tech Park, Block C",
+          city: "Kolkata",
+          latitude: 22.5726,
+          longitude: 88.3639,
+        },
+        notes: "Bathroom tap leaking badly",
+        price: 299,
+        status: "confirmed",
+        createdAt: new Date().toISOString(),
+        paymentStatus: "paid",
+        paymentMethod: "razorpay",
+      },
+      {
+        id: newId(),
+        serviceId: "svc-ac-1",
+        serviceTitle: "AC Service & Deep Cleaning",
+        serviceImage: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=800&q=80",
+        scheduledDate: nextWeek.toISOString().split("T")[0],
+        timeSlot: "11:00 AM",
+        address: {
+          id: "addr-3",
+          label: "Home",
+          addressLine: "789 Garden View, Floor 3",
+          city: "Asansol",
+          latitude: 23.6833,
+          longitude: 86.9667,
+        },
+        notes: "AC not cooling properly, needs gas check",
+        price: 699,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        paymentStatus: "unpaid",
+      },
+    ];
+
+    await writeJSON(BOOKINGS_KEY, demoBookings);
+  },
 };
