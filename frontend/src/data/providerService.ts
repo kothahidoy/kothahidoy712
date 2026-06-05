@@ -133,11 +133,15 @@ export const providerService = {
 
     // Demo mode: filter local bookings
     const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
-    return bookings.filter(
+    console.log("[providerService.listJobs] All bookings:", JSON.stringify(bookings.map(b => ({ id: b.id, providerId: b.providerId, status: b.status })), null, 2));
+    console.log("[providerService.listJobs] Looking for providerId:", providerId);
+    const filtered = bookings.filter(
       (b) =>
         b.providerId === providerId &&
         ["assigned", "in_progress"].includes(b.status)
     );
+    console.log("[providerService.listJobs] Filtered jobs:", filtered.length);
+    return filtered;
   },
 
   /**
@@ -372,15 +376,30 @@ export const providerService = {
   getCategoryName,
 
   /**
+   * Debug helper - get info about bookings for a provider (demo mode only)
+   */
+  getDebugInfo: async (providerId: string): Promise<string | null> => {
+    if (isSupabaseConfigured) return null;
+    
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    const info = bookings.map(b => 
+      `${b.serviceTitle?.slice(0, 20) ?? 'Unknown'}... | provId: ${b.providerId?.slice(0,8) ?? 'NONE'} | status: ${b.status}`
+    ).join('\n');
+    return info;
+  },
+
+  /**
    * Initialize demo providers (for testing without Supabase)
+   * Uses fixed IDs to ensure consistency across sessions
    */
   initDemoProviders: async (): Promise<void> => {
     const existing = await readJSON<Provider[]>(PROVIDERS_KEY, []);
     if (existing.length > 0) return; // Already initialized
 
+    // IMPORTANT: Use fixed IDs for demo mode consistency
     const demoProviders: Provider[] = [
       {
-        id: newId(),
+        id: "demo-provider-rahul",
         name: "Rahul Sharma",
         phone: "9876543210",
         serviceType: "electrician",
@@ -388,7 +407,7 @@ export const providerService = {
         createdAt: new Date().toISOString(),
       },
       {
-        id: newId(),
+        id: "demo-provider-amit",
         name: "Amit Kumar",
         phone: "9876543211",
         serviceType: "plumber",
@@ -396,7 +415,7 @@ export const providerService = {
         createdAt: new Date().toISOString(),
       },
       {
-        id: newId(),
+        id: "demo-provider-suresh",
         name: "Suresh Patel",
         phone: "9876543212",
         serviceType: "ac-repair",
@@ -404,7 +423,7 @@ export const providerService = {
         createdAt: new Date().toISOString(),
       },
       {
-        id: newId(),
+        id: "demo-provider-priya",
         name: "Priya Singh",
         phone: "9876543213",
         serviceType: "cleaning",
@@ -412,7 +431,7 @@ export const providerService = {
         createdAt: new Date().toISOString(),
       },
       {
-        id: newId(),
+        id: "demo-provider-rajesh",
         name: "Rajesh Verma",
         phone: "9876543214",
         serviceType: "electrician",
@@ -420,7 +439,7 @@ export const providerService = {
         createdAt: new Date().toISOString(),
       },
       {
-        id: newId(),
+        id: "demo-provider-mohammed",
         name: "Mohammed Ali",
         phone: "9876543215",
         serviceType: "carpenter",
@@ -434,6 +453,7 @@ export const providerService = {
 
   /**
    * Initialize demo bookings for testing provider assignment flow
+   * Uses fixed IDs for consistency
    */
   initDemoBookings: async (): Promise<void> => {
     const existing = await readJSON<Booking[]>(BOOKINGS_KEY, []);
@@ -444,9 +464,10 @@ export const providerService = {
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
 
+    // IMPORTANT: Use fixed IDs for demo mode consistency
     const demoBookings: Booking[] = [
       {
-        id: newId(),
+        id: "demo-booking-1",
         serviceId: "svc-elec-1",
         serviceTitle: "Electrical Wiring & Switch Fix",
         serviceImage: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBob21lJTIwcmVwYWlyJTIwdGVjaG5pY2lhbnxlbnwwfHx8fDE3ODAwNzU4MzF8MA&ixlib=rb-4.1.0&q=85&w=800",
@@ -468,7 +489,7 @@ export const providerService = {
         paymentMethod: "razorpay",
       },
       {
-        id: newId(),
+        id: "demo-booking-2",
         serviceId: "svc-plumb-1",
         serviceTitle: "Tap, Basin & Pipe Leak Fix",
         serviceImage: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?auto=format&fit=crop&w=800&q=80",
@@ -490,7 +511,7 @@ export const providerService = {
         paymentMethod: "razorpay",
       },
       {
-        id: newId(),
+        id: "demo-booking-3",
         serviceId: "svc-ac-1",
         serviceTitle: "AC Service & Deep Cleaning",
         serviceImage: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=800&q=80",
@@ -513,5 +534,19 @@ export const providerService = {
     ];
 
     await writeJSON(BOOKINGS_KEY, demoBookings);
+  },
+
+  /**
+   * Reset demo data - clears all demo storage and reinitializes
+   */
+  resetDemoData: async (): Promise<void> => {
+    // Clear all demo data
+    await storage.removeItem(PROVIDERS_KEY);
+    await storage.removeItem(BOOKINGS_KEY);
+    await storage.removeItem(PROVIDER_SESSION_KEY);
+    
+    // Reinitialize
+    await providerService.initDemoProviders();
+    await providerService.initDemoBookings();
   },
 };

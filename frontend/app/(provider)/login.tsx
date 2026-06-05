@@ -81,6 +81,19 @@ export default function ProviderLogin() {
     }
   };
 
+  const handleResetDemoData = async () => {
+    if (isSupabaseConfigured) return; // Only for demo mode
+    setLoading(true);
+    try {
+      await providerService.resetDemoData();
+      notify("Demo Reset", "All demo data has been reset. You can now test the full flow fresh.");
+    } catch (e) {
+      notify("Reset Failed", "Could not reset demo data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (checkingSession) {
     return (
       <SafeAreaView style={styles.root}>
@@ -165,6 +178,16 @@ export default function ProviderLogin() {
             disabled={loading || !phone.trim()}
             testID="provider-login-btn"
           />
+
+          {!isSupabaseConfigured && (
+            <TouchableOpacity
+              style={styles.resetBtn}
+              onPress={handleResetDemoData}
+              disabled={loading}
+            >
+              <Text style={styles.resetBtnText}>Reset Demo Data</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -264,5 +287,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     lineHeight: 18,
+  },
+  resetBtn: {
+    marginTop: 16,
+    alignItems: "center",
+    padding: 12,
+  },
+  resetBtnText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: "600",
   },
 });
