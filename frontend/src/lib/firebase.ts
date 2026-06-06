@@ -1,7 +1,6 @@
 // Firebase configuration for Phone Authentication
-// Replace placeholder values with your Firebase project credentials
 
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, FirebaseApp, getApp } from "firebase/app";
 import {
   getAuth,
   Auth,
@@ -14,56 +13,63 @@ import {
 import { Platform } from "react-native";
 
 // ============================================================
-// FIREBASE CONFIGURATION - REPLACE WITH YOUR CREDENTIALS
-// ============================================================
-// Get these from Firebase Console:
-// 1. Go to https://console.firebase.google.com/
-// 2. Select your project (or create one)
-// 3. Click the gear icon > Project Settings
-// 4. Scroll to "Your apps" section
-// 5. Add a Web app if you haven't, then copy config
+// FIREBASE CONFIGURATION
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "YOUR_APP_ID",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "",
 };
 
-// Check if Firebase is properly configured (not using placeholder values)
+// Check if Firebase is properly configured (not using placeholder/empty values)
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
-    firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+    firebaseConfig.apiKey.length > 10 &&
     firebaseConfig.projectId &&
-    firebaseConfig.projectId !== "YOUR_PROJECT_ID"
+    firebaseConfig.projectId.length > 3
 );
 
-// Initialize Firebase app (singleton)
+// Export the config for FirebaseRecaptchaVerifierModal
+export const getFirebaseConfig = () => firebaseConfig;
+
+// Initialize Firebase app immediately on module load (singleton)
 let firebaseApp: FirebaseApp | null = null;
 let firebaseAuth: Auth | null = null;
 
 // Only initialize on client side and when configured
 const isSSR = Platform.OS === "web" && typeof window === "undefined";
 
+// IMMEDIATE INITIALIZATION - This must happen before expo-firebase-recaptcha loads
 if (!isSSR && isFirebaseConfigured) {
   try {
     if (getApps().length === 0) {
       firebaseApp = initializeApp(firebaseConfig);
+      console.log("[Firebase] App initialized immediately on module load");
     } else {
-      firebaseApp = getApps()[0];
+      firebaseApp = getApp();
+      console.log("[Firebase] Using existing app");
     }
-    firebaseAuth = getAuth(firebaseApp);
     
-    // Set language to device language
-    if (firebaseAuth) {
-      firebaseAuth.useDeviceLanguage();
-    }
+    // Also initialize auth immediately
+    firebaseAuth = getAuth(firebaseApp);
+    firebaseAuth.useDeviceLanguage();
   } catch (error) {
-    console.error("Firebase initialization error:", error);
+    console.error("[Firebase] Initialization error:", error);
   }
+}
+
+// Function to ensure Firebase is initialized (now a no-op since we initialize immediately)
+export function ensureFirebaseInitialized(): FirebaseApp | null {
+  return firebaseApp;
+}
+
+// Function to get Firebase Auth
+export function getFirebaseAuth(): Auth | null {
+  return firebaseAuth;
 }
 
 export const firebase = firebaseApp;

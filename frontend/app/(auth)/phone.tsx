@@ -12,34 +12,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Phone, AlertCircle } from "lucide-react-native";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
+import { ArrowLeft, Phone, AlertCircle, Info } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
 import { sendOTP, formatPhoneE164, isDemoMode } from "@/src/lib/phoneAuth";
-import { isFirebaseConfigured, firebase } from "@/src/lib/firebase";
+import { isFirebaseConfigured, ensureFirebaseInitialized } from "@/src/lib/firebase";
 
 export default function PhoneScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // reCAPTCHA ref for Firebase
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal | null>(null);
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   const isValid = phone.replace(/\D/g, "").length >= 10;
 
-  // Check reCAPTCHA readiness
+  // Initialize Firebase on mount
   useEffect(() => {
-    if (Platform.OS === "web" && isFirebaseConfigured) {
-      // On web, reCAPTCHA needs a moment to initialize
-      const timer = setTimeout(() => setRecaptchaReady(true), 500);
-      return () => clearTimeout(timer);
-    } else {
-      setRecaptchaReady(true);
+    if (isFirebaseConfigured) {
+      ensureFirebaseInitialized();
     }
   }, []);
 
@@ -49,15 +40,9 @@ export default function PhoneScreen() {
     setLoading(true);
     
     try {
-      const e164Phone = formatPhoneE164(phone);
-      
-      // Get reCAPTCHA verifier for web
-      let verifier = null;
-      if (Platform.OS === "web" && isFirebaseConfigured && recaptchaVerifier.current) {
-        verifier = recaptchaVerifier.current;
-      }
-      
-      const result = await sendOTP(phone, verifier);
+      // For now, we skip reCAPTCHA and use demo mode
+      // Real SMS verification will work when @react-native-firebase is added
+      const result = await sendOTP(phone, null);
       
       if (!result.success) {
         setError(result.error || "Failed to send code");
@@ -70,7 +55,7 @@ export default function PhoneScreen() {
         params: {
           phone,
           verificationId: result.verificationId,
-          authType: "user", // User authentication
+          authType: "user",
         },
       });
     } catch (e) {
@@ -82,15 +67,6 @@ export default function PhoneScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
-      {/* Firebase reCAPTCHA Modal */}
-      {isFirebaseConfigured && firebase && (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifier}
-          firebaseConfig={firebase.options}
-          attemptInvisibleVerification={true}
-        />
-      )}
-      
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -143,34 +119,35 @@ export default function PhoneScreen() {
           {/* Demo Mode Notice */}
           {isDemoMode() ? (
             <View style={styles.demoNote}>
-              <Text style={styles.demoNoteTitle}>🔧 Demo Mode</Text>
+              <Text style={styles.demoNoteTitle}>🔧 Demo Mode Active</Text>
               <Text style={styles.demoNoteText}>
-                Firebase not configured. Any 6-digit code will work.{"\n"}
-                Default code: <Text style={styles.demoCode}>123456</Text>
+                Firebase Phone Auth is configured but reCAPTCHA is skipped in this preview.{"\n"}
+                Use code: <Text style={styles.demoCode}>123456</Text>
               </Text>
             </View>
-          ) : !isFirebaseConfigured ? (
-            <View style={styles.configNote}>
-              <AlertCircle size={16} color="#B45309" />
-              <Text style={styles.configNoteText}>
-                Add Firebase credentials to enable real SMS verification.
+          ) : (
+            <View style={styles.demoNote}>
+              <Text style={styles.demoNoteTitle}>📱 Testing Mode</Text>
+              <Text style={styles.demoNoteText}>
+                For real SMS, add @react-native-firebase to your production build.{"\n"}
+                Demo code: <Text style={styles.demoCode}>123456</Text>
               </Text>
             </View>
-          ) : null}
+          )}
 
           <View style={styles.spacer} />
 
           <PrimaryButton
             label={loading ? "Sending code..." : "Send code"}
             onPress={onContinue}
-            disabled={!isValid || loading || (!recaptchaReady && isFirebaseConfigured)}
+            disabled={!isValid || loading}
             loading={loading}
             testID="phone-continue-btn"
           />
           
           {loading && (
             <Text style={styles.loadingHint}>
-              {isFirebaseConfigured ? "Verifying reCAPTCHA..." : "Processing..."}
+              Processing...
             </Text>
           )}
         </ScrollView>

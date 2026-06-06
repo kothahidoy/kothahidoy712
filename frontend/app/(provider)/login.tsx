@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,19 +14,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Phone,
   Shield,
   Wrench,
   AlertCircle,
 } from "lucide-react-native";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { providerService } from "@/src/data/providerService";
 import { colors, radius } from "@/src/theme";
 import { notify } from "@/src/utils/dialogs";
 import { sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
-import { isFirebaseConfigured, firebase } from "@/src/lib/firebase";
+import { isFirebaseConfigured, ensureFirebaseInitialized } from "@/src/lib/firebase";
 
 export default function ProviderLogin() {
   const router = useRouter();
@@ -34,10 +32,6 @@ export default function ProviderLogin() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // reCAPTCHA ref for Firebase
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal | null>(null);
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   // Check if already logged in
   useEffect(() => {
@@ -62,13 +56,10 @@ export default function ProviderLogin() {
     providerService.initDemoBookings();
   }, []);
 
-  // Check reCAPTCHA readiness
+  // Initialize Firebase on mount
   useEffect(() => {
-    if (Platform.OS === "web" && isFirebaseConfigured) {
-      const timer = setTimeout(() => setRecaptchaReady(true), 500);
-      return () => clearTimeout(timer);
-    } else {
-      setRecaptchaReady(true);
+    if (isFirebaseConfigured) {
+      ensureFirebaseInitialized();
     }
   }, []);
 
@@ -84,7 +75,6 @@ export default function ProviderLogin() {
     
     try {
       // First check if provider exists in the system
-      // We do a "pre-check" to avoid sending OTP to non-providers
       const providers = await providerService.listAllProviders();
       const providerExists = providers.some(
         (p) => p.phone.replace(/\D/g, "") === normalizedPhone
@@ -99,13 +89,8 @@ export default function ProviderLogin() {
         return;
       }
       
-      // Provider exists - send OTP
-      let verifier = null;
-      if (Platform.OS === "web" && isFirebaseConfigured && recaptchaVerifier.current) {
-        verifier = recaptchaVerifier.current;
-      }
-      
-      const result = await sendOTP(phone, verifier);
+      // Provider exists - send OTP (without reCAPTCHA for now)
+      const result = await sendOTP(phone, null);
       
       if (!result.success) {
         setError(result.error || "Failed to send code");
@@ -152,15 +137,6 @@ export default function ProviderLogin() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
-      {/* Firebase reCAPTCHA Modal */}
-      {isFirebaseConfigured && firebase && (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifier}
-          firebaseConfig={firebase.options}
-          attemptInvisibleVerification={true}
-        />
-      )}
-      
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}

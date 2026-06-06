@@ -7,6 +7,13 @@ import { Platform } from "react-native";
 
 import { SessionProvider } from "@/src/context/SessionContext";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
+// Initialize Firebase at app startup (before any component uses it)
+import { ensureFirebaseInitialized, isFirebaseConfigured } from "@/src/lib/firebase";
+
+// Initialize Firebase immediately when this module loads
+if (isFirebaseConfigured) {
+  ensureFirebaseInitialized();
+}
 
 // Keep the native splash visible from cold start until icon fonts register.
 // Required because @expo/vector-icons' componentDidMount fallback fires

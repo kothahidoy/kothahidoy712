@@ -3,8 +3,9 @@
 
 import { Platform } from "react-native";
 import {
-  auth,
   isFirebaseConfigured,
+  getFirebaseAuth,
+  ensureFirebaseInitialized,
   signInWithPhoneNumber,
   PhoneAuthProvider,
   signInWithCredential,
@@ -52,9 +53,11 @@ export async function sendOTP(
   console.log("[phoneAuth] Firebase configured:", isFirebaseConfigured);
   console.log("[phoneAuth] Has recaptcha:", !!recaptchaVerifier);
   
-  // Demo mode - skip actual SMS
-  if (!isFirebaseConfigured) {
-    console.log("[phoneAuth] Demo mode - OTP would be:", DEMO_OTP);
+  // Demo mode - skip actual SMS when:
+  // 1. Firebase is not configured, OR
+  // 2. No reCAPTCHA verifier available (needed for web-based Firebase auth)
+  if (!isFirebaseConfigured || !recaptchaVerifier) {
+    console.log("[phoneAuth] Using demo mode - OTP code:", DEMO_OTP);
     storedVerificationId = "demo-verification-id";
     return {
       success: true,
@@ -62,15 +65,11 @@ export async function sendOTP(
     };
   }
   
-  // Firebase requires reCAPTCHA on web
-  if (Platform.OS === "web" && !recaptchaVerifier) {
-    return {
-      success: false,
-      error: "reCAPTCHA verification required",
-    };
-  }
-  
   try {
+    // Ensure Firebase is initialized
+    ensureFirebaseInitialized();
+    const auth = getFirebaseAuth();
+    
     if (!auth) {
       throw new Error("Firebase Auth not initialized");
     }
@@ -154,6 +153,8 @@ export async function verifyOTP(
   }
   
   try {
+    const auth = getFirebaseAuth();
+    
     // Use confirmationResult if available (web flow)
     if (confirmationResult) {
       const result = await confirmationResult.confirm(code);
@@ -208,6 +209,7 @@ export async function verifyOTP(
  * Sign out from Firebase Auth
  */
 export async function signOutFirebase(): Promise<void> {
+  const auth = getFirebaseAuth();
   if (auth) {
     try {
       await auth.signOut();
@@ -223,6 +225,7 @@ export async function signOutFirebase(): Promise<void> {
  * Get current Firebase user
  */
 export function getCurrentFirebaseUser() {
+  const auth = getFirebaseAuth();
   return auth?.currentUser || null;
 }
 
