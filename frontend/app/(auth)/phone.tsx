@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -8,35 +8,71 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Phone } from "lucide-react-native";
+import { ArrowLeft, Phone, AlertCircle } from "lucide-react-native";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
-import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { sendOTP, formatPhoneE164, isDemoMode } from "@/src/lib/phoneAuth";
+import { isFirebaseConfigured, firebase } from "@/src/lib/firebase";
 
 export default function PhoneScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // reCAPTCHA ref for Firebase
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal | null>(null);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   const isValid = phone.replace(/\D/g, "").length >= 10;
+
+  // Check reCAPTCHA readiness
+  useEffect(() => {
+    if (Platform.OS === "web" && isFirebaseConfigured) {
+      // On web, reCAPTCHA needs a moment to initialize
+      const timer = setTimeout(() => setRecaptchaReady(true), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setRecaptchaReady(true);
+    }
+  }, []);
 
   const onContinue = async () => {
     if (!isValid) return;
     setError(null);
     setLoading(true);
+    
     try {
-      if (isSupabaseConfigured && supabase) {
-        const e164 = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
-        const { error: e } = await supabase.auth.signInWithOtp({ phone: e164 });
-        if (e) throw e;
+      const e164Phone = formatPhoneE164(phone);
+      
+      // Get reCAPTCHA verifier for web
+      let verifier = null;
+      if (Platform.OS === "web" && isFirebaseConfigured && recaptchaVerifier.current) {
+        verifier = recaptchaVerifier.current;
       }
-      // In demo mode (or after Supabase OTP send) we route to verify screen.
-      router.push({ pathname: "/(auth)/verify", params: { phone } });
+      
+      const result = await sendOTP(phone, verifier);
+      
+      if (!result.success) {
+        setError(result.error || "Failed to send code");
+        return;
+      }
+      
+      // Navigate to verify screen with phone and verification ID
+      router.push({
+        pathname: "/(auth)/verify",
+        params: {
+          phone,
+          verificationId: result.verificationId,
+          authType: "user", // User authentication
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send code");
     } finally {
@@ -46,6 +82,15 @@ export default function PhoneScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
+      {/* Firebase reCAPTCHA Modal */}
+      {isFirebaseConfigured && firebase && (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={firebase.options}
+          attemptInvisibleVerification={true}
+        />
+      )}
+      
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -69,7 +114,7 @@ export default function PhoneScreen() {
           </View>
           <Text style={styles.title}>Enter your mobile number</Text>
           <Text style={styles.subtitle}>
-            We&apos;ll send a 6-digit code to verify your identity.
+            We'll send a 6-digit code to verify your identity.
           </Text>
 
           <View style={styles.inputRow}>
@@ -87,12 +132,28 @@ export default function PhoneScreen() {
               testID="phone-input"
             />
           </View>
-          {error ? <Text style={styles.err}>{error}</Text> : null}
+          
+          {error ? (
+            <View style={styles.errorBox}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.err}>{error}</Text>
+            </View>
+          ) : null}
 
-          {!isSupabaseConfigured ? (
+          {/* Demo Mode Notice */}
+          {isDemoMode() ? (
             <View style={styles.demoNote}>
+              <Text style={styles.demoNoteTitle}>🔧 Demo Mode</Text>
               <Text style={styles.demoNoteText}>
-                Demo mode — any 6-digit code will work on the next screen.
+                Firebase not configured. Any 6-digit code will work.{"\n"}
+                Default code: <Text style={styles.demoCode}>123456</Text>
+              </Text>
+            </View>
+          ) : !isFirebaseConfigured ? (
+            <View style={styles.configNote}>
+              <AlertCircle size={16} color="#B45309" />
+              <Text style={styles.configNoteText}>
+                Add Firebase credentials to enable real SMS verification.
               </Text>
             </View>
           ) : null}
@@ -100,12 +161,18 @@ export default function PhoneScreen() {
           <View style={styles.spacer} />
 
           <PrimaryButton
-            label="Send code"
+            label={loading ? "Sending code..." : "Send code"}
             onPress={onContinue}
-            disabled={!isValid}
+            disabled={!isValid || loading || (!recaptchaReady && isFirebaseConfigured)}
             loading={loading}
             testID="phone-continue-btn"
           />
+          
+          {loading && (
+            <Text style={styles.loadingHint}>
+              {isFirebaseConfigured ? "Verifying reCAPTCHA..." : "Processing..."}
+            </Text>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -174,17 +241,60 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.5,
   },
-  err: { color: colors.error, fontSize: 13, marginTop: 10 },
-  demoNote: {
-    marginTop: 16,
-    backgroundColor: colors.warningLight,
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
     padding: 12,
+    backgroundColor: "#FEF2F2",
     borderRadius: radius.md,
   },
+  err: { color: colors.error, fontSize: 13, flex: 1 },
+  demoNote: {
+    marginTop: 16,
+    backgroundColor: colors.primaryLight,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary + "30",
+  },
+  demoNoteTitle: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
   demoNoteText: {
+    color: colors.primary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  demoCode: {
+    fontWeight: "800",
+    backgroundColor: colors.primary + "20",
+    paddingHorizontal: 4,
+  },
+  configNote: {
+    marginTop: 16,
+    backgroundColor: "#FEF3C7",
+    padding: 12,
+    borderRadius: radius.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  configNoteText: {
     color: "#92400E",
     fontSize: 12,
-    fontWeight: "600",
+    flex: 1,
+    lineHeight: 18,
   },
   spacer: { flex: 1, minHeight: 40 },
+  loadingHint: {
+    textAlign: "center",
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 12,
+  },
 });

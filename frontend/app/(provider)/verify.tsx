@@ -11,23 +11,22 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react-native";
+import { ArrowLeft, ShieldCheck, AlertCircle, RefreshCw, Wrench } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
 import { verifyOTP, sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
-import { dataService } from "@/src/data/service";
+import { providerService } from "@/src/data/providerService";
+import { notify } from "@/src/utils/dialogs";
 
 const SLOTS = 6;
-const RESEND_COOLDOWN = 30; // seconds
+const RESEND_COOLDOWN = 30;
 
-export default function VerifyScreen() {
+export default function ProviderVerifyScreen() {
   const router = useRouter();
-  const { phone, email, verificationId, authType } = useLocalSearchParams<{
+  const { phone, verificationId } = useLocalSearchParams<{
     phone?: string;
-    email?: string;
     verificationId?: string;
-    authType?: string;
   }>();
   
   const [digits, setDigits] = useState<string[]>(Array(SLOTS).fill(""));
@@ -52,7 +51,7 @@ export default function VerifyScreen() {
     const next = [...digits];
     next[idx] = clean;
     setDigits(next);
-    setError(null); // Clear error on input
+    setError(null);
     if (clean && idx < SLOTS - 1) refs.current[idx + 1]?.focus();
   };
 
@@ -62,45 +61,37 @@ export default function VerifyScreen() {
     }
   };
 
-  const routeAfterAuth = async () => {
-    try {
-      // Check if this is provider auth
-      if (authType === "provider") {
-        router.replace("/(provider)/jobs");
-        return;
-      }
-      
-      // User auth - check if profile exists
-      const fresh = await dataService.getProfile();
-      if (fresh?.name) {
-        router.replace("/(tabs)");
-        return;
-      }
-    } catch {}
-    router.replace({
-      pathname: "/(auth)/profile-setup",
-      params: { phone, email },
-    });
-  };
-
   const onVerify = async () => {
-    if (!isComplete) return;
+    if (!isComplete || !phone) return;
     setError(null);
     setLoading(true);
     
     try {
-      const result = await verifyOTP(code, verificationId);
+      // First verify the OTP
+      const otpResult = await verifyOTP(code, verificationId);
       
-      if (!result.success) {
-        setError(result.error || "Invalid code");
-        // Clear the OTP input on error
+      if (!otpResult.success) {
+        setError(otpResult.error || "Invalid code");
         setDigits(Array(SLOTS).fill(""));
         refs.current[0]?.focus();
         return;
       }
       
-      // Success - navigate based on auth type
-      await routeAfterAuth();
+      // OTP verified - now check if provider exists
+      const normalizedPhone = phone.replace(/\D/g, "").trim();
+      const provider = await providerService.login(normalizedPhone);
+      
+      if (provider) {
+        // Provider found - navigate to jobs
+        router.replace("/(provider)/jobs");
+      } else {
+        // Phone verified but not a registered provider
+        notify(
+          "Not Registered",
+          "Your phone is verified but you're not registered as a provider. Please contact admin."
+        );
+        router.replace("/(provider)/login");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
     } finally {
@@ -109,15 +100,13 @@ export default function VerifyScreen() {
   };
 
   const onResend = async () => {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0 || !phone) return;
     
     setError(null);
     setResendCooldown(RESEND_COOLDOWN);
     
     try {
-      // Note: On web, this would need reCAPTCHA again
-      // For now, we just restart the cooldown in demo mode
-      if (!isDemoMode() && phone) {
+      if (!isDemoMode()) {
         const result = await sendOTP(phone);
         if (!result.success) {
           setError(result.error || "Failed to resend code");
@@ -146,20 +135,21 @@ export default function VerifyScreen() {
             style={styles.back}
             onPress={() => router.back()}
             hitSlop={12}
-            testID="verify-back-btn"
+            testID="provider-verify-back-btn"
           >
             <ArrowLeft size={22} color={colors.textMain} />
           </TouchableOpacity>
 
           <View style={styles.iconWrap}>
+            <View style={styles.iconBadge}>
+              <Wrench size={14} color="#fff" />
+            </View>
             <ShieldCheck size={28} color={colors.primary} />
           </View>
-          <Text style={styles.title}>Enter verification code</Text>
+          <Text style={styles.title}>Provider Verification</Text>
           <Text style={styles.subtitle}>
-            We sent a 6-digit code to{" "}
-            <Text style={styles.phone}>
-              {email ?? (phone ? `+91 ${phone}` : "your account")}
-            </Text>
+            Enter the 6-digit code sent to{" "}
+            <Text style={styles.phone}>+91 {phone}</Text>
           </Text>
 
           <View style={styles.otpRow}>
@@ -182,7 +172,7 @@ export default function VerifyScreen() {
                   error ? styles.otpBoxError : null,
                 ]}
                 selectTextOnFocus
-                testID={`otp-input-${i}`}
+                testID={`provider-otp-input-${i}`}
               />
             ))}
           </View>
@@ -194,7 +184,6 @@ export default function VerifyScreen() {
             </View>
           ) : null}
 
-          {/* Demo mode hint */}
           {isDemoMode() && (
             <View style={styles.demoHint}>
               <Text style={styles.demoHintText}>
@@ -207,7 +196,7 @@ export default function VerifyScreen() {
             style={[styles.resend, resendCooldown > 0 && styles.resendDisabled]}
             onPress={onResend}
             disabled={resendCooldown > 0}
-            testID="resend-btn"
+            testID="provider-resend-btn"
           >
             <RefreshCw
               size={14}
@@ -228,11 +217,11 @@ export default function VerifyScreen() {
           <View style={styles.spacer} />
 
           <PrimaryButton
-            label={loading ? "Verifying..." : "Verify & Continue"}
+            label={loading ? "Verifying..." : "Verify & Login"}
             onPress={onVerify}
             disabled={!isComplete || loading}
             loading={loading}
-            testID="verify-continue-btn"
+            testID="provider-verify-btn"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -260,6 +249,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
+    position: "relative",
+  },
+  iconBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.background,
   },
   title: {
     fontSize: 26,

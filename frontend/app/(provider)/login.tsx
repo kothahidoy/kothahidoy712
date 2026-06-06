@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,19 +17,27 @@ import {
   Phone,
   Shield,
   Wrench,
+  AlertCircle,
 } from "lucide-react-native";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { providerService } from "@/src/data/providerService";
 import { colors, radius } from "@/src/theme";
 import { notify } from "@/src/utils/dialogs";
-import { isSupabaseConfigured } from "@/src/lib/supabase";
+import { sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
+import { isFirebaseConfigured, firebase } from "@/src/lib/firebase";
 
 export default function ProviderLogin() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // reCAPTCHA ref for Firebase
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal | null>(null);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   // Check if already logged in
   useEffect(() => {
@@ -50,39 +58,76 @@ export default function ProviderLogin() {
 
   // Initialize demo providers if in demo mode
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      providerService.initDemoProviders();
-      providerService.initDemoBookings();
+    providerService.initDemoProviders();
+    providerService.initDemoBookings();
+  }, []);
+
+  // Check reCAPTCHA readiness
+  useEffect(() => {
+    if (Platform.OS === "web" && isFirebaseConfigured) {
+      const timer = setTimeout(() => setRecaptchaReady(true), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setRecaptchaReady(true);
     }
   }, []);
 
-  const handleLogin = async () => {
+  const handleSendOTP = async () => {
     const normalizedPhone = phone.replace(/\D/g, "").trim();
     if (!normalizedPhone || normalizedPhone.length < 10) {
       notify("Invalid phone", "Please enter a valid 10-digit phone number.");
       return;
     }
 
+    setError(null);
     setLoading(true);
+    
     try {
-      const provider = await providerService.login(normalizedPhone);
-      if (provider) {
-        router.replace("/(provider)/jobs");
-      } else {
+      // First check if provider exists in the system
+      // We do a "pre-check" to avoid sending OTP to non-providers
+      const providers = await providerService.listAllProviders();
+      const providerExists = providers.some(
+        (p) => p.phone.replace(/\D/g, "") === normalizedPhone
+      );
+      
+      if (!providerExists) {
         notify(
           "Not registered",
           "No service provider found with this phone number. Please contact admin."
         );
+        setLoading(false);
+        return;
       }
+      
+      // Provider exists - send OTP
+      let verifier = null;
+      if (Platform.OS === "web" && isFirebaseConfigured && recaptchaVerifier.current) {
+        verifier = recaptchaVerifier.current;
+      }
+      
+      const result = await sendOTP(phone, verifier);
+      
+      if (!result.success) {
+        setError(result.error || "Failed to send code");
+        return;
+      }
+      
+      // Navigate to provider verify screen
+      router.push({
+        pathname: "/(provider)/verify",
+        params: {
+          phone: normalizedPhone,
+          verificationId: result.verificationId,
+        },
+      });
     } catch (e) {
-      notify("Login failed", "Something went wrong. Please try again.");
+      setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   const handleResetDemoData = async () => {
-    if (isSupabaseConfigured) return; // Only for demo mode
     setLoading(true);
     try {
       await providerService.resetDemoData();
@@ -107,6 +152,15 @@ export default function ProviderLogin() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
+      {/* Firebase reCAPTCHA Modal */}
+      {isFirebaseConfigured && firebase && (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={firebase.options}
+          attemptInvisibleVerification={true}
+        />
+      )}
+      
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -134,20 +188,24 @@ export default function ProviderLogin() {
 
           <Text style={styles.title}>Provider Portal</Text>
           <Text style={styles.subtitle}>
-            Login with your registered phone number to view and manage your
-            assigned jobs.
+            Enter your registered phone number. We'll send a verification code to confirm your identity.
           </Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputWrap}>
-              <Phone size={18} color={colors.textMuted} />
+            <View style={styles.inputRow}>
+              <View style={styles.cc}>
+                <Text style={styles.ccText}>🇮🇳 +91</Text>
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="Enter your phone number"
                 placeholderTextColor={colors.textMuted}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(t) => {
+                  setPhone(t.replace(/[^0-9 ]/g, ""));
+                  setError(null);
+                }}
                 keyboardType="phone-pad"
                 maxLength={15}
                 autoFocus
@@ -155,6 +213,13 @@ export default function ProviderLogin() {
               />
             </View>
           </View>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.infoBox}>
             <Shield size={16} color={colors.primary} />
@@ -164,22 +229,25 @@ export default function ProviderLogin() {
             </Text>
           </View>
 
-          {!isSupabaseConfigured && (
-            <View style={[styles.infoBox, { backgroundColor: colors.warningLight }]}>
-              <Text style={[styles.infoText, { color: "#B45309" }]}>
-                💡 Demo Mode: Use phone 9876543210 to login as a demo provider
+          {isDemoMode() && (
+            <View style={[styles.infoBox, { backgroundColor: colors.primaryLight }]}>
+              <Text style={[styles.infoText, { color: colors.primary }]}>
+                🔧 <Text style={{ fontWeight: "700" }}>Demo Mode</Text>{"\n"}
+                Use phone <Text style={{ fontWeight: "700" }}>9876543210</Text> (Rahul Sharma - Electrician){"\n"}
+                OTP code: <Text style={{ fontWeight: "700" }}>123456</Text>
               </Text>
             </View>
           )}
 
           <PrimaryButton
-            label={loading ? "Logging in..." : "Login"}
-            onPress={handleLogin}
-            disabled={loading || !phone.trim()}
+            label={loading ? "Sending code..." : "Send Verification Code"}
+            onPress={handleSendOTP}
+            disabled={loading || !phone.trim() || (!recaptchaReady && isFirebaseConfigured)}
+            loading={loading}
             testID="provider-login-btn"
           />
 
-          {!isSupabaseConfigured && (
+          {isDemoMode() && (
             <TouchableOpacity
               style={styles.resetBtn}
               onPress={handleResetDemoData}
@@ -257,35 +325,57 @@ const styles = StyleSheet.create({
     color: colors.textMain,
     marginBottom: 8,
   },
-  inputWrap: {
+  inputRow: {
     flexDirection: "row",
+    gap: 8,
+  },
+  cc: {
+    height: 56,
+    paddingHorizontal: 14,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  ccText: { fontSize: 14, fontWeight: "600", color: colors.textMain },
+  input: {
+    flex: 1,
+    height: 56,
+    paddingHorizontal: 16,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    paddingHorizontal: 16,
-    height: 56,
-  },
-  input: {
-    flex: 1,
     fontSize: 16,
     color: colors.textMain,
   },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#FEF2F2",
+    borderRadius: radius.md,
+  },
+  errorText: { color: colors.error, fontSize: 13, flex: 1 },
   infoBox: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surface,
     padding: 14,
     borderRadius: radius.lg,
-    marginBottom: 24,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   infoText: {
     flex: 1,
     fontSize: 12,
-    color: colors.primary,
+    color: colors.textMuted,
     lineHeight: 18,
   },
   resetBtn: {
