@@ -240,7 +240,14 @@ export const providerService = {
   getAvailableProvidersFor: async (
     categoryId: string
   ): Promise<Provider[]> => {
+    // Check if user is authenticated before trying Supabase
+    let hasAuthSession = false;
     if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.auth.getUser();
+      hasAuthSession = !!data.user;
+    }
+
+    if (isSupabaseConfigured && supabase && hasAuthSession) {
       const { data, error } = await supabase.rpc(
         "admin_available_providers_for",
         { category_id: categoryId }
@@ -255,7 +262,9 @@ export const providerService = {
       }));
     }
 
-    // Demo mode
+    // Demo mode - ensure providers are initialized first
+    await providerService.initDemoProviders();
+    
     const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
     return providers.filter(
       (p) => p.serviceType === categoryId && p.isAvailable
@@ -270,7 +279,14 @@ export const providerService = {
     bookingId: string,
     providerId: string
   ): Promise<{ success: boolean; error?: string }> => {
+    // Check if user is authenticated before trying Supabase
+    let hasAuthSession = false;
     if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.auth.getUser();
+      hasAuthSession = !!data.user;
+    }
+
+    if (isSupabaseConfigured && supabase && hasAuthSession) {
       const { error } = await supabase.rpc("admin_assign_provider", {
         booking_id: bookingId,
         provider_id: providerId,

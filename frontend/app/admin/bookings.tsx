@@ -27,7 +27,7 @@ import {
 import { adminService } from "@/src/data/admin";
 import { providerService } from "@/src/data/providerService";
 import { dataService } from "@/src/data/service";
-import { isSupabaseConfigured } from "@/src/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus, Provider, Service } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
@@ -64,12 +64,25 @@ export default function AdminBookings() {
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
-  // Initialize demo data in demo mode
+  // Initialize demo data if user is not authenticated (demo mode)
+  // This ensures demo providers exist even when Supabase is configured
+  // but the user hasn't logged in
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      providerService.initDemoProviders();
-      providerService.initDemoBookings();
-    }
+    const initDemoDataIfNeeded = async () => {
+      // Always initialize demo providers for unauthenticated users
+      // Even if Supabase is configured, anonymous users need local demo data
+      let hasAuthSession = false;
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.auth.getUser();
+        hasAuthSession = !!data.user;
+      }
+      
+      // If no auth session, initialize demo data
+      if (!hasAuthSession) {
+        await providerService.initDemoProviders();
+      }
+    };
+    initDemoDataIfNeeded();
   }, []);
 
   const load = useCallback(async () => {

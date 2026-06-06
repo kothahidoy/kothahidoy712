@@ -1,8 +1,9 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { Platform } from "react-native";
 
 import { SessionProvider } from "@/src/context/SessionContext";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
@@ -15,6 +16,12 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    // Mark that we're now on the client side to prevent hydration mismatches
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {
@@ -25,6 +32,10 @@ export default function RootLayout() {
   // If the CDN is unreachable we fall through on error rather than wedging
   // the app — icons will tofu, but the app still boots.
   if (!loaded && !error) return null;
+
+  // On web, wait for client-side hydration to complete before rendering
+  // to prevent hydration mismatch errors
+  if (Platform.OS === "web" && !isClient) return null;
 
   return (
     <SafeAreaProvider>

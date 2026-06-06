@@ -57,35 +57,44 @@ export const adminService = {
   },
 
   listAllBookings: async (): Promise<Booking[]> => {
+    // Check if user is authenticated before trying Supabase RPC
+    let hasAuthSession = false;
     if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.auth.getUser();
+      hasAuthSession = !!data.user;
+    }
+
+    if (isSupabaseConfigured && supabase && hasAuthSession) {
       // SECURITY-DEFINER RPC bypasses RLS entirely — see /app/admin-policies.sql
       const { data, error } = await supabase.rpc("list_all_bookings");
-      if (error || !data) return [];
-      const services = await dataService.getServices();
-      const byId = new Map(services.map((s) => [s.id, s]));
-      return data.map((b: any) => {
-        const svc = byId.get(b.service_id);
-        return {
-          id: b.id,
-          serviceId: b.service_id,
-          serviceTitle: svc?.title ?? "Service",
-          serviceImage: svc?.image ?? "",
-          scheduledDate: b.scheduled_date,
-          timeSlot: b.time_slot,
-          address: b.address as SavedAddress,
-          notes: b.notes ?? undefined,
-          price: Number(b.price),
-          status: b.status as BookingStatus,
-          rating: b.rating ?? undefined,
-          review: b.review ?? undefined,
-          createdAt: b.created_at,
-          providerId: b.provider_id ?? undefined,
-          providerName: b.provider_name ?? undefined,
-        };
-      });
+      if (!error && data) {
+        const services = await dataService.getServices();
+        const byId = new Map(services.map((s) => [s.id, s]));
+        return data.map((b: any) => {
+          const svc = byId.get(b.service_id);
+          return {
+            id: b.id,
+            serviceId: b.service_id,
+            serviceTitle: svc?.title ?? "Service",
+            serviceImage: svc?.image ?? "",
+            scheduledDate: b.scheduled_date,
+            timeSlot: b.time_slot,
+            address: b.address as SavedAddress,
+            notes: b.notes ?? undefined,
+            price: Number(b.price),
+            status: b.status as BookingStatus,
+            rating: b.rating ?? undefined,
+            review: b.review ?? undefined,
+            createdAt: b.created_at,
+            providerId: b.provider_id ?? undefined,
+            providerName: b.provider_name ?? undefined,
+          };
+        });
+      }
+      // If RPC failed, fall through to demo mode
     }
     
-    // Demo mode: Read from local storage
+    // Demo mode: Read from local storage (for anonymous users or when Supabase is not available)
     const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
     return bookings;
   },
@@ -111,14 +120,22 @@ export const adminService = {
     id: string,
     status: BookingStatus,
   ): Promise<void> => {
+    // Check if user is authenticated before trying Supabase RPC
+    let hasAuthSession = false;
     if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.auth.getUser();
+      hasAuthSession = !!data.user;
+    }
+
+    if (isSupabaseConfigured && supabase && hasAuthSession) {
       // SECURITY-DEFINER RPC so an admin can update any booking regardless
       // of who owns it. See /app/admin-policies.sql.
-      await supabase.rpc("admin_update_booking_status", {
+      const { error } = await supabase.rpc("admin_update_booking_status", {
         bk_id: id,
         new_status: status,
       });
-      return;
+      if (!error) return;
+      // Fall through to demo mode on error
     }
     
     // Demo mode: Update local storage
