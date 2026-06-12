@@ -282,19 +282,29 @@ export default function AdminSettings() {
               setServiceImage(data.url);
               Alert.alert("Success", "Image uploaded successfully");
             } else {
-              const error = await res.text();
-              Alert.alert("Error", `Failed to upload image: ${error}`);
+              const errorData = await res.text();
+              console.error("Upload failed:", errorData);
+              // Show option to enter URL manually
+              Alert.alert(
+                "Upload Failed", 
+                "Storage bucket may not exist. You can enter an image URL manually instead.",
+                [
+                  { text: "OK", style: "default" }
+                ]
+              );
             }
           } catch (e) {
-            Alert.alert("Error", "Failed to upload image to server");
+            console.error("Upload error:", e);
+            Alert.alert("Error", "Failed to upload image. Please try entering a URL manually.");
           }
           setUploadingImage(false);
         } else {
-          // Fallback: use URI directly for preview (web)
+          // Web fallback: use URI directly
           setServiceImage(asset.uri);
         }
       }
     } catch (e) {
+      setUploadingImage(false);
       Alert.alert("Error", "Failed to pick image");
     }
   };
@@ -1005,6 +1015,17 @@ export default function AdminSettings() {
                   </View>
                 )}
               </TouchableOpacity>
+              
+              {/* Manual Image URL Input */}
+              <Text style={styles.inputLabel}>Or paste Image URL</Text>
+              <TextInput
+                style={styles.input}
+                value={serviceImage}
+                onChangeText={setServiceImage}
+                placeholder="https://example.com/image.jpg"
+                placeholderTextColor={colors.textSubtle}
+                autoCapitalize="none"
+              />
 
               {categories.length > 0 && (
                 <>
