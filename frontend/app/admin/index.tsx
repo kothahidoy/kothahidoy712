@@ -154,8 +154,8 @@ export default function AdminDashboard() {
           <MenuItem
             icon={SettingsIcon}
             label="Settings"
-            sub="Pricing, regions, holiday slots — coming soon"
-            onPress={() => null}
+            sub="Services, slots, bookings & offers management"
+            onPress={() => router.push("/admin/settings")}
             testID="admin-settings-link"
             last
           />

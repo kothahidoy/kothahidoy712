@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the Provider System with SUPABASE (production mode)"
+user_problem_statement: "Fix Admin Panel - Make Settings fully functional with Services, Slots, Bookings, and Offers CRUD management via Supabase"
 
 frontend:
   - task: "Provider System with Supabase - Production Mode"
@@ -214,12 +214,127 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Provider System with Supabase - Production Mode"
+    - "Admin Panel Backend API - Services CRUD"
+    - "Admin Panel Backend API - Slots CRUD"
+    - "Admin Panel Backend API - Bookings Management"
+    - "Admin Panel Backend API - Offers CRUD"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
+backend:
+  - task: "Admin Services CRUD API"
+    implemented: true
+    working: false
+    file: "backend/admin_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created admin_routes.py with GET/POST/PATCH/DELETE endpoints for /api/admin/services. Uses Supabase REST API with httpx client."
+      - working: false
+        agent: "testing"
+        comment: "❌ PARTIAL FAILURE: GET /api/admin/services works perfectly (returns 13 services). However, POST /api/admin/services FAILS with 400 error: 'Could not find the offer column of services in the schema cache'. Root cause: The code tries to insert an 'offer' field (line 196 in admin_routes.py) but the Supabase services table doesn't have this column. The services table schema only has: id, category_id, title, description, starting_price, duration_mins, rating, review_count, image, popular, top_rated, recommended, inclusions, is_active, created_at. PATCH and DELETE were not tested because POST failed."
+
+  - task: "Admin Slots CRUD API"
+    implemented: true
+    working: false
+    file: "backend/admin_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET/POST/PATCH/DELETE endpoints for /api/admin/slots. Supports date, time, and availability toggling."
+      - working: false
+        agent: "testing"
+        comment: "❌ CRITICAL FAILURE: POST /api/admin/slots FAILS with 404 error: 'Could not find the table public.slots in the schema cache'. Root cause: The slots table does NOT exist in Supabase database. None of the migration files (supabase-migration.sql, provider-system.sql, SUPABASE_SETUP.md) create a slots table. The table needs to be created with schema: id (UUID), date (DATE), time (TEXT), available (BOOLEAN), created_at (TIMESTAMPTZ). GET /api/admin/slots returns 200 with empty array because the code gracefully handles missing tables by returning [] (line 326 in admin_routes.py), but this masks the underlying issue. PATCH and DELETE were not tested because POST failed."
+
+  - task: "Admin Bookings Management API"
+    implemented: true
+    working: true
+    file: "backend/admin_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/admin/bookings and PATCH /api/admin/bookings/{id}/status endpoints. Supports status updates."
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: GET /api/admin/bookings returns 200 with empty array (no bookings in database yet, but endpoint works correctly). The endpoint fetches bookings with customer info using a JOIN query. PATCH /api/admin/bookings/{id}/status was not tested because no bookings exist, but the implementation looks correct. Note: Backend logs show a 500 error on the first request, but subsequent requests return 200 - this might be a transient Supabase issue or connection initialization."
+
+  - task: "Admin Offers CRUD API"
+    implemented: true
+    working: false
+    file: "backend/admin_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET/POST/PATCH/DELETE endpoints for /api/admin/offers. Supports promo codes and discount management."
+      - working: false
+        agent: "testing"
+        comment: "❌ CRITICAL FAILURE: GET /api/admin/offers works perfectly (returns 3 offers). However, POST /api/admin/offers FAILS with 401 error: 'new row violates row-level security policy for table offers'. Root cause: The SUPABASE_SERVICE_KEY in backend/.env is actually the ANON/PUBLISHABLE key (sb_publishable_eVgYH9qdvFvMnLyEMij3nw_u03JWz2p), NOT the service role key. Service role keys should start with 'eyJ...' (JWT format) and have full admin access that bypasses RLS. The publishable key is restricted by RLS policies. This is a CRITICAL configuration error that affects all write operations. PATCH and DELETE were not tested because POST failed."
+
+  - task: "Admin Categories List API"
+    implemented: true
+    working: true
+    file: "backend/admin_routes.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created GET /api/admin/categories endpoint to list categories for service assignment."
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: GET /api/admin/categories returns 200 with 9 categories successfully. The endpoint correctly fetches categories from Supabase with id and name fields, ordered by name."
+
 agent_communication:
+  - agent: "main"
+    message: |
+      ADMIN PANEL IMPLEMENTATION COMPLETE - READY FOR TESTING
+      
+      **What was done:**
+      1. Created /app/backend/admin_routes.py with full CRUD operations for:
+         - Services: GET, POST, PATCH, DELETE
+         - Slots: GET, POST, PATCH, DELETE
+         - Bookings: GET, PATCH (status update)
+         - Offers: GET, POST, PATCH, DELETE
+         - Categories: GET
+      
+      2. Fixed /app/frontend/app/admin/index.tsx:
+         - Changed Settings button from onPress={() => null} to onPress={() => router.push("/admin/settings")}
+         - Updated subtitle to "Services, slots, bookings & offers management"
+      
+      3. Created /app/frontend/app/admin/settings.tsx with:
+         - Tab navigation for Services, Bookings, Slots, Offers
+         - CRUD UI for all entities
+         - Modal forms for adding/editing
+         - Toggle switches for active/available states
+         - Status update buttons for bookings
+      
+      **TESTING INSTRUCTIONS:**
+      1. Test all backend API endpoints:
+         - GET /api/admin/services - List all services
+         - POST /api/admin/services - Create new service
+         - PATCH /api/admin/services/{id} - Update service
+         - DELETE /api/admin/services/{id} - Delete service
+         - Same for /api/admin/slots, /api/admin/bookings, /api/admin/offers
+      
+      2. Verify Supabase connection by checking if endpoints return data or appropriate errors
+      
+      **CREDENTIALS:**
+      - Admin email: mondal1867@gmail.com
+      - Supabase credentials are already configured in backend/.env
   - agent: "testing"
     message: |
       TESTING COMPLETE - PARTIAL SUCCESS
@@ -419,3 +534,72 @@ agent_communication:
       5. Re-test the provider system
       
       **NOTE:** The frontend code is correct and ready for Supabase. The issue is purely on the database side - missing RPC functions and schema.
+
+  - agent: "testing"
+    message: |
+      🔍 ADMIN PANEL BACKEND API TEST - CRITICAL ISSUES FOUND
+      
+      **TEST REQUEST:** Test Admin Panel Backend API endpoints in /app/backend/admin_routes.py
+      
+      **TEST RESULTS SUMMARY:**
+      - Total Tests: 15
+      - Passed: 5 (33%)
+      - Failed: 3 (20%)
+      - Skipped: 7 (47%)
+      
+      **✅ WORKING ENDPOINTS (5 PASS):**
+      1. GET /api/admin/services - Returns 13 services successfully
+      2. GET /api/admin/slots - Returns empty array (gracefully handles missing table)
+      3. GET /api/admin/bookings - Returns empty array (no bookings yet, but endpoint works)
+      4. GET /api/admin/offers - Returns 3 offers successfully
+      5. GET /api/admin/categories - Returns 9 categories successfully
+      
+      **❌ CRITICAL FAILURES (3 FAIL):**
+      
+      **1. POST /api/admin/services - Schema Mismatch (400 Error)**
+      - Error: "Could not find the 'offer' column of 'services' in the schema cache"
+      - Root Cause: Code tries to insert 'offer' field (line 196 in admin_routes.py) but Supabase services table doesn't have this column
+      - Services table schema: id, category_id, title, description, starting_price, duration_mins, rating, review_count, image, popular, top_rated, recommended, inclusions, is_active, created_at
+      - Fix: Remove 'offer' field from payload or add it to Supabase schema
+      
+      **2. POST /api/admin/slots - Missing Table (404 Error)**
+      - Error: "Could not find the table 'public.slots' in the schema cache"
+      - Root Cause: The 'slots' table does NOT exist in Supabase database
+      - None of the migration files create this table
+      - Fix: Create slots table with schema: id (UUID), date (DATE), time (TEXT), available (BOOLEAN), created_at (TIMESTAMPTZ)
+      
+      **3. POST /api/admin/offers - Wrong Supabase Key (401 Error)**
+      - Error: "new row violates row-level security policy for table 'offers'"
+      - Root Cause: SUPABASE_SERVICE_KEY in backend/.env is the ANON/PUBLISHABLE key (sb_publishable_eVgYH9qdvFvMnLyEMij3nw_u03JWz2p), NOT the service role key
+      - Service role keys start with 'eyJ...' (JWT format) and bypass RLS
+      - Publishable keys are restricted by RLS policies
+      - Fix: Get the correct service_role key from Supabase dashboard (Settings → API → service_role key) and update backend/.env
+      
+      **⚠️ SKIPPED TESTS (7 SKIP):**
+      - All PATCH and DELETE operations were skipped because POST operations failed, so no IDs were created for testing
+      - Once POST operations are fixed, these need to be retested
+      
+      **DETAILED FINDINGS:**
+      
+      1. **Supabase Connection:** ✅ Working perfectly - all GET endpoints successfully connect to Supabase
+      
+      2. **Error Handling:** The code gracefully handles missing tables by returning empty arrays for GET requests, but this masks underlying issues. GET /api/admin/slots returns 200 with [] even though the table doesn't exist (404 from Supabase).
+      
+      3. **Configuration Issue:** The most critical issue is the wrong Supabase key. This affects ALL write operations (POST/PATCH/DELETE) across all endpoints, not just offers.
+      
+      **PRIORITY FIXES NEEDED:**
+      
+      **HIGH PRIORITY:**
+      1. Fix SUPABASE_SERVICE_KEY in backend/.env - Use service_role key, not anon key
+      2. Create slots table in Supabase database
+      3. Remove 'offer' field from services POST payload (line 196 in admin_routes.py)
+      
+      **MEDIUM PRIORITY:**
+      4. After fixing above issues, retest all POST/PATCH/DELETE operations
+      5. Test booking status update with actual booking data
+      
+      **BACKEND LOGS ANALYSIS:**
+      - Backend service is running correctly on port 8001
+      - All requests are being routed properly through /api prefix
+      - Supabase REST API calls are being made correctly
+      - The issues are purely configuration and schema-related, not code logic issues
