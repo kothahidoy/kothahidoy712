@@ -2,19 +2,123 @@
 Admin API Routes for Mfixit Admin Panel
 Handles services, bookings, slots, and offers management
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, date
 import uuid
 import os
 import httpx
+import base64
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # Supabase configuration
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+def get_supabase_headers():
+    return {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+# ==================== IMAGE UPLOAD ====================
+
+@router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload image to Supabase Storage and return public URL"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    # Read file content
+    content = await file.read()
+    
+    # Generate unique filename
+    file_ext = file.filename.split(".")[-1] if file.filename else "jpg"
+    filename = f"service-{uuid.uuid4()}.{file_ext}"
+    
+    # Upload to Supabase Storage
+    storage_url = f"{SUPABASE_URL}/storage/v1/object/service-images/{filename}"
+    
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": file.content_type or "image/jpeg",
+        "x-upsert": "true"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            storage_url,
+            headers=headers,
+            content=content
+        )
+        
+        if response.status_code in [200, 201]:
+            # Return public URL
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/service-images/{filename}"
+            return {"url": public_url, "filename": filename}
+        else:
+            raise HTTPException(
+                status_code=response.status_code, 
+                detail=f"Failed to upload image: {response.text}"
+            )
+
+class ImageUploadBase64(BaseModel):
+    image_data: str  # Base64 encoded image
+    filename: Optional[str] = None
+
+@router.post("/upload-image-base64")
+async def upload_image_base64(data: ImageUploadBase64):
+    """Upload base64 encoded image to Supabase Storage"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    try:
+        # Remove data URL prefix if present
+        image_data = data.image_data
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        
+        # Decode base64
+        content = base64.b64decode(image_data)
+        
+        # Generate unique filename
+        file_ext = "jpg"
+        if data.filename:
+            file_ext = data.filename.split(".")[-1]
+        filename = f"service-{uuid.uuid4()}.{file_ext}"
+        
+        # Upload to Supabase Storage
+        storage_url = f"{SUPABASE_URL}/storage/v1/object/service-images/{filename}"
+        
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "image/jpeg",
+            "x-upsert": "true"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                storage_url,
+                headers=headers,
+                content=content
+            )
+            
+            if response.status_code in [200, 201]:
+                public_url = f"{SUPABASE_URL}/storage/v1/object/public/service-images/{filename}"
+                return {"url": public_url, "filename": filename}
+            else:
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Failed to upload image: {response.text}"
+                )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
 
 def get_supabase_headers():
     return {
@@ -189,7 +293,11 @@ async def create_service(service: ServiceCreate):
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     
+    # Generate a unique ID for the service
+    service_id = f"svc-{str(uuid.uuid4())[:8]}"
+    
     payload = {
+        "id": service_id,
         "title": service.name,
         "starting_price": service.price,
         "description": service.description,
@@ -515,7 +623,11 @@ async def create_offer(offer: OfferCreate):
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     
+    # Generate a unique ID for the offer
+    offer_id = int(datetime.utcnow().timestamp() * 1000) % 1000000  # Simple numeric ID
+    
     payload = {
+        "id": offer_id,
         "title": offer.title,
         "subtitle": offer.subtitle,
         "code": offer.code,

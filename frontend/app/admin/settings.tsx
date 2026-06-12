@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,18 +20,22 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowLeft,
   Calendar,
+  Camera,
   Check,
   ChevronRight,
   Clock,
   Edit3,
   Gift,
+  ImageIcon,
   Package,
   Plus,
   RefreshCw,
   Settings as SettingsIcon,
   Trash2,
+  Upload,
   X,
 } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
 
 import { colors, radius, shadow } from "@/src/theme";
 import { useSession } from "@/src/context/SessionContext";
@@ -128,6 +133,8 @@ export default function AdminSettings() {
   const [serviceDescription, setServiceDescription] = useState("");
   const [serviceOffer, setServiceOffer] = useState("");
   const [serviceCategoryId, setServiceCategoryId] = useState<string>("");
+  const [serviceImage, setServiceImage] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("");
@@ -232,6 +239,7 @@ export default function AdminSettings() {
       setServiceDescription(service.description);
       setServiceOffer(service.offer);
       setServiceCategoryId(service.category_id || "");
+      setServiceImage(service.image || "");
     } else {
       setEditingService(null);
       setServiceName("");
@@ -239,8 +247,56 @@ export default function AdminSettings() {
       setServiceDescription("");
       setServiceOffer("");
       setServiceCategoryId("");
+      setServiceImage("");
     }
     setServiceModalVisible(true);
+  };
+
+  // Image picker
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setUploadingImage(true);
+          try {
+            const res = await fetch(`${API_BASE}/api/admin/upload-image-base64`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                image_data: asset.base64,
+                filename: asset.fileName || "image.jpg",
+              }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              setServiceImage(data.url);
+              Alert.alert("Success", "Image uploaded successfully");
+            } else {
+              const error = await res.text();
+              Alert.alert("Error", `Failed to upload image: ${error}`);
+            }
+          } catch (e) {
+            Alert.alert("Error", "Failed to upload image to server");
+          }
+          setUploadingImage(false);
+        } else {
+          // Fallback: use URI directly for preview (web)
+          setServiceImage(asset.uri);
+        }
+      }
+    } catch (e) {
+      Alert.alert("Error", "Failed to pick image");
+    }
   };
 
   const saveService = async () => {
@@ -248,15 +304,26 @@ export default function AdminSettings() {
       Alert.alert("Error", "Name and price are required");
       return;
     }
+    
+    // Category is required for new services
+    if (!editingService && !serviceCategoryId) {
+      Alert.alert("Error", "Please select a category");
+      return;
+    }
 
     try {
-      const payload = {
+      const payload: any = {
         name: serviceName,
         price: parseFloat(servicePrice),
         description: serviceDescription,
         offer: serviceOffer,
         category_id: serviceCategoryId || null,
       };
+      
+      // Include image if provided
+      if (serviceImage) {
+        payload.image = serviceImage;
+      }
 
       let res;
       if (editingService) {
@@ -513,6 +580,20 @@ export default function AdminSettings() {
   const renderServiceItem = ({ item }: { item: Service }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
+        {/* Service Image */}
+        <View style={styles.serviceImageContainer}>
+          {item.image ? (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.serviceImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.servicePlaceholder}>
+              <ImageIcon size={24} color={colors.textMuted} />
+            </View>
+          )}
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle}>{item.name}</Text>
           <Text style={styles.cardPrice}>₹{item.price}</Text>
@@ -895,6 +976,35 @@ export default function AdminSettings() {
                 placeholder="e.g., 20% OFF"
                 placeholderTextColor={colors.textSubtle}
               />
+
+              {/* Image Upload Section */}
+              <Text style={styles.inputLabel}>Service Image</Text>
+              <TouchableOpacity 
+                style={styles.imageUploadBtn} 
+                onPress={pickImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : serviceImage ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: serviceImage }}
+                      style={styles.imagePreview}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.changeImageOverlay}>
+                      <Camera size={20} color="#FFF" />
+                      <Text style={styles.changeImageText}>Change</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Upload size={24} color={colors.textMuted} />
+                    <Text style={styles.uploadText}>Tap to upload image</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
               {categories.length > 0 && (
                 <>
@@ -1482,5 +1592,76 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFF",
+  },
+  // Service Image Styles
+  serviceImageContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    marginRight: 4,
+  },
+  serviceImage: {
+    width: "100%",
+    height: "100%",
+  },
+  servicePlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  // Image Upload Styles
+  imageUploadBtn: {
+    width: "100%",
+    height: 150,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  uploadPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    gap: 8,
+  },
+  uploadText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  imagePreviewContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  imagePreview: {
+    width: "100%",
+    height: "100%",
+  },
+  changeImageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  changeImageText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
