@@ -59,6 +59,10 @@ app.include_router(api_router)
 from payments import router as payments_router  # noqa: E402
 app.include_router(payments_router)
 
+# Admin panel API endpoints
+from admin_routes import router as admin_router  # noqa: E402
+app.include_router(admin_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
