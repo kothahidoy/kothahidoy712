@@ -193,7 +193,6 @@ async def create_service(service: ServiceCreate):
         "title": service.name,
         "starting_price": service.price,
         "description": service.description,
-        "offer": service.offer,
         "is_active": True,
         "image": service.image,
         "category_id": service.category_id,
