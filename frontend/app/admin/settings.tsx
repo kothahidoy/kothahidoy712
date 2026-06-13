@@ -326,7 +326,6 @@ export default function AdminSettings() {
         name: serviceName,
         price: parseFloat(servicePrice),
         description: serviceDescription,
-        offer: serviceOffer,
         category_id: serviceCategoryId || null,
       };
       

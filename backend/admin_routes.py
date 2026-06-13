@@ -348,12 +348,13 @@ async def update_service(service_id: str, service: ServiceUpdate):
         payload["starting_price"] = service.price
     if service.description is not None:
         payload["description"] = service.description
-    if service.offer is not None:
-        payload["offer"] = service.offer
+    # Note: 'offer' column doesn't exist in services table, skip it
     if service.is_active is not None:
         payload["is_active"] = service.is_active
     if service.image is not None:
         payload["image"] = service.image
+    if service.category_id is not None:
+        payload["category_id"] = service.category_id
     
     if not payload:
         raise HTTPException(status_code=400, detail="No fields to update")
