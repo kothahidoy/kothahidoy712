@@ -145,6 +145,7 @@ class ServiceUpdate(BaseModel):
     offer: Optional[str] = None
     is_active: Optional[bool] = None
     image: Optional[str] = None
+    category_id: Optional[str] = None
 
 class ServiceResponse(BaseModel):
     id: str
