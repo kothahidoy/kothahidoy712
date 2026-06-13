@@ -379,26 +379,36 @@ export default function AdminSettings() {
   };
 
   const deleteService = async (service: Service) => {
-    Alert.alert("Delete Service", `Are you sure you want to delete "${service.name}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const res = await fetch(`${API_BASE}/api/admin/services/${service.id}`, {
-              method: "DELETE",
-            });
-            if (res.ok) {
-              fetchServices();
-              Alert.alert("Success", "Service deleted");
-            }
-          } catch (e) {
-            Alert.alert("Error", "Failed to delete service");
-          }
-        },
-      },
-    ]);
+    const confirmDelete = () => {
+      return new Promise<boolean>((resolve) => {
+        if (Platform.OS === 'web') {
+          resolve(window.confirm(`Are you sure you want to delete "${service.name}"?`));
+        } else {
+          Alert.alert("Delete Service", `Are you sure you want to delete "${service.name}"?`, [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+          ]);
+        }
+      });
+    };
+
+    const shouldDelete = await confirmDelete();
+    if (shouldDelete) {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/services/${service.id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          fetchServices();
+          Alert.alert("Success", "Service deleted");
+        } else {
+          const error = await res.text();
+          Alert.alert("Error", error);
+        }
+      } catch (e) {
+        Alert.alert("Error", "Failed to delete service");
+      }
+    }
   };
 
   // Slot CRUD
@@ -563,26 +573,36 @@ export default function AdminSettings() {
   };
 
   const deleteOffer = async (offer: Offer) => {
-    Alert.alert("Delete Offer", `Are you sure you want to delete "${offer.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const res = await fetch(`${API_BASE}/api/admin/offers/${offer.id}`, {
-              method: "DELETE",
-            });
-            if (res.ok) {
-              fetchOffers();
-              Alert.alert("Success", "Offer deleted");
-            }
-          } catch (e) {
-            Alert.alert("Error", "Failed to delete offer");
-          }
-        },
-      },
-    ]);
+    const confirmDelete = () => {
+      return new Promise<boolean>((resolve) => {
+        if (Platform.OS === 'web') {
+          resolve(window.confirm(`Are you sure you want to delete "${offer.title}"?`));
+        } else {
+          Alert.alert("Delete Offer", `Are you sure you want to delete "${offer.title}"?`, [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+          ]);
+        }
+      });
+    };
+
+    const shouldDelete = await confirmDelete();
+    if (shouldDelete) {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/offers/${offer.id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          fetchOffers();
+          Alert.alert("Success", "Offer deleted");
+        } else {
+          const error = await res.text();
+          Alert.alert("Error", error);
+        }
+      } catch (e) {
+        Alert.alert("Error", "Failed to delete offer");
+      }
+    }
   };
 
   // Render functions
