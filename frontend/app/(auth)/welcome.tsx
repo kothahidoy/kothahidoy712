@@ -13,16 +13,20 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  BadgeCheck,
   ChevronRight,
-  ShieldCheck,
+  Clock,
+  Mail,
+  Phone,
+  Shield,
+  Star,
+  Users,
   Wrench,
+  Zap,
 } from "lucide-react-native";
 
-import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { MfixitLogo } from "@/src/components/MfixitLogo";
 import { useSession } from "@/src/context/SessionContext";
-import { colors, radius } from "@/src/theme";
+import { colors, radius, spacing, shadow } from "@/src/theme";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { notify } from "@/src/utils/dialogs";
 
@@ -33,9 +37,6 @@ export default function Welcome() {
   const router = useRouter();
   const { hasSession, profile } = useSession();
 
-  // Magic-link / OAuth redirects land here with the session in the URL
-  // hash. Once Supabase has parsed it and our context has updated, push
-  // the user into the app immediately — no extra tap required.
   useEffect(() => {
     if (hasSession) {
       router.replace(profile?.name ? "/(tabs)" : "/(auth)/profile-setup");
@@ -69,16 +70,19 @@ export default function Welcome() {
     <View style={styles.root}>
       <Image source={{ uri: HERO }} style={styles.hero} />
       <LinearGradient
-        colors={["transparent", "rgba(15,23,42,0.7)", "rgba(15,23,42,0.95)"]}
+        colors={["transparent", "rgba(15,23,42,0.75)", "rgba(15,23,42,0.98)"]}
+        locations={[0, 0.5, 1]}
         style={styles.gradient}
       />
+      
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        {/* Brand Badge */}
         <View style={styles.brandRow}>
-          <View style={styles.brandBadgeWrap}>
-            <MfixitLogo size={32} variant="dark" showWordmark={false} />
+          <View style={styles.brandBadge}>
+            <MfixitLogo size={28} variant="dark" showWordmark={false} />
             <View>
-              <Text style={styles.brandText}>Mfixit</Text>
-              <Text style={styles.brandSub}>Verified pros · 24×7</Text>
+              <Text style={styles.brandName}>Mfixit</Text>
+              <Text style={styles.brandTagline}>Verified pros · 24×7</Text>
             </View>
           </View>
         </View>
@@ -87,37 +91,52 @@ export default function Welcome() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
+          {/* Hero Copy Section */}
           <View style={styles.heroCopy}>
-            <Text style={styles.title}>
-              Trusted home services{"\n"}at your doorstep
-            </Text>
+            {/* Main Headline with Emoji */}
+            <View style={styles.headlineRow}>
+              <Zap size={32} color={colors.accent} fill={colors.accent} />
+              <Text style={styles.title}>
+                Fix Anything at Home{"\n"}in 30 Minutes
+              </Text>
+            </View>
+            
+            {/* Supporting Text */}
             <Text style={styles.subtitle}>
-              Verified pros for electrical, plumbing, AC, cleaning, salon & more
-              — book in 60 seconds.
+              AC, plumbing, cleaning & more — done fast by trusted professionals.
             </Text>
 
-            <View style={styles.trustRow}>
-              <View style={styles.trustChip}>
-                <BadgeCheck size={14} color={colors.primary} strokeWidth={2.5} />
-                <Text style={styles.trustText}>Verified pros</Text>
-              </View>
-              <View style={styles.trustChip}>
-                <ShieldCheck size={14} color={colors.primary} strokeWidth={2.5} />
-                <Text style={styles.trustText}>30-day warranty</Text>
-              </View>
+            {/* Trust Indicators */}
+            <View style={styles.trustSection}>
+              <TrustBadge 
+                icon={Users} 
+                text="10,000+ happy customers" 
+              />
+              <TrustBadge 
+                icon={Star} 
+                text="4.8 average rating" 
+                iconFill
+              />
+              <TrustBadge 
+                icon={Shield} 
+                text="30-day service warranty" 
+              />
+            </View>
+
+            {/* Friendly Microcopy */}
+            <View style={styles.microCopyBox}>
+              <Text style={styles.microCopyText}>
+                Sit back, we'll take care of it 👍
+              </Text>
             </View>
           </View>
 
+          {/* CTA Buttons Section */}
           <View style={styles.actions}>
-            <PrimaryButton
-              label="Continue with Email"
-              onPress={() => router.push("/(auth)/email")}
-              testID="welcome-email-btn"
-            />
-
+            {/* Primary CTA - Google (Most Important) */}
             <TouchableOpacity
               style={styles.googleBtn}
-              activeOpacity={0.85}
+              activeOpacity={0.9}
               onPress={onGoogleSignIn}
               testID="welcome-google-btn"
             >
@@ -128,44 +147,63 @@ export default function Welcome() {
                 style={styles.googleIcon}
               />
               <Text style={styles.googleLabel}>Continue with Google</Text>
-              <ChevronRight size={18} color={colors.textMuted} />
+              <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
 
+            {/* Secondary CTA - Phone */}
             <TouchableOpacity
-              style={styles.googleBtn}
-              activeOpacity={0.85}
+              style={styles.secondaryBtn}
+              activeOpacity={0.9}
               onPress={() => router.push("/(auth)/phone")}
               testID="welcome-phone-btn"
             >
-              <View style={styles.phoneIconWrap}>
-                <Text style={styles.phoneIcon}>📱</Text>
+              <View style={styles.iconCircle}>
+                <Phone size={18} color={colors.primary} strokeWidth={2} />
               </View>
-              <Text style={styles.googleLabel}>Continue with Phone</Text>
-              <ChevronRight size={18} color={colors.textMuted} />
+              <Text style={styles.secondaryLabel}>Continue with Phone</Text>
+              <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
             </TouchableOpacity>
 
+            {/* Tertiary CTA - Email */}
             <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.skip}
+              style={styles.tertiaryBtn}
+              activeOpacity={0.85}
+              onPress={() => router.push("/(auth)/email")}
+              testID="welcome-email-btn"
+            >
+              <View style={styles.iconCircleOutline}>
+                <Mail size={18} color="#FFFFFF" strokeWidth={2} />
+              </View>
+              <Text style={styles.tertiaryLabel}>Continue with Email</Text>
+              <ChevronRight size={20} color="rgba(255,255,255,0.5)" strokeWidth={2} />
+            </TouchableOpacity>
+
+            {/* Explore Without Login - More Visible */}
+            <TouchableOpacity
+              style={styles.exploreBtn}
+              activeOpacity={0.85}
               onPress={() => router.push("/(auth)/profile-setup")}
               testID="welcome-skip-btn"
             >
-              <Text style={styles.skipText}>
+              <Clock size={16} color={colors.accent} strokeWidth={2} />
+              <Text style={styles.exploreText}>
                 Explore without signing in
               </Text>
             </TouchableOpacity>
 
+            {/* Provider Login */}
             <TouchableOpacity
-              style={styles.providerLogin}
+              style={styles.providerBtn}
               activeOpacity={0.85}
               onPress={() => router.push("/(provider)/login")}
               testID="welcome-provider-btn"
             >
-              <Wrench size={16} color={colors.primary} />
-              <Text style={styles.providerLoginText}>Provider Login</Text>
-              <ChevronRight size={16} color={colors.textMuted} />
+              <Wrench size={16} color={colors.accent} strokeWidth={2} />
+              <Text style={styles.providerText}>Provider Login</Text>
+              <ChevronRight size={16} color="rgba(255,255,255,0.4)" strokeWidth={2} />
             </TouchableOpacity>
 
+            {/* Disclaimer */}
             <Text style={styles.disclaimer}>
               By continuing you agree to our{" "}
               <Text style={styles.disclaimerLink}>Terms</Text> &{" "}
@@ -178,95 +216,281 @@ export default function Welcome() {
   );
 }
 
+// Trust Badge Component
+function TrustBadge({ 
+  icon: Icon, 
+  text, 
+  iconFill = false 
+}: { 
+  icon: any; 
+  text: string; 
+  iconFill?: boolean;
+}) {
+  return (
+    <View style={styles.trustBadge}>
+      <View style={styles.trustIconWrap}>
+        <Icon 
+          size={14} 
+          color={colors.accent} 
+          strokeWidth={2} 
+          fill={iconFill ? colors.accent : "transparent"}
+        />
+      </View>
+      <Text style={styles.trustText}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0F172A" },
-  hero: { position: "absolute", width: "100%", height: "55%" },
-  gradient: { position: "absolute", width: "100%", height: "100%" },
-  safe: { flex: 1, justifyContent: "space-between" },
-  brandRow: { paddingHorizontal: 20, paddingTop: 8 },
-  brandBadgeWrap: {
+  root: { 
+    flex: 1, 
+    backgroundColor: "#0F172A" 
+  },
+  hero: { 
+    position: "absolute", 
+    width: "100%", 
+    height: "55%" 
+  },
+  gradient: { 
+    position: "absolute", 
+    width: "100%", 
+    height: "100%" 
+  },
+  safe: { 
+    flex: 1, 
+    justifyContent: "space-between" 
+  },
+  
+  // Brand
+  brandRow: { 
+    paddingHorizontal: spacing.xl, 
+    paddingTop: spacing.sm 
+  },
+  brandBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignSelf: "flex-start",
+    ...shadow.card,
   },
-  brandText: { fontWeight: "800", color: colors.textMain, fontSize: 15, letterSpacing: -0.3 },
-  brandSub: { fontSize: 10, color: colors.textMuted, fontWeight: "600", marginTop: -1 },
-  content: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 20 },
-  heroCopy: { marginBottom: 28 },
+  brandName: { 
+    fontWeight: "800", 
+    color: colors.textMain, 
+    fontSize: 16, 
+    letterSpacing: -0.3 
+  },
+  brandTagline: { 
+    fontSize: 11, 
+    color: colors.textMuted, 
+    fontWeight: "600", 
+    marginTop: -1 
+  },
+  
+  // Content
+  content: { 
+    flexGrow: 1, 
+    justifyContent: "flex-end", 
+    paddingHorizontal: spacing.xl 
+  },
+  
+  // Hero Copy
+  heroCopy: { 
+    marginBottom: spacing.xl 
+  },
+  headlineRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
   title: {
     color: "#FFFFFF",
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "800",
     letterSpacing: -0.5,
-    lineHeight: 38,
+    lineHeight: 36,
+    flex: 1,
   },
   subtitle: {
     color: "#CBD5E1",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 12,
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: spacing.md,
+    fontWeight: "500",
   },
-  trustRow: { flexDirection: "row", gap: 8, marginTop: 16 },
-  trustChip: {
+  
+  // Trust Section
+  trustSection: {
+    marginTop: spacing.xl,
+    gap: spacing.sm,
+  },
+  trustBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
+    gap: spacing.sm,
   },
-  trustText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
-  actions: { paddingBottom: 24, gap: 12 },
+  trustIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trustText: { 
+    color: "#FFFFFF", 
+    fontSize: 14, 
+    fontWeight: "600",
+    opacity: 0.95,
+  },
+  
+  // Microcopy
+  microCopyBox: {
+    marginTop: spacing.lg,
+    backgroundColor: "rgba(249, 115, 22, 0.12)",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.25)",
+  },
+  microCopyText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  
+  // Actions
+  actions: { 
+    paddingBottom: spacing.xl, 
+    gap: spacing.md 
+  },
+  
+  // Google Button (Primary - Most Prominent)
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    height: 54,
-    borderRadius: radius.pill,
-    paddingHorizontal: 22,
-    gap: 12,
+    height: 58,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+    ...shadow.cardHover,
   },
-  phoneIconWrap: {
-    width: 22,
-    height: 22,
+  googleIcon: { 
+    width: 24, 
+    height: 24 
+  },
+  googleLabel: { 
+    fontSize: 17, 
+    fontWeight: "700", 
+    color: colors.textMain, 
+    flex: 1 
+  },
+  
+  // Secondary Button (Phone)
+  secondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    height: 56,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  phoneIcon: { fontSize: 18 },
-  googleIcon: { width: 20, height: 20 },
-  googleLabel: { fontSize: 16, fontWeight: "700", color: colors.textMain, flex: 1 },
-  skip: { alignItems: "center", paddingVertical: 10 },
-  skipText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600", opacity: 0.85 },
-  providerLogin: {
+  secondaryLabel: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: colors.textMain, 
+    flex: 1 
+  },
+  
+  // Tertiary Button (Email)
+  tertiaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    height: 54,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  iconCircleOutline: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tertiaryLabel: { 
+    fontSize: 15, 
+    fontWeight: "600", 
+    color: "#FFFFFF", 
+    flex: 1,
+    opacity: 0.9,
+  },
+  
+  // Explore Button (More Visible)
+  exploreBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
   },
-  providerLoginText: {
+  exploreText: { 
+    color: colors.accent, 
+    fontSize: 15, 
+    fontWeight: "700",
+  },
+  
+  // Provider Login
+  providerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  providerText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: "rgba(255,255,255,0.8)",
     flex: 1,
   },
+  
+  // Disclaimer
   disclaimer: {
-    color: "#94A3B8",
+    color: "#64748B",
     fontSize: 11,
     textAlign: "center",
     lineHeight: 16,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  disclaimerLink: { color: "#FFFFFF", fontWeight: "600" },
+  disclaimerLink: { 
+    color: "#94A3B8", 
+    fontWeight: "600" 
+  },
 });
