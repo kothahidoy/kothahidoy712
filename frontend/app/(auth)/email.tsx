@@ -43,6 +43,8 @@ export default function EmailScreen() {
   // Refs for OTP inputs
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const otpValue = otp.join("");
@@ -59,6 +61,28 @@ export default function EmailScreen() {
       setCanResend(true);
     }
   }, [sent, resendTimer]);
+
+  // Success animation
+  const triggerSuccess = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1.1,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
 
   // Shake animation for errors
   const triggerShake = () => {
@@ -134,6 +158,7 @@ export default function EmailScreen() {
         if (e) throw e;
       }
       setVerified(true);
+      triggerSuccess();
       setTimeout(() => {
         routeAfterAuth(email.trim().toLowerCase());
       }, 1000);
@@ -216,8 +241,24 @@ export default function EmailScreen() {
           {sent ? (
             // ===== OTP VERIFICATION VIEW =====
             <>
+              {/* Success Celebration */}
+              {verified && (
+                <Animated.View 
+                  style={[
+                    styles.successBanner,
+                    { 
+                      transform: [{ scale: scaleAnim }],
+                      opacity: opacityAnim,
+                    }
+                  ]}
+                >
+                  <Text style={styles.successEmoji}>🎉</Text>
+                  <Text style={styles.successText}>You're in!</Text>
+                </Animated.View>
+              )}
+
               <Text style={styles.title}>
-                {verified ? "Code verified ✅" : "Enter verification code"}
+                {verified ? "Welcome back!" : "Enter verification code"}
               </Text>
               <Text style={styles.subtitle}>
                 Enter the 6-digit code sent to{"\n"}
@@ -617,5 +658,28 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  
+  // Success Banner
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    backgroundColor: colors.successLight,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    marginBottom: spacing.xl,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  successEmoji: {
+    fontSize: 32,
+  },
+  successText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.success,
   },
 });

@@ -97,20 +97,33 @@ export default function Welcome() {
             <View style={styles.headlineRow}>
               <Zap size={32} color={colors.accent} fill={colors.accent} />
               <Text style={styles.title}>
-                Fix Anything at Home{"\n"}in 30 Minutes
+                AC, Plumbing, Cleaning{"\n"}Fixed in 30 Minutes
               </Text>
             </View>
             
+            {/* Value Proposition Hook */}
+            <Text style={styles.valueHook}>
+              Same-day service. No hidden charges.
+            </Text>
+            
             {/* Supporting Text */}
             <Text style={styles.subtitle}>
-              AC, plumbing, cleaning & more — done fast by trusted professionals.
+              Book a verified pro in 60 seconds — trusted by your neighbors.
             </Text>
 
-            {/* Trust Indicators */}
+            {/* Urgency Trigger */}
+            <View style={styles.urgencyBadge}>
+              <View style={styles.urgencyDot} />
+              <Text style={styles.urgencyText}>
+                Limited slots available today • Next: 2:30 PM
+              </Text>
+            </View>
+
+            {/* Trust Indicators with Local Context */}
             <View style={styles.trustSection}>
               <TrustBadge 
                 icon={Users} 
-                text="10,000+ happy customers" 
+                text="10,000+ happy homes in Durgapur" 
               />
               <TrustBadge 
                 icon={Star} 
@@ -134,21 +147,26 @@ export default function Welcome() {
           {/* CTA Buttons Section */}
           <View style={styles.actions}>
             {/* Primary CTA - Google (Most Important) */}
-            <TouchableOpacity
-              style={styles.googleBtn}
-              activeOpacity={0.9}
-              onPress={onGoogleSignIn}
-              testID="welcome-google-btn"
-            >
-              <Image
-                source={{
-                  uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
-                }}
-                style={styles.googleIcon}
-              />
-              <Text style={styles.googleLabel}>Continue with Google</Text>
-              <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
-            </TouchableOpacity>
+            <View style={styles.googleContainer}>
+              <View style={styles.recommendedBadge}>
+                <Text style={styles.recommendedText}>✨ Recommended</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.googleBtn}
+                activeOpacity={0.9}
+                onPress={onGoogleSignIn}
+                testID="welcome-google-btn"
+              >
+                <Image
+                  source={{
+                    uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
+                  }}
+                  style={styles.googleIcon}
+                />
+                <Text style={styles.googleLabel}>Continue with Google</Text>
+                <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
 
             {/* Secondary CTA - Phone */}
             <TouchableOpacity
@@ -178,7 +196,7 @@ export default function Welcome() {
               <ChevronRight size={20} color="rgba(255,255,255,0.5)" strokeWidth={2} />
             </TouchableOpacity>
 
-            {/* Explore Without Login - More Visible */}
+            {/* Explore Without Login - Better Copy */}
             <TouchableOpacity
               style={styles.exploreBtn}
               activeOpacity={0.85}
@@ -187,7 +205,7 @@ export default function Welcome() {
             >
               <Clock size={16} color={colors.accent} strokeWidth={2} />
               <Text style={styles.exploreText}>
-                Explore without signing in
+                Explore services without signing in
               </Text>
             </TouchableOpacity>
 
@@ -308,18 +326,50 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#FFFFFF",
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
-    lineHeight: 36,
+    lineHeight: 34,
     flex: 1,
+  },
+  valueHook: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: spacing.sm,
   },
   subtitle: {
     color: "#CBD5E1",
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: spacing.md,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: spacing.xs,
     fontWeight: "500",
+  },
+  
+  // Urgency Badge
+  urgencyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  urgencyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#EF4444",
+  },
+  urgencyText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontWeight: "700",
   },
   
   // Trust Section
@@ -368,6 +418,27 @@ const styles = StyleSheet.create({
   actions: { 
     paddingBottom: spacing.xl, 
     gap: spacing.md 
+  },
+  
+  // Google Button Container with Recommended Badge
+  googleContainer: {
+    position: "relative",
+  },
+  recommendedBadge: {
+    position: "absolute",
+    top: -10,
+    left: spacing.xl,
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    zIndex: 1,
+  },
+  recommendedText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
   
   // Google Button (Primary - Most Prominent)
