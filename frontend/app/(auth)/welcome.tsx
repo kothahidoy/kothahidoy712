@@ -17,6 +17,9 @@ import {
   ChevronRight,
   ShieldCheck,
   Wrench,
+  Star,
+  Clock,
+  Sparkles,
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -89,47 +92,59 @@ export default function Welcome() {
         >
           <View style={styles.heroCopy}>
             <Text style={styles.title}>
-              Trusted home services{"\n"}at your doorstep
+              AC, Plumbing, Cleaning{"\n"}Fixed in 30 Minutes
             </Text>
             <Text style={styles.subtitle}>
-              Verified pros for electrical, plumbing, AC, cleaning, salon & more
-              — book in 60 seconds.
+              Same day service, no hidden charges
+            </Text>
+            <Text style={styles.tagline}>
+              Sit back, we'll take care of it
             </Text>
 
             <View style={styles.trustRow}>
               <View style={styles.trustChip}>
-                <BadgeCheck size={14} color={colors.primary} strokeWidth={2.5} />
-                <Text style={styles.trustText}>Verified pros</Text>
+                <Star size={14} color="#FBBF24" strokeWidth={2.5} fill="#FBBF24" />
+                <Text style={styles.trustText}>4.8 Rating</Text>
               </View>
               <View style={styles.trustChip}>
                 <ShieldCheck size={14} color={colors.primary} strokeWidth={2.5} />
                 <Text style={styles.trustText}>30-day warranty</Text>
               </View>
+              <View style={styles.trustChip}>
+                <Clock size={14} color={colors.primary} strokeWidth={2.5} />
+                <Text style={styles.trustText}>Same day</Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.googleBtnRecommended}
+              activeOpacity={0.85}
+              onPress={onGoogleSignIn}
+              testID="welcome-google-btn"
+            >
+              <View style={styles.recommendedBadge}>
+                <Sparkles size={10} color="#FFFFFF" strokeWidth={2.5} />
+                <Text style={styles.recommendedText}>Recommended</Text>
+              </View>
+              <View style={styles.googleBtnContent}>
+                <Image
+                  source={{
+                    uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
+                  }}
+                  style={styles.googleIcon}
+                />
+                <Text style={styles.googleLabel}>Continue with Google</Text>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
             <PrimaryButton
               label="Continue with Email"
               onPress={() => router.push("/(auth)/email")}
               testID="welcome-email-btn"
             />
-
-            <TouchableOpacity
-              style={styles.googleBtn}
-              activeOpacity={0.85}
-              onPress={onGoogleSignIn}
-              testID="welcome-google-btn"
-            >
-              <Image
-                source={{
-                  uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
-                }}
-                style={styles.googleIcon}
-              />
-              <Text style={styles.googleLabel}>Continue with Google</Text>
-              <ChevronRight size={18} color={colors.textMuted} />
-            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.googleBtn}
@@ -211,6 +226,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 12,
   },
+  tagline: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    fontStyle: "italic",
+    marginTop: 8,
+    opacity: 0.9,
+  },
   trustRow: { flexDirection: "row", gap: 8, marginTop: 16 },
   trustChip: {
     flexDirection: "row",
@@ -229,6 +252,35 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     height: 54,
     borderRadius: radius.pill,
+    paddingHorizontal: 22,
+    gap: 12,
+  },
+  googleBtnRecommended: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    overflow: "hidden",
+  },
+  recommendedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  recommendedText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  googleBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
     paddingHorizontal: 22,
     gap: 12,
   },
