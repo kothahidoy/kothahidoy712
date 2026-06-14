@@ -92,14 +92,14 @@ export default function Welcome() {
           <View style={styles.heroCopy}>
             {/* Title with lightning bolt */}
             <View style={styles.titleRow}>
-              <Zap size={28} color="#F97316" fill="#F97316" strokeWidth={2} />
+              <Zap size={28} color={colors.primary} fill={colors.primary} strokeWidth={2} />
               <Text style={styles.title}>
                 AC, Plumbing, Cleaning{"\n"}Fixed in 30 Minutes
               </Text>
             </View>
 
-            {/* Orange subtitle */}
-            <Text style={styles.subtitleOrange}>
+            {/* Subtitle */}
+            <Text style={styles.subtitleBlue}>
               Same-day service. No hidden charges.
             </Text>
 
@@ -108,26 +108,18 @@ export default function Welcome() {
               Book a verified pro in 60 seconds — trusted by your neighbors.
             </Text>
 
-            {/* Limited slots banner */}
-            <View style={styles.limitedSlots}>
-              <View style={styles.redDot} />
-              <Text style={styles.limitedSlotsText}>
-                Limited slots available today • Next: 2:30 PM
-              </Text>
-            </View>
-
             {/* Trust items - vertical list */}
             <View style={styles.trustList}>
               <View style={styles.trustItem}>
-                <Users size={20} color="#F97316" strokeWidth={2} />
+                <Users size={20} color={colors.primary} strokeWidth={2} />
                 <Text style={styles.trustItemText}>10,000+ happy homes in Durgapur</Text>
               </View>
               <View style={styles.trustItem}>
-                <Star size={20} color="#F97316" fill="#F97316" strokeWidth={2} />
+                <Star size={20} color={colors.primary} fill={colors.primary} strokeWidth={2} />
                 <Text style={styles.trustItemText}>4.8 average rating</Text>
               </View>
               <View style={styles.trustItem}>
-                <Shield size={20} color="#F97316" strokeWidth={2} />
+                <Shield size={20} color={colors.primary} strokeWidth={2} />
                 <Text style={styles.trustItemText}>30-day service warranty</Text>
               </View>
             </View>
@@ -199,7 +191,7 @@ export default function Welcome() {
               onPress={() => router.push("/(auth)/profile-setup")}
               testID="welcome-skip-btn"
             >
-              <Clock size={18} color="#F97316" strokeWidth={2} />
+              <Clock size={18} color={colors.primary} strokeWidth={2} />
               <Text style={styles.exploreText}>
                 Explore services without signing in
               </Text>
@@ -212,7 +204,7 @@ export default function Welcome() {
               onPress={() => router.push("/(provider)/login")}
               testID="welcome-provider-btn"
             >
-              <Wrench size={18} color="#F97316" strokeWidth={2} />
+              <Wrench size={18} color={colors.primary} strokeWidth={2} />
               <Text style={styles.providerLoginText}>Provider Login</Text>
               <ChevronRight size={18} color="#94A3B8" />
             </TouchableOpacity>
@@ -257,8 +249,8 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     flex: 1,
   },
-  subtitleOrange: {
-    color: "#F97316",
+  subtitleBlue: {
+    color: colors.primary,
     fontSize: 16,
     fontWeight: "600",
     marginTop: 8,
@@ -268,28 +260,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
-  },
-  
-  limitedSlots: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 16,
-    backgroundColor: "rgba(239, 68, 68, 0.15)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#EF4444",
-  },
-  limitedSlotsText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
   },
   
   trustList: {
@@ -309,14 +279,14 @@ const styles = StyleSheet.create({
   
   sitBackBanner: {
     marginTop: 16,
-    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: "center",
   },
   sitBackText: {
-    color: "#F97316",
+    color: colors.primary,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -327,7 +297,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#F97316",
+    borderColor: colors.primary,
     overflow: "hidden",
   },
   recommendedBadge: {
@@ -335,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#F97316",
+    backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 14,
     alignSelf: "center",
@@ -406,7 +376,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   exploreText: {
-    color: "#F97316",
+    color: colors.primary,
     fontSize: 15,
     fontWeight: "700",
   },
