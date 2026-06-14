@@ -71,7 +71,7 @@ export const CategoryTile: React.FC<LabelProps> = ({
       testID={testID}
     >
       <View style={[styles.tileIcon, { backgroundColor: bg }]}>
-        <IconComponent size={26} color={colors.primary} strokeWidth={2} />
+        <IconComponent size={26} color={colors.primary} strokeWidth={1.8} />
       </View>
       <Text style={styles.tileLabel} numberOfLines={2}>
         {label}
