@@ -92,9 +92,18 @@ export const dataService = {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, icon, color, description")
+        .select("id, name, icon, color, description, image_url")
         .order("name");
-      if (!error && data && data.length) return data as Category[];
+      if (!error && data && data.length) {
+        return data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon,
+          color: c.color,
+          description: c.description ?? undefined,
+          imageUrl: c.image_url ?? undefined,
+        })) as Category[];
+      }
     }
     return CATEGORIES;
   },

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as Lucide from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
@@ -49,12 +49,14 @@ export const IconBubble: React.FC<Props> = ({
 
 interface LabelProps extends Props {
   label: string;
+  imageUrl?: string;
 }
 
 export const CategoryTile: React.FC<LabelProps> = ({
   name,
   bg,
   label,
+  imageUrl,
   onPress,
   testID,
 }) => {
@@ -71,7 +73,15 @@ export const CategoryTile: React.FC<LabelProps> = ({
       testID={testID}
     >
       <View style={[styles.tileIcon, { backgroundColor: bg }]}>
-        <IconComponent size={26} color={colors.primary} strokeWidth={2} />
+        {imageUrl ? (
+          <Image 
+            source={{ uri: imageUrl }} 
+            style={styles.tileImage} 
+            resizeMode="cover"
+          />
+        ) : (
+          <IconComponent size={26} color={colors.primary} strokeWidth={2} />
+        )}
       </View>
       <Text style={styles.tileLabel} numberOfLines={2}>
         {label}
@@ -100,6 +110,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
+    overflow: "hidden",
+  },
+  tileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.xl,
   },
   tileLabel: {
     fontSize: 12,

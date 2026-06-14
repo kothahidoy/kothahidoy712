@@ -6,6 +6,7 @@ export interface Category {
   icon: string; // lucide icon name
   color: string; // tint color background
   description?: string;
+  imageUrl?: string; // realistic category image (like Urban Company)
 }
 
 export interface Professional {

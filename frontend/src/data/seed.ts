@@ -7,15 +7,69 @@ import { Category, Offer, Professional, Service } from "@/src/types";
 export const CITIES = ["Durgapur", "Burdwan", "Kolkata", "Asansol", "Howrah"];
 
 export const CATEGORIES: Category[] = [
-  { id: "electrician", name: "Electrician", icon: "Zap", color: "#FEF3C7" },
-  { id: "plumber", name: "Plumber", icon: "Droplets", color: "#DBEAFE" },
-  { id: "ac-repair", name: "AC Repair", icon: "Wind", color: "#CFFAFE" },
-  { id: "cleaning", name: "Cleaning", icon: "Sparkles", color: "#DCFCE7" },
-  { id: "carpenter", name: "Carpenter", icon: "Hammer", color: "#FEE2E2" },
-  { id: "painting", name: "Painting", icon: "PaintBucket", color: "#FCE7F3" },
-  { id: "appliance", name: "Appliance", icon: "Refrigerator", color: "#E0E7FF" },
-  { id: "salon", name: "Salon at Home", icon: "Scissors", color: "#FFEDD5" },
-  { id: "pest-control", name: "Pest Control", icon: "Bug", color: "#F3E8FF" },
+  { 
+    id: "salon-women", 
+    name: "Women's Salon & Spa", 
+    icon: "Sparkles", 
+    color: "#FCE7F3",
+    imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHw0fHxzcGElMjB0cmVhdG1lbnR8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "salon", 
+    name: "Men's Salon & Massage", 
+    icon: "Scissors", 
+    color: "#FFEDD5",
+    imageUrl: "https://images.unsplash.com/photo-1647140655214-e4a2d914971f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxiYXJiZXIlMjBoYWlyY3V0fGVufDB8fHx8MTc4MTQ3MTcwM3ww&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "cleaning", 
+    name: "Cleaning & Pest Control", 
+    icon: "Sparkles", 
+    color: "#DCFCE7",
+    imageUrl: "https://images.unsplash.com/photo-1686178827149-6d55c72d81df?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwyfHxjbGVhbmluZyUyMHNlcnZpY2V8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "painting", 
+    name: "Home Painting", 
+    icon: "PaintBucket", 
+    color: "#FEF3C7",
+    imageUrl: "https://images.unsplash.com/photo-1717281234297-3def5ae3eee1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHw0fHxwYWludGluZyUyMHdhbGx8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "ac-repair", 
+    name: "AC & Appliance Repair", 
+    icon: "Wind", 
+    color: "#CFFAFE",
+    imageUrl: "https://images.unsplash.com/photo-1604754742629-3e5728249d73?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxBQyUyMHJlcGFpcnxlbnwwfHx8fDE3ODE0NzE3MDN8MA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "electrician", 
+    name: "Electrician, Plumber & Carpenter", 
+    icon: "Zap", 
+    color: "#DBEAFE",
+    imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwyfHxlbGVjdHJpY2lhbnxlbnwwfHx8fDE3ODE0NzE3MDN8MA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "insta-help", 
+    name: "Insta Help", 
+    icon: "Zap", 
+    color: "#FEE2E2",
+    imageUrl: "https://images.unsplash.com/photo-1564144573017-8dc932e0039e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxlbWVyZ2VuY3klMjBoZWxwfGVufDB8fHx8MTc4MTQ3MTcxMHww&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "plumber", 
+    name: "Plumber", 
+    icon: "Droplets", 
+    color: "#DBEAFE",
+    imageUrl: "https://images.unsplash.com/photo-1676210134188-4c05dd172f89?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwzfHxwbHVtYmVyfGVufDB8fHx8MTc4MTQ3MTcwM3ww&ixlib=rb-4.1.0&q=85&w=200"
+  },
+  { 
+    id: "carpenter", 
+    name: "Carpenter", 
+    icon: "Hammer", 
+    color: "#FEE2E2",
+    imageUrl: "https://images.unsplash.com/photo-1561297331-a9c00b9c2c44?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxjYXJwZW50ZXJ8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
+  },
 ];
 
 const IMG = {

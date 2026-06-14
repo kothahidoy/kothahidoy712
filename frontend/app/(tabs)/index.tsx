@@ -200,6 +200,7 @@ export default function HomeScreen() {
               name={c.icon}
               bg={c.color}
               label={c.name}
+              imageUrl={c.imageUrl}
               onPress={() => router.push(`/category/${c.id}`)}
               testID={`home-cat-${c.id}`}
             />
