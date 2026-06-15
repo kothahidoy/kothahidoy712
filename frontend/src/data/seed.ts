@@ -54,7 +54,7 @@ export const CATEGORIES: Category[] = [
     name: "Insta Help", 
     icon: "Zap", 
     color: "#FEE2E2",
-    imageUrl: "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=200&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=200&q=80"
   },
   { 
     id: "plumber", 
