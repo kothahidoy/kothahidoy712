@@ -9,6 +9,30 @@ export interface Category {
   imageUrl?: string; // realistic category image (like Urban Company)
 }
 
+// Sub-service within a category (like AC, Washing Machine under "AC & Appliance Repair")
+export interface SubService {
+  id: ID;
+  categoryId: ID;
+  name: string;
+  imageUrl: string;
+  estimatedMins?: number; // "44 mins" badge
+  rating?: number;
+  bookingCount?: string; // "13.6 M bookings"
+  sections?: SubServiceSection[];
+}
+
+export interface SubServiceSection {
+  title: string; // "Large appliances", "Other appliances"
+  items: SubServiceItem[];
+}
+
+export interface SubServiceItem {
+  id: ID;
+  name: string;
+  imageUrl: string;
+  estimatedMins?: number;
+}
+
 export interface Professional {
   id: ID;
   name: string;
@@ -23,9 +47,11 @@ export interface Professional {
 export interface Service {
   id: ID;
   categoryId: ID;
+  subServiceId?: ID; // links to SubService (e.g., "AC" under "AC & Appliance Repair")
   title: string;
   description: string;
   startingPrice: number;
+  originalPrice?: number; // for showing strikethrough price
   durationMins: number;
   rating: number;
   reviewCount: number;
@@ -34,6 +60,11 @@ export interface Service {
   topRated?: boolean;
   recommended?: boolean;
   inclusions?: string[];
+  // Urban Company style fields
+  serviceType?: string; // "Service", "Repair & gas refill", "Installation"
+  pricePerUnit?: string; // "₹549/AC"
+  warrantyDays?: number; // "30 days warranty"
+  instantAvailable?: boolean; // shows "Instant" badge
 }
 
 export interface SavedAddress {

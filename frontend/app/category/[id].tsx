@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   FlatList,
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,91 +10,188 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Search } from "lucide-react-native";
+import { ArrowLeft, Search, Share2, Star, X, Zap } from "lucide-react-native";
 
-import { ServiceCard } from "@/src/components/ServiceCard";
 import { dataService } from "@/src/data/service";
+import { AC_APPLIANCE_SUB_SERVICES } from "@/src/data/seed";
 import { colors, radius } from "@/src/theme";
-import { Category, Service } from "@/src/types";
+import { Category, SubService } from "@/src/types";
 
 export default function CategoryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [category, setCategory] = useState<Category | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
+  const [subServices, setSubServices] = useState<SubService[]>([]);
 
   useEffect(() => {
     (async () => {
       if (!id) return;
-      const [cats, svc] = await Promise.all([
-        dataService.getCategories(),
-        dataService.getServicesByCategory(id),
-      ]);
+      const cats = await dataService.getCategories();
       setCategory(cats.find((c) => c.id === id) ?? null);
-      setServices(svc);
+      
+      // Get sub-services for AC & Appliance category
+      if (id === "ac-repair") {
+        setSubServices(AC_APPLIANCE_SUB_SERVICES);
+      }
     })();
   }, [id]);
 
+  const renderSubServiceItem = ({ item }: { item: SubService }) => (
+    <TouchableOpacity
+      style={styles.subServiceItem}
+      onPress={() => router.push(`/subservice/${item.id}`)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.subServiceImageContainer}>
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.subServiceImage}
+          resizeMode="cover"
+        />
+        {item.estimatedMins && (
+          <View style={styles.timeBadge}>
+            <Text style={styles.timeBadgeText}>{item.estimatedMins} mins</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.subServiceName} numberOfLines={2}>
+        {item.name}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  // Group sub-services into sections
+  const largeAppliances = subServices.filter(s => 
+    ["sub-ac", "sub-washing", "sub-refrigerator", "sub-tv"].includes(s.id)
+  );
+  const otherAppliances = subServices.filter(s => 
+    ["sub-chimney", "sub-microwave", "sub-geyser", "sub-water-purifier"].includes(s.id)
+  );
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.back}
+          style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={12}
-          testID="cat-back-btn"
         >
           <ArrowLeft size={22} color={colors.textMain} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.crumb}>Services</Text>
-          <Text style={styles.title}>{category?.name ?? "Category"}</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.iconBtn}>
+            <Search size={20} color={colors.textMain} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn}>
+            <Share2 size={20} color={colors.textMain} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.searchBar}>
-        <Search size={16} color={colors.textMuted} />
-        <Text style={styles.searchPlaceholder}>
-          Search within {category?.name?.toLowerCase() ?? "category"}
-        </Text>
-      </View>
-
-      <FlatList
-        data={services}
-        keyExtractor={(s) => s.id}
-        contentContainerStyle={styles.list}
+      <ScrollView 
+        style={styles.content}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <ServiceCard
-            service={item}
-            variant="wide"
-            onPress={() => router.push(`/service/${item.id}`)}
-            testID={`cat-service-${item.id}`}
-          />
+      >
+        {/* Category Title */}
+        <Text style={styles.categoryTitle}>{category?.name ?? "Category"}</Text>
+
+        {/* Large Appliances Section */}
+        {largeAppliances.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Large appliances</Text>
+            <View style={styles.grid}>
+              {largeAppliances.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridItem}
+                  onPress={() => router.push(`/subservice/${item.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.gridImageContainer}>
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.gridImage}
+                      resizeMode="contain"
+                    />
+                    {item.estimatedMins && (
+                      <View style={styles.gridTimeBadge}>
+                        <Text style={styles.gridTimeBadgeText}>{item.estimatedMins} mins</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.gridItemName} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
+
+        {/* Other Appliances Section */}
+        {otherAppliances.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Other appliances</Text>
+            <View style={styles.grid}>
+              {otherAppliances.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridItem}
+                  onPress={() => router.push(`/subservice/${item.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.gridImageContainer}>
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.gridImage}
+                      resizeMode="contain"
+                    />
+                    {item.estimatedMins && (
+                      <View style={styles.gridTimeBadge}>
+                        <Text style={styles.gridTimeBadgeText}>{item.estimatedMins} mins</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.gridItemName} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Empty state for categories without sub-services */}
+        {subServices.length === 0 && (
+          <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              No services in this category yet.
+              Services coming soon for this category.
             </Text>
           </View>
-        }
-      />
+        )}
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { 
+    flex: 1, 
+    backgroundColor: "#FFFFFF" 
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-    gap: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  back: {
+  backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -100,28 +199,135 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  crumb: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
-  title: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.textMain,
-    letterSpacing: -0.3,
-  },
-  searchBar: {
-    marginHorizontal: 20,
-    marginBottom: 14,
-    height: 48,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    gap: 10,
+    gap: 8,
   },
-  searchPlaceholder: { fontSize: 13, color: colors.textSubtle, fontWeight: "500" },
-  list: { paddingHorizontal: 20, paddingBottom: 40 },
-  empty: { paddingVertical: 60, alignItems: "center" },
-  emptyText: { fontSize: 14, color: colors.textMuted },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  categoryTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: colors.textMain,
+    marginTop: 20,
+    marginBottom: 24,
+    letterSpacing: -0.5,
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textMain,
+    marginBottom: 16,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  gridItem: {
+    width: "23%",
+    alignItems: "center",
+  },
+  gridImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#FAFAFA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  gridImage: {
+    width: 60,
+    height: 60,
+  },
+  gridTimeBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  gridTimeBadgeText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#2E7D32",
+  },
+  gridItemName: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.textMain,
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  subServiceItem: {
+    width: 100,
+    alignItems: "center",
+    marginRight: 16,
+  },
+  subServiceImageContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#FAFAFA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  subServiceImage: {
+    width: 70,
+    height: 70,
+  },
+  timeBadge: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  timeBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#2E7D32",
+  },
+  subServiceName: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.textMain,
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  emptyState: {
+    paddingVertical: 60,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
 });

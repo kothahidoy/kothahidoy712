@@ -2,7 +2,7 @@
 // When Supabase is configured the data layer fetches from Postgres instead,
 // but the same shapes are reused.
 
-import { Category, Offer, Professional, Service } from "@/src/types";
+import { Category, Offer, Professional, Service, SubService } from "@/src/types";
 
 export const CITIES = ["Durgapur", "Burdwan", "Kolkata", "Asansol", "Howrah"];
 
@@ -69,6 +69,82 @@ export const CATEGORIES: Category[] = [
     icon: "Hammer", 
     color: "#FEE2E2",
     imageUrl: "https://images.unsplash.com/photo-1561297331-a9c00b9c2c44?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxjYXJwZW50ZXJ8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
+  },
+];
+
+// Urban Company style sub-services for AC & Appliance Repair category
+export const AC_APPLIANCE_SUB_SERVICES: SubService[] = [
+  {
+    id: "sub-ac",
+    categoryId: "ac-repair",
+    name: "AC",
+    imageUrl: "https://cdn.pixabay.com/photo/2021/09/08/07/20/air-conditioner-6605973_640.jpg",
+    estimatedMins: 44,
+    rating: 4.77,
+    bookingCount: "13.6 M",
+  },
+  {
+    id: "sub-washing",
+    categoryId: "ac-repair",
+    name: "Washing Machine",
+    imageUrl: "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 60,
+    rating: 4.65,
+    bookingCount: "8.2 M",
+  },
+  {
+    id: "sub-refrigerator",
+    categoryId: "ac-repair",
+    name: "Refrigerator",
+    imageUrl: "https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 55,
+    rating: 4.70,
+    bookingCount: "5.4 M",
+  },
+  {
+    id: "sub-tv",
+    categoryId: "ac-repair",
+    name: "Television",
+    imageUrl: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 44,
+    rating: 4.55,
+    bookingCount: "3.1 M",
+  },
+  {
+    id: "sub-chimney",
+    categoryId: "ac-repair",
+    name: "Chimney",
+    imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 44,
+    rating: 4.60,
+    bookingCount: "2.8 M",
+  },
+  {
+    id: "sub-microwave",
+    categoryId: "ac-repair",
+    name: "Microwave",
+    imageUrl: "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 40,
+    rating: 4.50,
+    bookingCount: "1.9 M",
+  },
+  {
+    id: "sub-geyser",
+    categoryId: "ac-repair",
+    name: "Geyser",
+    imageUrl: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 35,
+    rating: 4.68,
+    bookingCount: "4.2 M",
+  },
+  {
+    id: "sub-water-purifier",
+    categoryId: "ac-repair",
+    name: "RO/Water Purifier",
+    imageUrl: "https://images.unsplash.com/photo-1564419320461-6870880221ad?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 30,
+    rating: 4.72,
+    bookingCount: "6.5 M",
   },
 ];
 
