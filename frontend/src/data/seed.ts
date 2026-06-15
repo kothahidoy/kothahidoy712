@@ -40,7 +40,7 @@ export const CATEGORIES: Category[] = [
     name: "AC & Appliance Repair", 
     icon: "Wind", 
     color: "#CFFAFE",
-    imageUrl: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200"
+    imageUrl: "https://cdn.pixabay.com/photo/2021/09/08/07/20/air-conditioner-6605973_1280.jpg"
   },
   { 
     id: "electrician", 
