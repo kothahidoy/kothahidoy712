@@ -462,3 +462,131 @@ export const TIME_SLOTS = [
   "05:00 PM",
   "06:30 PM",
 ];
+
+// Electrician services - Urban Company Kolkata style
+export interface ElectricianService {
+  id: string;
+  title: string;
+  rating: number;
+  reviewCount: string;
+  price: number;
+  originalPrice?: number;
+  duration: number;
+  image: string;
+  description: string;
+  inclusions?: string[];
+}
+
+export const ELECTRICIAN_SERVICES: ElectricianService[] = [
+  {
+    id: "elec-switchboard",
+    title: "Switchboard installation",
+    rating: 4.82,
+    reviewCount: "45K",
+    price: 149,
+    duration: 30,
+    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=400&q=80",
+    description: "Installation of new modular/normal switchboard with proper wiring",
+    inclusions: ["New switchboard installation", "Wiring included", "30-day warranty"],
+  },
+  {
+    id: "elec-fan-install",
+    title: "Fan installation",
+    rating: 4.79,
+    reviewCount: "128K",
+    price: 179,
+    duration: 45,
+    image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=400&q=80",
+    description: "Ceiling fan, exhaust fan or wall fan installation with all fittings",
+    inclusions: ["Fan mounting", "Regulator connection", "Testing included"],
+  },
+  {
+    id: "elec-fan-repair",
+    title: "Fan repair",
+    rating: 4.77,
+    reviewCount: "89K",
+    price: 119,
+    originalPrice: 149,
+    duration: 30,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=400&q=80",
+    description: "Repair for fan not working, noise issue, speed problem or capacitor replacement",
+    inclusions: ["Diagnosis", "Minor repairs", "Capacitor extra if needed"],
+  },
+  {
+    id: "elec-light-install",
+    title: "Light/lamp installation",
+    rating: 4.81,
+    reviewCount: "76K",
+    price: 99,
+    duration: 20,
+    image: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&w=400&q=80",
+    description: "Installation of tube light, LED panel, chandelier or decorative lights",
+    inclusions: ["Light fitting", "Wiring if needed", "Testing"],
+  },
+  {
+    id: "elec-mcb-repair",
+    title: "MCB/fuse repair",
+    rating: 4.85,
+    reviewCount: "34K",
+    price: 199,
+    duration: 45,
+    image: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?auto=format&fit=crop&w=400&q=80",
+    description: "MCB tripping, fuse replacement, main switch repair with safety check",
+    inclusions: ["MCB diagnosis", "Replacement if needed", "Safety inspection"],
+  },
+  {
+    id: "elec-wiring-repair",
+    title: "Wiring repair",
+    rating: 4.74,
+    reviewCount: "52K",
+    price: 249,
+    duration: 60,
+    image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=400&q=80",
+    description: "Faulty wiring repair, short circuit fix, new point wiring",
+    inclusions: ["Fault detection", "Wire replacement", "30-day warranty"],
+  },
+  {
+    id: "elec-inverter-install",
+    title: "Inverter/stabilizer installation",
+    rating: 4.80,
+    reviewCount: "28K",
+    price: 349,
+    duration: 60,
+    image: "https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=400&q=80",
+    description: "Installation of inverter, UPS or voltage stabilizer with proper earthing",
+    inclusions: ["Device installation", "Earthing check", "Battery connection"],
+  },
+  {
+    id: "elec-appliance-install",
+    title: "Appliance installation",
+    rating: 4.78,
+    reviewCount: "41K",
+    price: 199,
+    duration: 45,
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=400&q=80",
+    description: "Geyser, AC outdoor unit, motor pump or any heavy appliance installation",
+    inclusions: ["Appliance fitting", "Proper wiring", "Safety check"],
+  },
+  {
+    id: "elec-doorbell",
+    title: "Doorbell installation",
+    rating: 4.76,
+    reviewCount: "19K",
+    price: 99,
+    duration: 20,
+    image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=400&q=80",
+    description: "Wired or wireless doorbell installation with proper placement",
+    inclusions: ["Doorbell mounting", "Wiring", "Testing"],
+  },
+  {
+    id: "elec-socket-install",
+    title: "Socket/switch installation",
+    rating: 4.83,
+    reviewCount: "67K",
+    price: 79,
+    duration: 15,
+    image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=400&q=80",
+    description: "New 5A/15A socket, USB socket or modular switch installation",
+    inclusions: ["Socket/switch fitting", "Proper wiring", "Load testing"],
+  },
+];

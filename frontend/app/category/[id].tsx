@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Redirect } from "expo-router";
 import { ArrowLeft, Search, Share2, Star, X, Zap } from "lucide-react-native";
 
 import { dataService } from "@/src/data/service";
@@ -22,6 +22,11 @@ export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [category, setCategory] = useState<Category | null>(null);
   const [subServices, setSubServices] = useState<SubService[]>([]);
+
+  // Redirect to dedicated electrician page
+  if (id === "electrician") {
+    return <Redirect href="/category/electrician" />;
+  }
 
   useEffect(() => {
     (async () => {
