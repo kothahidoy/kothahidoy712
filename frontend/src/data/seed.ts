@@ -40,7 +40,7 @@ export const CATEGORIES: Category[] = [
     name: "AC & Appliance Repair", 
     icon: "Wind", 
     color: "#CFFAFE",
-    imageUrl: "https://images.unsplash.com/photo-1574134265234-e9160411f5b1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHw0fHxzcGxpdCUyMGFpciUyMGNvbmRpdGlvbmVyfGVufDB8fHx3aGl0ZXwxNzgxNTA4MzkyfDA&ixlib=rb-4.1.0&q=85&w=200"
+    imageUrl: "https://images.pexels.com/photos/4108722/pexels-photo-4108722.jpeg?auto=compress&cs=tinysrgb&w=200"
   },
   { 
     id: "electrician", 
@@ -54,7 +54,7 @@ export const CATEGORIES: Category[] = [
     name: "Insta Help", 
     icon: "Zap", 
     color: "#FEE2E2",
-    imageUrl: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=200&q=80"
+    imageUrl: "https://images.pexels.com/photos/3771120/pexels-photo-3771120.jpeg?auto=compress&cs=tinysrgb&w=200"
   },
   { 
     id: "plumber", 
