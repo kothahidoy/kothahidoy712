@@ -155,6 +155,15 @@ export const AC_APPLIANCE_SUB_SERVICES: SubService[] = [
     rating: 4.55,
     bookingCount: "2.1 M",
   },
+  {
+    id: "sub-stove",
+    categoryId: "ac-repair",
+    name: "Stove",
+    imageUrl: "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 45,
+    rating: 4.73,
+    bookingCount: "380K",
+  },
 ];
 
 const IMG = {

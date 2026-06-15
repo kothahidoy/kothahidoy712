@@ -57,6 +57,10 @@ const SERVICE_TYPES_CONFIG: Record<string, { id: string; label: string; image?: 
     { id: "service", label: "Service" },
     { id: "repair", label: "Repair" },
   ],
+  "sub-stove": [
+    { id: "service", label: "Service" },
+    { id: "repair", label: "Repair" },
+  ],
 };
 
 // Hero banner config for each appliance
@@ -104,6 +108,35 @@ const QUICK_SERVICES: Record<string, { id: string; name: string; rating: number;
   "sub-washing": [
     { id: "top-load", name: "Top load check-up", rating: 4.77, reviews: "375K", price: 199 },
     { id: "front-load", name: "Front load check-up", rating: 4.75, reviews: "164K", price: 199 },
+  ],
+};
+
+// Stove-specific services data
+const STOVE_SERVICES = {
+  service: [
+    {
+      id: "stove-steam-service",
+      title: "Gas stove steam service",
+      rating: 4.69,
+      reviews: "35K",
+      price: 299,
+      description: "Cleanup of burners, nozzles & internal parts with steam machine",
+      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
+      options: 3,
+    },
+  ],
+  repair: [
+    {
+      id: "stove-checkup",
+      title: "Gas stove check-up",
+      rating: 4.77,
+      reviews: "39K",
+      price: 99,
+      duration: 45,
+      description: "Repairs for issues like low flame, gas leakage, knob, pipe issues & other faults",
+      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
+      options: 5,
+    },
   ],
 };
 
@@ -336,6 +369,99 @@ export default function SubServiceScreen() {
           </View>
         )}
 
+        {/* Stove-specific Services (Service + Repair sections) */}
+        {id === "sub-stove" && (
+          <>
+            {/* Service Section */}
+            <View style={styles.servicesSection}>
+              <Text style={styles.servicesSectionTitle}>Service</Text>
+              {STOVE_SERVICES.service.map((service) => (
+                <View key={service.id} style={styles.serviceCard}>
+                  <View style={styles.serviceCardContent}>
+                    <View style={styles.serviceDetailsLeft}>
+                      <Text style={styles.serviceTitle}>{service.title}</Text>
+                      <View style={styles.serviceRatingRow}>
+                        <Star size={12} color="#FBBF24" fill="#FBBF24" />
+                        <Text style={styles.serviceRating}>
+                          {service.rating} ({service.reviews} reviews)
+                        </Text>
+                      </View>
+                      <Text style={styles.serviceStartsAt}>₹{service.price}</Text>
+                      <View style={styles.inclusionsList}>
+                        <View style={styles.inclusionItem}>
+                          <Text style={styles.inclusionBullet}>•</Text>
+                          <Text style={styles.inclusionText}>{service.description}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity onPress={() => router.push(`/servicedetail/${service.id}`)}>
+                        <Text style={styles.viewDetailsText}>View details</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.serviceCardRight}>
+                      <Image
+                        source={{ uri: service.image }}
+                        style={styles.serviceImage}
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity 
+                        style={styles.addButton}
+                        onPress={() => router.push(`/servicedetail/${service.id}`)}
+                      >
+                        <Text style={styles.addButtonText}>Add</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.optionsText}>{service.options} options</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Repair Section */}
+            <View style={styles.servicesSection}>
+              <Text style={styles.servicesSectionTitle}>Repair</Text>
+              {STOVE_SERVICES.repair.map((service) => (
+                <View key={service.id} style={styles.serviceCard}>
+                  <View style={styles.serviceCardContent}>
+                    <View style={styles.serviceDetailsLeft}>
+                      <Text style={styles.serviceTitle}>{service.title}</Text>
+                      <View style={styles.serviceRatingRow}>
+                        <Star size={12} color="#FBBF24" fill="#FBBF24" />
+                        <Text style={styles.serviceRating}>
+                          {service.rating} ({service.reviews} reviews)
+                        </Text>
+                      </View>
+                      <Text style={styles.serviceStartsAt}>₹{service.price} • {service.duration} mins</Text>
+                      <View style={styles.inclusionsList}>
+                        <View style={styles.inclusionItem}>
+                          <Text style={styles.inclusionBullet}>•</Text>
+                          <Text style={styles.inclusionText}>{service.description}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity onPress={() => router.push(`/servicedetail/${service.id}`)}>
+                        <Text style={styles.viewDetailsText}>View details</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.serviceCardRight}>
+                      <Image
+                        source={{ uri: service.image }}
+                        style={styles.serviceImage}
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity 
+                        style={styles.addButton}
+                        onPress={() => router.push(`/servicedetail/${service.id}`)}
+                      >
+                        <Text style={styles.addButtonText}>Add</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.optionsText}>{service.options} options</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
         {/* Services List */}
         <View style={styles.servicesSection}>
           <Text style={styles.servicesSectionTitle}>
@@ -432,11 +558,17 @@ export default function SubServiceScreen() {
                 <Text style={styles.technicianFeatureText}>Certified under Skill India Programme</Text>
               </View>
             </View>
-            <Image
-              source={{ uri: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80" }}
-              style={styles.technicianImage}
-              resizeMode="cover"
-            />
+            <View style={styles.technicianImageWrapper}>
+              <Image
+                source={{ uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" }}
+                style={styles.technicianImage}
+                resizeMode="cover"
+              />
+              {/* Blue T-shirt with MFIXIT logo overlay */}
+              <View style={styles.mfixitTshirtBadge}>
+                <Text style={styles.mfixitTshirtText}>MFIXIT</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -981,10 +1113,29 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.textMain,
   },
+  technicianImageWrapper: {
+    position: "relative",
+  },
   technicianImage: {
     width: 120,
     height: 140,
     borderRadius: radius.lg,
+  },
+  mfixitTshirtBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: "#2563EB",
+    paddingVertical: 6,
+    borderRadius: 4,
+    alignItems: "center",
+  },
+  mfixitTshirtText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
   promiseSection: {
     marginTop: 0,
