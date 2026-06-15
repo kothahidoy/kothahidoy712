@@ -9,14 +9,14 @@ export const CITIES = ["Durgapur", "Burdwan", "Kolkata", "Asansol", "Howrah"];
 export const CATEGORIES: Category[] = [
   { 
     id: "salon-women", 
-    name: "Women's Salon & Spa", 
+    name: "Women's Salon", 
     icon: "Sparkles", 
     color: "#FCE7F3",
     imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHw0fHxzcGElMjB0cmVhdG1lbnR8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
   },
   { 
     id: "salon", 
-    name: "Men's Salon & Massage", 
+    name: "Men's Salon", 
     icon: "Scissors", 
     color: "#FFEDD5",
     imageUrl: "https://images.unsplash.com/photo-1647140655214-e4a2d914971f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxiYXJiZXIlMjBoYWlyY3V0fGVufDB8fHx8MTc4MTQ3MTcwM3ww&ixlib=rb-4.1.0&q=85&w=200"
@@ -40,11 +40,11 @@ export const CATEGORIES: Category[] = [
     name: "AC & Appliance Repair", 
     icon: "Wind", 
     color: "#CFFAFE",
-    imageUrl: "https://images.unsplash.com/photo-1604754742629-3e5728249d73?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxBQyUyMHJlcGFpcnxlbnwwfHx8fDE3ODE0NzE3MDN8MA&ixlib=rb-4.1.0&q=85&w=200"
+    imageUrl: "https://images.pexels.com/photos/5463576/pexels-photo-5463576.jpeg?auto=compress&cs=tinysrgb&w=200"
   },
   { 
     id: "electrician", 
-    name: "Electrician, Plumber & Carpenter", 
+    name: "Electrician", 
     icon: "Zap", 
     color: "#DBEAFE",
     imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwyfHxlbGVjdHJpY2lhbnxlbnwwfHx8fDE3ODE0NzE3MDN8MA&ixlib=rb-4.1.0&q=85&w=200"
@@ -54,7 +54,7 @@ export const CATEGORIES: Category[] = [
     name: "Insta Help", 
     icon: "Zap", 
     color: "#FEE2E2",
-    imageUrl: "https://images.unsplash.com/photo-1564144573017-8dc932e0039e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxlbWVyZ2VuY3klMjBoZWxwfGVufDB8fHx8MTc4MTQ3MTcxMHww&ixlib=rb-4.1.0&q=85&w=200"
+    imageUrl: "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=200&q=80"
   },
   { 
     id: "plumber", 
