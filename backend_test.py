@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://hidoy-dev.preview.emergentagent.com/api"
+BACKEND_URL = "https://code-import-tool-5.preview.emergentagent.com/api"
 
 # Test results storage
 test_results = {
