@@ -65,7 +65,7 @@ export default function CategoryScreen() {
     ["sub-ac", "sub-washing", "sub-refrigerator", "sub-tv"].includes(s.id)
   );
   const otherAppliances = subServices.filter(s => 
-    ["sub-chimney", "sub-microwave", "sub-geyser", "sub-water-purifier"].includes(s.id)
+    ["sub-chimney", "sub-microwave", "sub-geyser", "sub-water-purifier", "sub-cooler"].includes(s.id)
   );
 
   return (

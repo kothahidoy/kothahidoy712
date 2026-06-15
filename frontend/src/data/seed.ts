@@ -146,6 +146,15 @@ export const AC_APPLIANCE_SUB_SERVICES: SubService[] = [
     rating: 4.72,
     bookingCount: "6.5 M",
   },
+  {
+    id: "sub-cooler",
+    categoryId: "ac-repair",
+    name: "Air Cooler",
+    imageUrl: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80",
+    estimatedMins: 40,
+    rating: 4.55,
+    bookingCount: "2.1 M",
+  },
 ];
 
 const IMG = {
