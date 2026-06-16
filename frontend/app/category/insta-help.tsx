@@ -17,57 +17,57 @@ import {
   Star, 
   Clock,
   Shield,
-  Tag,
+  Zap,
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
 
-// Sub-categories for electrician (matching Urban Company)
-const ELECTRICIAN_SUBCATEGORIES = [
+// Sub-categories for Insta Help (matching Urban Company)
+const INSTA_HELP_SUBCATEGORIES = [
+  {
+    id: "tap-leak",
+    name: "Tap &\nleak fix",
+    image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "toilet",
+    name: "Toilet\nrepair",
+    image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=200&q=80",
+  },
   {
     id: "switch-socket",
     name: "Switch &\nsocket",
     image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "fan",
-    name: "Fan",
-    image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "light",
-    name: "Light",
-    image: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "wiring",
-    name: "Wiring",
-    image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "doorbell-security",
-    name: "Doorbell &\nsecurity",
+    id: "door-lock",
+    name: "Door &\nlock",
     image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "mcb-fuse",
-    name: "MCB/fuse",
-    image: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?auto=format&fit=crop&w=200&q=80",
+    id: "fan-light",
+    name: "Fan &\nlight",
+    image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "appliances",
-    name: "Appliances",
-    image: "https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=200&q=80",
+    id: "drill-hang",
+    name: "Drill &\nhang",
+    image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "consultation",
-    name: "Book a\nconsultation",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=200&q=80",
+    id: "furniture",
+    name: "Furniture\nfix",
+    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "other",
+    name: "Other\nissues",
+    image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=200&q=80",
   },
 ];
 
 // Grid item component with explicit sizing
-const GridItem = ({ item, onPress }: { item: typeof ELECTRICIAN_SUBCATEGORIES[0]; onPress: () => void }) => (
+const GridItem = ({ item, onPress }: { item: typeof INSTA_HELP_SUBCATEGORIES[0]; onPress: () => void }) => (
   <TouchableOpacity 
     style={styles.gridItem} 
     onPress={onPress}
@@ -84,16 +84,16 @@ const GridItem = ({ item, onPress }: { item: typeof ELECTRICIAN_SUBCATEGORIES[0]
   </TouchableOpacity>
 );
 
-export default function ElectricianCategoryScreen() {
+export default function InstaHelpCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/electrician/${subcategoryId}`);
+    router.push(`/insta-help/${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items
-  const row1 = ELECTRICIAN_SUBCATEGORIES.slice(0, 4);
-  const row2 = ELECTRICIAN_SUBCATEGORIES.slice(4, 8);
+  const row1 = INSTA_HELP_SUBCATEGORIES.slice(0, 4);
+  const row2 = INSTA_HELP_SUBCATEGORIES.slice(4, 8);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -102,7 +102,7 @@ export default function ElectricianCategoryScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Hero Banner - Yellow/Cream background like UC */}
+        {/* Hero Banner - Red background for Insta Help */}
         <View style={styles.heroBanner}>
           {/* Header buttons overlaying the banner */}
           <View style={styles.headerOverlay}>
@@ -114,8 +114,9 @@ export default function ElectricianCategoryScreen() {
               <ArrowLeft size={20} color="#FFFFFF" />
             </TouchableOpacity>
             
-            <View style={styles.saverBadge}>
-              <Text style={styles.saverText}>saver</Text>
+            <View style={styles.urgentBadge}>
+              <Zap size={12} color="#FFFFFF" fill="#FFFFFF" />
+              <Text style={styles.urgentText}>instant</Text>
             </View>
             
             <View style={styles.headerRight}>
@@ -131,11 +132,11 @@ export default function ElectricianCategoryScreen() {
           {/* Banner Content */}
           <View style={styles.bannerContent}>
             <View style={styles.bannerLeft}>
-              <Text style={styles.bannerTitle}>Affordable repairs{"\n"}starting at just ₹49</Text>
+              <Text style={styles.bannerTitle}>Quick fixes{"\n"}within 60 mins</Text>
             </View>
             <View style={styles.bannerImageContainer}>
               <Image
-                source={{ uri: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=300&q=80" }}
+                source={{ uri: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=300&q=80" }}
                 style={styles.bannerImage}
                 resizeMode="cover"
               />
@@ -153,20 +154,20 @@ export default function ElectricianCategoryScreen() {
           {/* Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleLeft}>
-              <Text style={styles.categoryTitle}>Electrician</Text>
+              <Text style={styles.categoryTitle}>Insta Help</Text>
               <View style={styles.ratingRow}>
                 <Star size={14} color="#000000" fill="#000000" />
-                <Text style={styles.ratingText}>4.80 (2.5 M bookings)</Text>
+                <Text style={styles.ratingText}>4.75 (1.8 M bookings)</Text>
               </View>
             </View>
             <View style={styles.earliestBadge}>
-              <Clock size={12} color="#059669" />
-              <Text style={styles.earliestLabel}>Earliest</Text>
-              <Text style={styles.earliestTime}>Wed, 8:00 AM</Text>
+              <Clock size={12} color="#DC2626" />
+              <Text style={styles.earliestLabel}>Arrives in</Text>
+              <Text style={styles.earliestTime}>~60 mins</Text>
             </View>
           </View>
 
-          {/* Warranty Card - Changed to Mfixit */}
+          {/* Warranty Card */}
           <TouchableOpacity style={styles.warrantyCard}>
             <View style={styles.warrantyLeft}>
               <View style={styles.warrantyIcon}>
@@ -179,10 +180,10 @@ export default function ElectricianCategoryScreen() {
 
           {/* Promo Banner */}
           <View style={styles.promoBanner}>
-            <Tag size={16} color="#059669" />
+            <Zap size={16} color="#DC2626" fill="#DC2626" />
             <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>Get visitation fee off</Text>
-              <Text style={styles.promoSubtitle}>On orders above ₹499</Text>
+              <Text style={styles.promoTitle}>Flat ₹49 visitation fee</Text>
+              <Text style={styles.promoSubtitle}>For all insta help services</Text>
             </View>
           </View>
 
@@ -214,8 +215,8 @@ export default function ElectricianCategoryScreen() {
 
       {/* Bottom Promo Bar */}
       <View style={styles.bottomPromo}>
-        <Tag size={14} color="#059669" />
-        <Text style={styles.bottomPromoText}>Get visitation fee off on orders above ₹499</Text>
+        <Zap size={14} color="#DC2626" fill="#DC2626" />
+        <Text style={styles.bottomPromoText}>Expert arrives within 60 minutes</Text>
       </View>
     </SafeAreaView>
   );
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroBanner: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: "#FEE2E2",
     paddingTop: 8,
   },
   headerOverlay: {
@@ -244,18 +245,21 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#059669",
+    backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
   },
-  saverBadge: {
-    backgroundColor: "#059669",
+  urgentBadge: {
+    backgroundColor: "#DC2626",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 4,
     marginLeft: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
-  saverText: {
+  urgentText: {
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
@@ -302,13 +306,13 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "#FDE68A",
+    backgroundColor: "#FECACA",
     marginTop: 8,
   },
   progressFill: {
     height: 4,
-    width: "60%",
-    backgroundColor: "#059669",
+    width: "90%",
+    backgroundColor: "#DC2626",
   },
   mainContent: {
     flex: 1,
@@ -344,13 +348,13 @@ const styles = StyleSheet.create({
   earliestLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#059669",
+    color: "#DC2626",
     marginTop: 2,
   },
   earliestTime: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#059669",
+    color: "#DC2626",
   },
   warrantyCard: {
     flexDirection: "row",
@@ -446,16 +450,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ECFDF5",
+    backgroundColor: "#FEF2F2",
     paddingVertical: 14,
     paddingHorizontal: 16,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#D1FAE5",
+    borderTopColor: "#FEE2E2",
   },
   bottomPromoText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#059669",
+    color: "#DC2626",
   },
 });

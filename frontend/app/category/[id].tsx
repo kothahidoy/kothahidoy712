@@ -23,9 +23,21 @@ export default function CategoryScreen() {
   const [category, setCategory] = useState<Category | null>(null);
   const [subServices, setSubServices] = useState<SubService[]>([]);
 
-  // Redirect to dedicated electrician page
+  // Redirect to dedicated category pages
   if (id === "electrician") {
     return <Redirect href="/category/electrician" />;
+  }
+  if (id === "salon") {
+    return <Redirect href="/category/salon" />;
+  }
+  if (id === "cleaning") {
+    return <Redirect href="/category/cleaning" />;
+  }
+  if (id === "insta-help") {
+    return <Redirect href="/category/insta-help" />;
+  }
+  if (id === "ac-repair") {
+    return <Redirect href="/category/ac-appliance" />;
   }
 
   useEffect(() => {

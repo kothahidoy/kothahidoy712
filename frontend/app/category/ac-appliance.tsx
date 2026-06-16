@@ -22,52 +22,52 @@ import {
 
 import { colors, radius } from "@/src/theme";
 
-// Sub-categories for electrician (matching Urban Company)
-const ELECTRICIAN_SUBCATEGORIES = [
+// Sub-categories for AC & Appliance (matching Urban Company)
+const AC_APPLIANCE_SUBCATEGORIES = [
   {
-    id: "switch-socket",
-    name: "Switch &\nsocket",
-    image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=200&q=80",
+    id: "ac",
+    name: "AC service\n& repair",
+    image: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "fan",
-    name: "Fan",
+    id: "washing-machine",
+    name: "Washing\nmachine",
+    image: "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "refrigerator",
+    name: "Refrigerator",
+    image: "https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "geyser",
+    name: "Geyser",
     image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "light",
-    name: "Light",
-    image: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&w=200&q=80",
+    id: "tv",
+    name: "Television",
+    image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "wiring",
-    name: "Wiring",
-    image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=200&q=80",
+    id: "microwave",
+    name: "Microwave",
+    image: "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "doorbell-security",
-    name: "Doorbell &\nsecurity",
-    image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=200&q=80",
+    id: "chimney",
+    name: "Chimney &\nhob",
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "mcb-fuse",
-    name: "MCB/fuse",
-    image: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "appliances",
-    name: "Appliances",
-    image: "https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "consultation",
-    name: "Book a\nconsultation",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=200&q=80",
+    id: "water-purifier",
+    name: "Water\npurifier",
+    image: "https://images.unsplash.com/photo-1564419320461-6870880221ad?auto=format&fit=crop&w=200&q=80",
   },
 ];
 
 // Grid item component with explicit sizing
-const GridItem = ({ item, onPress }: { item: typeof ELECTRICIAN_SUBCATEGORIES[0]; onPress: () => void }) => (
+const GridItem = ({ item, onPress }: { item: typeof AC_APPLIANCE_SUBCATEGORIES[0]; onPress: () => void }) => (
   <TouchableOpacity 
     style={styles.gridItem} 
     onPress={onPress}
@@ -84,16 +84,16 @@ const GridItem = ({ item, onPress }: { item: typeof ELECTRICIAN_SUBCATEGORIES[0]
   </TouchableOpacity>
 );
 
-export default function ElectricianCategoryScreen() {
+export default function ACApplianceCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/electrician/${subcategoryId}`);
+    router.push(`/ac-appliance/${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items
-  const row1 = ELECTRICIAN_SUBCATEGORIES.slice(0, 4);
-  const row2 = ELECTRICIAN_SUBCATEGORIES.slice(4, 8);
+  const row1 = AC_APPLIANCE_SUBCATEGORIES.slice(0, 4);
+  const row2 = AC_APPLIANCE_SUBCATEGORIES.slice(4, 8);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -102,7 +102,7 @@ export default function ElectricianCategoryScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Hero Banner - Yellow/Cream background like UC */}
+        {/* Hero Banner - Cyan background for AC & Appliance */}
         <View style={styles.heroBanner}>
           {/* Header buttons overlaying the banner */}
           <View style={styles.headerOverlay}>
@@ -131,11 +131,11 @@ export default function ElectricianCategoryScreen() {
           {/* Banner Content */}
           <View style={styles.bannerContent}>
             <View style={styles.bannerLeft}>
-              <Text style={styles.bannerTitle}>Affordable repairs{"\n"}starting at just ₹49</Text>
+              <Text style={styles.bannerTitle}>AC service{"\n"}starting ₹499</Text>
             </View>
             <View style={styles.bannerImageContainer}>
               <Image
-                source={{ uri: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=300&q=80" }}
+                source={{ uri: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=300&q=80" }}
                 style={styles.bannerImage}
                 resizeMode="cover"
               />
@@ -153,20 +153,20 @@ export default function ElectricianCategoryScreen() {
           {/* Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleLeft}>
-              <Text style={styles.categoryTitle}>Electrician</Text>
+              <Text style={styles.categoryTitle}>AC & Appliance</Text>
               <View style={styles.ratingRow}>
                 <Star size={14} color="#000000" fill="#000000" />
-                <Text style={styles.ratingText}>4.80 (2.5 M bookings)</Text>
+                <Text style={styles.ratingText}>4.77 (5.6 M bookings)</Text>
               </View>
             </View>
             <View style={styles.earliestBadge}>
               <Clock size={12} color="#059669" />
               <Text style={styles.earliestLabel}>Earliest</Text>
-              <Text style={styles.earliestTime}>Wed, 8:00 AM</Text>
+              <Text style={styles.earliestTime}>Thu, 10:00 AM</Text>
             </View>
           </View>
 
-          {/* Warranty Card - Changed to Mfixit */}
+          {/* Warranty Card */}
           <TouchableOpacity style={styles.warrantyCard}>
             <View style={styles.warrantyLeft}>
               <View style={styles.warrantyIcon}>
@@ -181,8 +181,8 @@ export default function ElectricianCategoryScreen() {
           <View style={styles.promoBanner}>
             <Tag size={16} color="#059669" />
             <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>Get visitation fee off</Text>
-              <Text style={styles.promoSubtitle}>On orders above ₹499</Text>
+              <Text style={styles.promoTitle}>₹150 off on AC service</Text>
+              <Text style={styles.promoSubtitle}>Deep clean + gas check</Text>
             </View>
           </View>
 
@@ -214,8 +214,8 @@ export default function ElectricianCategoryScreen() {
 
       {/* Bottom Promo Bar */}
       <View style={styles.bottomPromo}>
-        <Tag size={14} color="#059669" />
-        <Text style={styles.bottomPromoText}>Get visitation fee off on orders above ₹499</Text>
+        <Tag size={14} color="#0891B2" />
+        <Text style={styles.bottomPromoText}>₹150 off on AC service this summer</Text>
       </View>
     </SafeAreaView>
   );
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroBanner: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: "#CFFAFE",
     paddingTop: 8,
   },
   headerOverlay: {
@@ -244,12 +244,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#059669",
+    backgroundColor: "#0891B2",
     alignItems: "center",
     justifyContent: "center",
   },
   saverBadge: {
-    backgroundColor: "#059669",
+    backgroundColor: "#0891B2",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 4,
@@ -302,13 +302,13 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "#FDE68A",
+    backgroundColor: "#A5F3FC",
     marginTop: 8,
   },
   progressFill: {
     height: 4,
-    width: "60%",
-    backgroundColor: "#059669",
+    width: "70%",
+    backgroundColor: "#0891B2",
   },
   mainContent: {
     flex: 1,
@@ -446,16 +446,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ECFDF5",
+    backgroundColor: "#ECFEFF",
     paddingVertical: 14,
     paddingHorizontal: 16,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#D1FAE5",
+    borderTopColor: "#CFFAFE",
   },
   bottomPromoText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#059669",
+    color: "#0891B2",
   },
 });
