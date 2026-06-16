@@ -39,6 +39,18 @@ export default function CategoryScreen() {
   if (id === "ac-repair") {
     return <Redirect href="/category/ac-appliance" />;
   }
+  if (id === "plumber") {
+    return <Redirect href="/category/plumber" />;
+  }
+  if (id === "carpenter") {
+    return <Redirect href="/category/carpenter" />;
+  }
+  if (id === "women-salon" || id === "womens-salon") {
+    return <Redirect href="/category/salon-women" />;
+  }
+  if (id === "painting" || id === "home-painting") {
+    return <Redirect href="/category/painting" />;
+  }
 
   useEffect(() => {
     (async () => {
