@@ -92,7 +92,8 @@ export default function PlumberServiceScreen() {
   const router = useRouter();
 
   const handleCategoryPress = (categoryId: string) => {
-    router.push(`/plumber/${categoryId}`);
+    // Navigate to single-page plumber view with scroll-to-section
+    router.push(`/plumber?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3
