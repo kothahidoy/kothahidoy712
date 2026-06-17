@@ -12,13 +12,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { 
   ArrowLeft, 
   ChevronRight, 
-  ChevronDown,
-  ChevronUp,
   Star, 
   Clock,
   Shield,
   Info,
-  Check,
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
@@ -264,15 +261,15 @@ const ServiceCard = ({
   service, 
   quantity, 
   onAdd, 
-  onRemove 
+  onRemove,
+  onViewDetails,
 }: { 
   service: typeof PLUMBER_SERVICES["tap-mixer"]["services"][0];
   quantity: number;
   onAdd: () => void;
   onRemove: () => void;
+  onViewDetails: () => void;
 }) => {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <View style={styles.serviceCard}>
       <View style={styles.serviceMain}>
@@ -293,17 +290,13 @@ const ServiceCard = ({
             <Text style={styles.durationText}>{service.duration}</Text>
           </View>
           
-          {/* View details toggle */}
+          {/* View details - navigates to detail page */}
           <TouchableOpacity 
             style={styles.viewDetailsBtn}
-            onPress={() => setExpanded(!expanded)}
+            onPress={onViewDetails}
           >
             <Text style={styles.viewDetailsText}>View details</Text>
-            {expanded ? (
-              <ChevronUp size={16} color={colors.primary} />
-            ) : (
-              <ChevronDown size={16} color={colors.primary} />
-            )}
+            <ChevronRight size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
         
@@ -331,24 +324,6 @@ const ServiceCard = ({
           )}
         </View>
       </View>
-      
-      {/* Expanded details */}
-      {expanded && (
-        <View style={styles.expandedDetails}>
-          <Text style={styles.descriptionText}>{service.description}</Text>
-          {service.includes && (
-            <View style={styles.includesList}>
-              <Text style={styles.includesTitle}>What's included:</Text>
-              {service.includes.map((item, index) => (
-                <View key={index} style={styles.includeItem}>
-                  <Check size={14} color="#16A34A" />
-                  <Text style={styles.includeText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 };
@@ -374,6 +349,10 @@ export default function PlumberServiceListScreen() {
       }
       return { ...prev, [serviceId]: newQty };
     });
+  };
+
+  const handleViewDetails = (serviceId: string) => {
+    router.push(`/plumber/service/${serviceId}`);
   };
 
   const getCartTotal = () => {
@@ -431,6 +410,7 @@ export default function PlumberServiceListScreen() {
               quantity={cart[service.id] || 0}
               onAdd={() => handleAddToCart(service.id)}
               onRemove={() => handleRemoveFromCart(service.id)}
+              onViewDetails={() => handleViewDetails(service.id)}
             />
           ))}
         </View>
