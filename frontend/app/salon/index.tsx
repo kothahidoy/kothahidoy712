@@ -13,6 +13,7 @@ import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag } from 
 import { colors } from "@/src/theme";
 import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
 import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
+import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
 
 const CATEGORIES = [
   { id: "haircut", name: "Haircut &\nstyling", image: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=200&q=80" },
@@ -90,115 +91,229 @@ const ALL_SERVICES = {
   },
 };
 
-// Super Saver Packages Data
+// Hero banner media — easy to swap with admin-managed list later.
+// Mix of images and a sample video that shows the play overlay.
+const HERO_MEDIA: HeroMediaItem[] = [
+  {
+    type: "video",
+    uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+    caption: "Mess free experience",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80",
+    caption: "Salon at home",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=80",
+    caption: "Trusted pros",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=900&q=80",
+    caption: "Premium grooming",
+  },
+];
+
+// Super Saver Packages Data — Urban Company–style packages for Men's Salon
 const SUPER_SAVER_PACKAGES: PackageData[] = [
+  {
+    id: "haircut-massage",
+    name: "Haircut & massage",
+    rating: 4.86,
+    reviewCount: "749K",
+    price: 368,
+    duration: "40 mins",
+    items: [
+      { category: "Haircut", description: "Haircut for men" },
+      { category: "Massage", description: "10 min Relaxing Head massage" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut",
+        items: [
+          { id: "hm-hc1", name: "Haircut for men", price: 199, selected: true, variants: ["Classic", "Fade", "Crew cut"] },
+          { id: "hm-hc2", name: "Premium haircut", price: 349, variants: ["Textured", "Undercut"] },
+        ],
+      },
+      {
+        category: "Massage",
+        items: [
+          { id: "hm-ms1", name: "10 min head massage", price: 169, selected: true },
+          { id: "hm-ms2", name: "20 min head & shoulder", price: 269 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "grooming-essentials",
+    name: "Grooming essentials",
+    rating: 4.85,
+    reviewCount: "993K",
+    price: 567,
+    duration: "1 hr 5 mins",
+    items: [
+      { category: "Haircut", description: "Haircut for men" },
+      { category: "Beard or shaving grooming", description: "Beard trimming & styling" },
+      { category: "Massage", description: "Head massage (10 mins)" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut",
+        items: [
+          { id: "ge-hc1", name: "Haircut for men", price: 199, selected: true, variants: ["Classic", "Fade", "Modern"] },
+        ],
+      },
+      {
+        category: "Shave & Beard",
+        items: [
+          { id: "ge-sh1", name: "Beard trim & styling", price: 199, selected: true, variants: ["Short trim", "Designer", "Shape up"] },
+          { id: "ge-sh2", name: "Clean shave", price: 149 },
+        ],
+      },
+      {
+        category: "Massage",
+        items: [
+          { id: "ge-ms1", name: "Head massage (10 mins)", price: 169, selected: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: "haircut-color",
+    name: "Haircut & color",
+    rating: 4.86,
+    reviewCount: "537K",
+    price: 508,
+    originalPrice: 558,
+    duration: "60 mins",
+    items: [
+      { category: "Haircut or color", description: "Haircut for men" },
+      { category: "Hair color (Garnier)", description: "Brown black (shade 3)" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut",
+        items: [
+          { id: "hcc-hc1", name: "Haircut for men", price: 199, selected: true, variants: ["Classic", "Fade", "Modern"] },
+        ],
+      },
+      {
+        category: "Hair color",
+        items: [
+          { id: "hcc-col1", name: "Garnier — Brown black", price: 359, selected: true, variants: ["Shade 1", "Shade 2", "Shade 3"] },
+          { id: "hcc-col2", name: "Garnier — Black", price: 359, variants: ["Shade 1", "Shade 2"] },
+        ],
+      },
+    ],
+  },
+  {
+    id: "hair-and-care",
+    name: "Hair & care",
+    rating: 4.85,
+    reviewCount: "832K",
+    price: 758,
+    originalPrice: 808,
+    duration: "1 hr 5 mins",
+    items: [
+      { category: "Haircut", description: "Haircut for men" },
+      { category: "Pedicure", description: "Brightening lemon express pedicure" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut",
+        items: [
+          { id: "hac-hc1", name: "Haircut for men", price: 199, selected: true, variants: ["Classic", "Fade", "Modern"] },
+        ],
+      },
+      {
+        category: "Pedicure",
+        items: [
+          { id: "hac-pd1", name: "Brightening lemon express pedicure", price: 559, selected: true },
+          { id: "hac-pd2", name: "Classic pedicure", price: 349 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "face-care-beyond",
+    name: "Face care & beyond",
+    rating: 4.85,
+    reviewCount: "1.1M",
+    price: 858,
+    duration: "1 hr 5 mins",
+    items: [
+      { category: "Haircut", description: "Haircut for men" },
+      { category: "Facial or cleanup", description: "Charcoal De-toxifying Cleanup" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut",
+        items: [
+          { id: "fcb-hc1", name: "Haircut for men", price: 199, selected: true, variants: ["Classic", "Fade", "Modern"] },
+        ],
+      },
+      {
+        category: "Facial or cleanup",
+        items: [
+          { id: "fcb-fc1", name: "Charcoal de-toxifying cleanup", price: 659, selected: true, variants: ["VLCC", "Lotus", "O3+"] },
+          { id: "fcb-fc2", name: "Brightening cleanup", price: 599 },
+        ],
+      },
+    ],
+  },
   {
     id: "make-your-own",
     name: "Make your own package",
-    rating: 4.90,
-    reviewCount: "1.3M",
-    price: 1299,
-    originalPrice: 1624,
-    duration: "2 hrs",
-    discount: 20,
+    rating: 4.84,
+    reviewCount: "1.2M",
+    price: 1445,
+    originalPrice: 1606,
+    duration: "2 hrs 5 mins",
+    discount: 10,
     items: [
-      { category: "Haircut", description: "Premium haircut with styling" },
-      { category: "Shave", description: "Clean shave or beard styling" },
-      { category: "Facial", description: "Charcoal or brightening facial" },
-      { category: "Head massage", description: "20 mins relaxing massage" },
+      { category: "Haircut", description: "Haircut for men" },
+      { category: "Shave or beard grooming", description: "Beard trimming & styling" },
+      { category: "Facial or cleanup", description: "Charcoal de-toxifying cleanup" },
+      { category: "Pedicure", description: "Brightening lemon express pedicure" },
     ],
     customizable: true,
     customizableItems: [
       {
         category: "Haircut & Styling",
         items: [
-          { id: "hc1", name: "Basic haircut", price: 199, selected: true, variants: ["Classic", "Fade", "Crew cut"] },
-          { id: "hc2", name: "Premium haircut", price: 349, variants: ["Textured", "Undercut", "Pompadour"] },
-          { id: "hc3", name: "Hair styling", price: 299, variants: ["Gel finish", "Matte finish", "Natural"] },
+          { id: "myo-hc1", name: "Basic haircut", price: 199, selected: true, variants: ["Classic", "Fade", "Crew cut"] },
+          { id: "myo-hc2", name: "Premium haircut", price: 349, variants: ["Textured", "Undercut", "Pompadour"] },
+          { id: "myo-hc3", name: "Hair styling", price: 299, variants: ["Gel finish", "Matte finish", "Natural"] },
         ],
       },
       {
         category: "Shave & Beard",
         items: [
-          { id: "sh1", name: "Clean shave", price: 149, selected: true },
-          { id: "sh2", name: "Beard trim & styling", price: 199, variants: ["Short trim", "Designer", "Shape up"] },
-          { id: "sh3", name: "Beard color", price: 249, variants: ["Black", "Brown", "Grey blend"] },
+          { id: "myo-sh1", name: "Clean shave", price: 149 },
+          { id: "myo-sh2", name: "Beard trim & styling", price: 199, selected: true, variants: ["Short trim", "Designer", "Shape up"] },
+          { id: "myo-sh3", name: "Beard color", price: 249, variants: ["Black", "Brown", "Grey blend"] },
         ],
       },
       {
         category: "Facial & Skincare",
         items: [
-          { id: "fc1", name: "Basic cleanup", price: 399, selected: true },
-          { id: "fc2", name: "Charcoal facial", price: 599, variants: ["VLCC", "Lotus", "O3+"] },
-          { id: "fc3", name: "Anti-acne treatment", price: 799 },
+          { id: "myo-fc1", name: "Basic cleanup", price: 399 },
+          { id: "myo-fc2", name: "Charcoal de-toxifying cleanup", price: 599, selected: true, variants: ["VLCC", "Lotus", "O3+"] },
+          { id: "myo-fc3", name: "Anti-acne treatment", price: 799 },
         ],
       },
       {
-        category: "Massage",
+        category: "Pedicure",
         items: [
-          { id: "ms1", name: "Head massage", price: 199, selected: true },
-          { id: "ms2", name: "Neck & shoulder", price: 299 },
-          { id: "ms3", name: "Full body massage", price: 899 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "executive-grooming",
-    name: "Executive grooming package",
-    rating: 4.88,
-    reviewCount: "856K",
-    price: 899,
-    originalPrice: 999,
-    duration: "1 hr 30 mins",
-    discount: 10,
-    items: [
-      { category: "Haircut", description: "Premium haircut" },
-      { category: "Clean shave", description: "Hot towel shave" },
-      { category: "Facial", description: "Quick cleanup" },
-    ],
-    customizable: false,
-  },
-  {
-    id: "groom-special",
-    name: "Groom special package",
-    rating: 4.92,
-    reviewCount: "425K",
-    price: 2999,
-    originalPrice: 3999,
-    duration: "4 hrs",
-    discount: 25,
-    items: [
-      { category: "Haircut & styling", description: "Premium cut with styling" },
-      { category: "Facial", description: "Brightening facial" },
-      { category: "Manicure & pedicure", description: "Complete hand & foot care" },
-      { category: "Full body massage", description: "60 mins relaxation" },
-      { category: "Hair spa", description: "Deep conditioning treatment" },
-    ],
-    customizable: true,
-    customizableItems: [
-      {
-        category: "Hair Services",
-        items: [
-          { id: "gs1", name: "Premium haircut", price: 349, selected: true, variants: ["Classic", "Modern", "Trendy"] },
-          { id: "gs2", name: "Hair color", price: 699, variants: ["Black", "Brown", "Highlights"] },
-          { id: "gs3", name: "Hair spa", price: 599, selected: true },
-        ],
-      },
-      {
-        category: "Face & Skincare",
-        items: [
-          { id: "gs4", name: "Brightening facial", price: 999, selected: true },
-          { id: "gs5", name: "De-tan treatment", price: 499 },
-          { id: "gs6", name: "Under eye treatment", price: 399 },
-        ],
-      },
-      {
-        category: "Body Care",
-        items: [
-          { id: "gs7", name: "Manicure", price: 399, selected: true },
-          { id: "gs8", name: "Pedicure", price: 499, selected: true },
-          { id: "gs9", name: "Full body massage", price: 899, selected: true },
+          { id: "myo-pd1", name: "Brightening lemon express pedicure", price: 559, selected: true },
+          { id: "myo-pd2", name: "Classic pedicure", price: 349 },
         ],
       },
     ],
@@ -321,10 +436,14 @@ export default function SalonMenFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "haircut"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        {/* Super Saver Packages Section */}
+        {/* Hero Media Banner — swipeable images + video */}
+        <HeroMediaBanner items={HERO_MEDIA} height={240} />
+
+        {/* Packages Section (Urban Company–style) */}
         <SuperSaverPackages
           packages={SUPER_SAVER_PACKAGES}
-          themeColor="#EA580C"
+          themeColor="#7C3AED"
+          sectionTitle="Packages"
           onAddPackage={handleAddPackage}
           onEditPackage={handleEditPackage}
         />

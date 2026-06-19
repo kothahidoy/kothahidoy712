@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { Star, ChevronDown } from "lucide-react-native";
+import { Star } from "lucide-react-native";
 
 export interface PackageItem {
   id: string;
@@ -22,9 +22,9 @@ export interface PackageData {
   rating: number;
   reviewCount: string;
   price: number;
-  originalPrice: number;
+  originalPrice?: number;
   duration: string;
-  discount: number;
+  discount?: number;
   items: { category: string; description: string }[];
   customizable?: boolean;
   customizableItems?: { category: string; items: PackageItem[] }[];
@@ -33,6 +33,7 @@ export interface PackageData {
 interface SuperSaverPackagesProps {
   packages: PackageData[];
   themeColor?: string;
+  sectionTitle?: string;
   onAddPackage: (packageId: string) => void;
   onEditPackage: (packageId: string) => void;
 }
@@ -47,85 +48,99 @@ const PackageCard = ({
   themeColor: string;
   onAdd: () => void;
   onEdit: () => void;
-}) => (
-  <View style={styles.packageCard}>
-    <View style={styles.packageLeft}>
-      {/* Package Label */}
-      <View style={styles.packageLabelRow}>
-        <View style={[styles.packageLabel, { backgroundColor: `${themeColor}15` }]}>
-          <View style={[styles.packageLabelIcon, { backgroundColor: themeColor }]} />
-          <Text style={[styles.packageLabelText, { color: themeColor }]}>PACKAGE</Text>
-        </View>
-      </View>
+}) => {
+  const hasDiscount = !!pkg.discount && pkg.discount > 0;
 
-      {/* Package Name */}
-      <Text style={styles.packageName}>{pkg.name}</Text>
-
-      {/* Rating */}
-      <View style={styles.ratingRow}>
-        <Star size={12} color="#000" fill="#000" />
-        <Text style={styles.ratingText}>
-          {pkg.rating} ({pkg.reviewCount} reviews)
-        </Text>
-      </View>
-
-      {/* Price Row */}
-      <View style={styles.priceRow}>
-        <Text style={styles.price}>₹{pkg.price.toLocaleString()}</Text>
-        <Text style={styles.originalPrice}>₹{pkg.originalPrice.toLocaleString()}</Text>
-        <Text style={styles.duration}> • {pkg.duration}</Text>
-      </View>
-
-      {/* Dotted Separator */}
-      <View style={styles.dottedSeparator} />
-
-      {/* Items List */}
-      <View style={styles.itemsList}>
-        {pkg.items.map((item, index) => (
-          <View key={index} style={styles.itemRow}>
-            <Text style={styles.itemBullet}>•</Text>
-            <Text style={styles.itemText}>
-              <Text style={styles.itemCategory}>{item.category}: </Text>
-              {item.description}
-            </Text>
+  return (
+    <View style={styles.packageCard}>
+      <View style={styles.packageLeft}>
+        {/* Package Label */}
+        <View style={styles.packageLabelRow}>
+          <View style={styles.packageLabel}>
+            <View style={[styles.packageLabelIcon, { backgroundColor: "#16A34A" }]} />
+            <Text style={styles.packageLabelText}>PACKAGE</Text>
           </View>
-        ))}
-      </View>
+        </View>
 
-      {/* Edit Package Button */}
-      {pkg.customizable && (
+        {/* Package Name */}
+        <Text style={styles.packageName}>{pkg.name}</Text>
+
+        {/* Rating */}
+        <View style={styles.ratingRow}>
+          <Star size={12} color="#000" fill="#000" />
+          <Text style={styles.ratingText}>
+            {pkg.rating} ({pkg.reviewCount} reviews)
+          </Text>
+        </View>
+
+        {/* Price Row */}
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>₹{pkg.price.toLocaleString()}</Text>
+          {pkg.originalPrice ? (
+            <Text style={styles.originalPrice}>₹{pkg.originalPrice.toLocaleString()}</Text>
+          ) : null}
+          <Text style={styles.duration}> • {pkg.duration}</Text>
+        </View>
+
+        {/* Dotted Separator */}
+        <View style={styles.dottedSeparator} />
+
+        {/* Items List */}
+        <View style={styles.itemsList}>
+          {pkg.items.map((item, index) => (
+            <View key={index} style={styles.itemRow}>
+              <Text style={styles.itemBullet}>•</Text>
+              <Text style={styles.itemText}>
+                <Text style={styles.itemCategory}>{item.category}</Text>
+                <Text style={styles.itemText}>: {item.description}</Text>
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Edit Package Button (Urban Company shows this on every package) */}
         <TouchableOpacity style={styles.editPackageBtn} onPress={onEdit}>
           <Text style={styles.editPackageText}>Edit your package</Text>
         </TouchableOpacity>
-      )}
-    </View>
-
-    {/* Discount Badge */}
-    <View style={styles.packageRight}>
-      <View style={styles.discountBadge}>
-        <Text style={[styles.discountPercent, { color: themeColor }]}>{pkg.discount}%</Text>
-        <Text style={[styles.discountOff, { color: themeColor }]}>OFF</Text>
       </View>
-      <TouchableOpacity
-        style={[styles.addBadgeBtn, { borderColor: themeColor }]}
-        onPress={onAdd}
-      >
-        <Text style={[styles.addBadgeText, { color: themeColor }]}>Add</Text>
-      </TouchableOpacity>
+
+      {/* Right side: Discount badge (if any) + Add button */}
+      <View style={styles.packageRight}>
+        {hasDiscount ? (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountPercent}>{pkg.discount}%</Text>
+            <Text style={styles.discountOff}>OFF</Text>
+            <TouchableOpacity
+              style={[styles.addBadgeBtn, { borderColor: themeColor, marginTop: 8 }]}
+              onPress={onAdd}
+            >
+              <Text style={[styles.addBadgeText, { color: themeColor }]}>Add</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.addBadgeBtn, { borderColor: themeColor }]}
+            onPress={onAdd}
+          >
+            <Text style={[styles.addBadgeText, { color: themeColor }]}>Add</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 export const SuperSaverPackages: React.FC<SuperSaverPackagesProps> = ({
   packages,
   themeColor = "#16A34A",
+  sectionTitle = "Packages",
   onAddPackage,
   onEditPackage,
 }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Super saver packages</Text>
-      
+      <Text style={styles.sectionTitle}>{sectionTitle}</Text>
+
       {packages.map((pkg, index) => (
         <View key={pkg.id}>
           <PackageCard
@@ -148,11 +163,11 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "800",
     color: "#000000",
     paddingHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   packageCard: {
     flexDirection: "row",
@@ -170,33 +185,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
     gap: 6,
   },
   packageLabelIcon: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
     borderRadius: 2,
   },
   packageLabelText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.5,
+    color: "#16A34A",
   },
   packageName: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#000000",
     marginBottom: 6,
-    lineHeight: 24,
+    lineHeight: 26,
   },
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   ratingText: {
     fontSize: 13,
@@ -208,9 +221,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginBottom: 12,
+    flexWrap: "wrap",
   },
   price: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#000000",
   },
@@ -225,7 +239,7 @@ const styles = StyleSheet.create({
   },
   dottedSeparator: {
     borderStyle: "dashed",
-    borderWidth: 1,
+    borderTopWidth: 1,
     borderColor: "#E5E7EB",
     marginBottom: 12,
   },
@@ -238,7 +252,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itemBullet: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#000000",
     fontWeight: "700",
     marginTop: -2,
@@ -269,30 +283,31 @@ const styles = StyleSheet.create({
     color: "#000000",
   },
   packageRight: {
-    width: 110,
+    width: 92,
     alignItems: "center",
   },
   discountBadge: {
-    width: 100,
-    height: 100,
-    backgroundColor: "#F9FAFB",
+    width: 92,
+    paddingVertical: 14,
+    backgroundColor: "#F0FDF4",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
   },
   discountPercent: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "800",
+    color: "#15803D",
   },
   discountOff: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
-    marginTop: -4,
+    color: "#15803D",
+    marginTop: -2,
   },
   addBadgeBtn: {
     borderWidth: 1.5,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 8,
     backgroundColor: "#FFFFFF",
