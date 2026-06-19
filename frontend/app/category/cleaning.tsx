@@ -88,7 +88,7 @@ export default function CleaningCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/cleaning/${subcategoryId}`);
+    router.push(`/cleaning?scrollTo=${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items

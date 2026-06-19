@@ -22,6 +22,10 @@ import {
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
+import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
+import { PackageCustomizerModal } from "@/src/components/PackageCustomizerModal";
+
+const THEME_COLOR = "#2563EB";
 
 // Category tabs data
 const CATEGORIES = [
@@ -111,6 +115,93 @@ const ALL_SERVICES = {
   },
 };
 
+const SUPER_SAVER_PACKAGES: PackageData[] = [
+  {
+    id: "bathroom-complete",
+    name: "Complete bathroom renovation",
+    rating: 4.85,
+    reviewCount: "425K",
+    price: 1999,
+    originalPrice: 2499,
+    duration: "4-5 hrs",
+    discount: 20,
+    items: [
+      { category: "Tap & Mixer", description: "2 tap installations + 1 mixer repair" },
+      { category: "Toilet", description: "Flush tank repair + jet spray" },
+      { category: "Shower", description: "Shower installation" },
+      { category: "Accessories", description: "Towel rod + soap dish" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Tap & Mixer",
+        items: [
+          { id: "p1", name: "Tap installation (x2)", price: 298, selected: true },
+          { id: "p2", name: "Mixer repair", price: 249, selected: true },
+          { id: "p3", name: "Tap repair", price: 99 },
+        ],
+      },
+      {
+        category: "Toilet & Shower",
+        items: [
+          { id: "p4", name: "Flush tank repair", price: 99, selected: true },
+          { id: "p5", name: "Jet spray repair", price: 149, selected: true },
+          { id: "p6", name: "Shower installation", price: 299, selected: true },
+        ],
+      },
+      {
+        category: "Accessories",
+        items: [
+          { id: "p7", name: "Towel rod installation", price: 99, selected: true },
+          { id: "p8", name: "Soap dish installation", price: 79, selected: true },
+          { id: "p9", name: "Mirror installation", price: 149 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "drainage-blockage",
+    name: "Full drainage solution",
+    rating: 4.78,
+    reviewCount: "185K",
+    price: 799,
+    originalPrice: 899,
+    duration: "2-3 hrs",
+    discount: 11,
+    items: [
+      { category: "Drain cleaning", description: "All drains cleaned" },
+      { category: "Blockage removal", description: "Toilet + sink blockage" },
+    ],
+    customizable: false,
+  },
+  {
+    id: "water-tank-motor",
+    name: "Water tank & motor service",
+    rating: 4.82,
+    reviewCount: "95K",
+    price: 899,
+    originalPrice: 1098,
+    duration: "3 hrs",
+    discount: 18,
+    items: [
+      { category: "Tank cleaning", description: "Up to 1000L tank cleaning" },
+      { category: "Motor check", description: "Motor inspection & minor repair" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Water Tank & Motor",
+        items: [
+          { id: "wt1", name: "Tank cleaning (up to 500L)", price: 599 },
+          { id: "wt2", name: "Tank cleaning (500-1000L)", price: 799, selected: true },
+          { id: "wt3", name: "Motor inspection", price: 99, selected: true },
+          { id: "wt4", name: "Motor repair", price: 299 },
+        ],
+      },
+    ],
+  },
+];
+
 // Service Card Component
 const ServiceCard = ({ 
   service, 
@@ -172,6 +263,8 @@ export default function PlumberFullPageScreen() {
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [showMenu, setShowMenu] = useState(false);
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
 
   // Handle initial scroll when coming from category page with scrollTo param
   useEffect(() => {
@@ -216,6 +309,30 @@ export default function PlumberFullPageScreen() {
 
   const handleViewDetails = (serviceId: string) => {
     router.push(`/plumber/service/${serviceId}`);
+  };
+
+  const handleAddPackage = (packageId: string) => {
+    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    if (pkg) {
+      if (pkg.customizable) {
+        setSelectedPackage(pkg);
+        setShowPackageModal(true);
+      } else {
+        setCart(prev => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
+      }
+    }
+  };
+
+  const handleEditPackage = (packageId: string) => {
+    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    if (pkg) {
+      setSelectedPackage(pkg);
+      setShowPackageModal(true);
+    }
+  };
+
+  const handlePackageAddToCart = (packageId: string, selectedItems: any[], totalPrice: number) => {
+    setCart(prev => ({ ...prev, [`pkg-${packageId}`]: 1 }));
   };
 
   const getCartTotal = () => {
@@ -306,6 +423,15 @@ export default function PlumberFullPageScreen() {
         }}
         scrollEventThrottle={16}
       >
+        {/* Super Saver Packages Section */}
+        <SuperSaverPackages
+          packages={SUPER_SAVER_PACKAGES}
+          themeColor={THEME_COLOR}
+          onAddPackage={handleAddPackage}
+          onEditPackage={handleEditPackage}
+        />
+        <View style={styles.sectionDivider} />
+
         {/* All Service Sections */}
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View 
@@ -346,9 +472,18 @@ export default function PlumberFullPageScreen() {
         <Text style={styles.menuButtonText}>Menu</Text>
       </TouchableOpacity>
 
+      {/* Package Customizer Modal */}
+      <PackageCustomizerModal
+        visible={showPackageModal}
+        onClose={() => setShowPackageModal(false)}
+        packageData={selectedPackage}
+        themeColor={THEME_COLOR}
+        onAddToCart={handlePackageAddToCart}
+      />
+
       {/* Bottom Promo Bar */}
       <View style={[styles.bottomPromo, { bottom: getCartItemCount() > 0 ? 80 : 0 }]}>
-        <Tag size={16} color="#16A34A" />
+        <Tag size={16} color={THEME_COLOR} />
         <Text style={styles.bottomPromoText}>Get visitation fee off on orders above ₹499</Text>
       </View>
 

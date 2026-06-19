@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag } from "lucide-react-native";
 import { colors } from "@/src/theme";
+import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
+import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
 
 const CATEGORIES = [
   { id: "haircut", name: "Haircut &\nstyling", image: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=200&q=80" },
@@ -88,6 +90,121 @@ const ALL_SERVICES = {
   },
 };
 
+// Super Saver Packages Data
+const SUPER_SAVER_PACKAGES: PackageData[] = [
+  {
+    id: "make-your-own",
+    name: "Make your own package",
+    rating: 4.90,
+    reviewCount: "1.3M",
+    price: 1299,
+    originalPrice: 1624,
+    duration: "2 hrs",
+    discount: 20,
+    items: [
+      { category: "Haircut", description: "Premium haircut with styling" },
+      { category: "Shave", description: "Clean shave or beard styling" },
+      { category: "Facial", description: "Charcoal or brightening facial" },
+      { category: "Head massage", description: "20 mins relaxing massage" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Haircut & Styling",
+        items: [
+          { id: "hc1", name: "Basic haircut", price: 199, selected: true, variants: ["Classic", "Fade", "Crew cut"] },
+          { id: "hc2", name: "Premium haircut", price: 349, variants: ["Textured", "Undercut", "Pompadour"] },
+          { id: "hc3", name: "Hair styling", price: 299, variants: ["Gel finish", "Matte finish", "Natural"] },
+        ],
+      },
+      {
+        category: "Shave & Beard",
+        items: [
+          { id: "sh1", name: "Clean shave", price: 149, selected: true },
+          { id: "sh2", name: "Beard trim & styling", price: 199, variants: ["Short trim", "Designer", "Shape up"] },
+          { id: "sh3", name: "Beard color", price: 249, variants: ["Black", "Brown", "Grey blend"] },
+        ],
+      },
+      {
+        category: "Facial & Skincare",
+        items: [
+          { id: "fc1", name: "Basic cleanup", price: 399, selected: true },
+          { id: "fc2", name: "Charcoal facial", price: 599, variants: ["VLCC", "Lotus", "O3+"] },
+          { id: "fc3", name: "Anti-acne treatment", price: 799 },
+        ],
+      },
+      {
+        category: "Massage",
+        items: [
+          { id: "ms1", name: "Head massage", price: 199, selected: true },
+          { id: "ms2", name: "Neck & shoulder", price: 299 },
+          { id: "ms3", name: "Full body massage", price: 899 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "executive-grooming",
+    name: "Executive grooming package",
+    rating: 4.88,
+    reviewCount: "856K",
+    price: 899,
+    originalPrice: 999,
+    duration: "1 hr 30 mins",
+    discount: 10,
+    items: [
+      { category: "Haircut", description: "Premium haircut" },
+      { category: "Clean shave", description: "Hot towel shave" },
+      { category: "Facial", description: "Quick cleanup" },
+    ],
+    customizable: false,
+  },
+  {
+    id: "groom-special",
+    name: "Groom special package",
+    rating: 4.92,
+    reviewCount: "425K",
+    price: 2999,
+    originalPrice: 3999,
+    duration: "4 hrs",
+    discount: 25,
+    items: [
+      { category: "Haircut & styling", description: "Premium cut with styling" },
+      { category: "Facial", description: "Brightening facial" },
+      { category: "Manicure & pedicure", description: "Complete hand & foot care" },
+      { category: "Full body massage", description: "60 mins relaxation" },
+      { category: "Hair spa", description: "Deep conditioning treatment" },
+    ],
+    customizable: true,
+    customizableItems: [
+      {
+        category: "Hair Services",
+        items: [
+          { id: "gs1", name: "Premium haircut", price: 349, selected: true, variants: ["Classic", "Modern", "Trendy"] },
+          { id: "gs2", name: "Hair color", price: 699, variants: ["Black", "Brown", "Highlights"] },
+          { id: "gs3", name: "Hair spa", price: 599, selected: true },
+        ],
+      },
+      {
+        category: "Face & Skincare",
+        items: [
+          { id: "gs4", name: "Brightening facial", price: 999, selected: true },
+          { id: "gs5", name: "De-tan treatment", price: 499 },
+          { id: "gs6", name: "Under eye treatment", price: 399 },
+        ],
+      },
+      {
+        category: "Body Care",
+        items: [
+          { id: "gs7", name: "Manicure", price: 399, selected: true },
+          { id: "gs8", name: "Pedicure", price: 499, selected: true },
+          { id: "gs9", name: "Full body massage", price: 899, selected: true },
+        ],
+      },
+    ],
+  },
+];
+
 const ServiceCard = ({ service, quantity, onAdd, onRemove, onViewDetails }: any) => (
   <View style={styles.serviceCard}>
     <View style={styles.serviceInfo}>
@@ -124,6 +241,8 @@ export default function SalonMenFullPageScreen() {
   const [activeCategory, setActiveCategory] = useState("haircut");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
@@ -145,6 +264,31 @@ export default function SalonMenFullPageScreen() {
 
   const getCartTotal = () => { let total = 0; Object.entries(cart).forEach(([id, qty]) => { Object.values(ALL_SERVICES).forEach(cat => { const s = cat.services.find(x => x.id === id); if (s) total += s.price * qty; }); }); return total; };
   const getCartItemCount = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+
+  const handleAddPackage = (packageId: string) => {
+    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    if (pkg) {
+      if (pkg.customizable) {
+        setSelectedPackage(pkg);
+        setShowPackageModal(true);
+      } else {
+        // Add non-customizable package directly to cart
+        setCart(prev => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
+      }
+    }
+  };
+
+  const handleEditPackage = (packageId: string) => {
+    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    if (pkg) {
+      setSelectedPackage(pkg);
+      setShowPackageModal(true);
+    }
+  };
+
+  const handlePackageAddToCart = (packageId: string, selectedItems: any[], totalPrice: number) => {
+    setCart(prev => ({ ...prev, [`pkg-${packageId}`]: 1 }));
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -177,6 +321,15 @@ export default function SalonMenFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "haircut"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
+        {/* Super Saver Packages Section */}
+        <SuperSaverPackages
+          packages={SUPER_SAVER_PACKAGES}
+          themeColor="#EA580C"
+          onAddPackage={handleAddPackage}
+          onEditPackage={handleEditPackage}
+        />
+        <View style={styles.sectionDivider} />
+
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View key={categoryId} onLayout={(e) => setSectionPositions(prev => ({ ...prev, [categoryId]: e.nativeEvent.layout.y }))}>
             <View style={styles.sectionHeader}><Text style={styles.sectionLabel}>{categoryData.title}</Text><Text style={styles.sectionTitle}>{categoryData.title}</Text></View>
@@ -191,6 +344,15 @@ export default function SalonMenFullPageScreen() {
         ))}
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
+
+      {/* Package Customizer Modal */}
+      <PackageCustomizerModal
+        visible={showPackageModal}
+        onClose={() => setShowPackageModal(false)}
+        packageData={selectedPackage}
+        themeColor="#EA580C"
+        onAddToCart={handlePackageAddToCart}
+      />
 
       <TouchableOpacity style={styles.menuButton}><Menu size={20} color="#FFF" /><Text style={styles.menuButtonText}>Menu</Text></TouchableOpacity>
       <View style={[styles.bottomPromo, { bottom: getCartItemCount() > 0 ? 80 : 0 }]}><Tag size={16} color="#EA580C" /><Text style={styles.bottomPromoText}>Flat 20% off on first salon booking</Text></View>
