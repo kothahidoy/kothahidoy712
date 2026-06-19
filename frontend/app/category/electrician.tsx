@@ -88,7 +88,7 @@ export default function ElectricianCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/electrician/${subcategoryId}`);
+    router.push(`/electrician?scrollTo=${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items

@@ -88,7 +88,7 @@ export default function ACApplianceCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/ac-appliance/${subcategoryId}`);
+    router.push(`/ac-appliance?scrollTo=${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items

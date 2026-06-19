@@ -117,7 +117,7 @@ export default function WomenSalonServiceScreen() {
   const router = useRouter();
 
   const handleCategoryPress = (categoryId: string) => {
-    router.push(`/salon/${categoryId}`);
+    router.push(`/salon-women?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3

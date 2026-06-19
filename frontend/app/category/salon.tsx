@@ -88,7 +88,7 @@ export default function SalonCategoryScreen() {
   const router = useRouter();
 
   const handleSubCategoryPress = (subcategoryId: string) => {
-    router.push(`/salon/${subcategoryId}`);
+    router.push(`/salon?scrollTo=${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items

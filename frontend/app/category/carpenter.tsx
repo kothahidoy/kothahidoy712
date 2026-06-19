@@ -92,7 +92,7 @@ export default function CarpenterServiceScreen() {
   const router = useRouter();
 
   const handleCategoryPress = (categoryId: string) => {
-    router.push(`/carpenter/${categoryId}`);
+    router.push(`/carpenter?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3

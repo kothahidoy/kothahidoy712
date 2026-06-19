@@ -95,7 +95,7 @@ export default function PaintingServiceScreen() {
   const router = useRouter();
 
   const handleCategoryPress = (categoryId: string) => {
-    router.push(`/painting/${categoryId}`);
+    router.push(`/painting?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3
