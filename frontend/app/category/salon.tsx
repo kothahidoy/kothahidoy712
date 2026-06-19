@@ -18,26 +18,71 @@ import {
   Clock,
   Shield,
   Tag,
+  Bookmark,
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
+import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
 
-// Sub-categories for Salon (matching Urban Company)
-const SALON_SUBCATEGORIES = [
+// Hero banner media — mix of video (with play overlay) and images
+const HERO_MEDIA: HeroMediaItem[] = [
   {
-    id: "haircut",
-    name: "Haircut &\nstyling",
-    image: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=200&q=80",
+    type: "video",
+    uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+    caption: "Mess free experience",
   },
   {
-    id: "shave",
-    name: "Shave &\nbeard",
-    image: "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=200&q=80",
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80",
+    caption: "Salon at home",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=80",
+    caption: "Trusted pros",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=900&q=80",
+    caption: "Premium grooming",
+  },
+];
+
+// Sub-categories for Salon — Packages tile first (special bookmark icon, no photo)
+type SalonSubCategory = {
+  id: string;
+  name: string;
+  image?: string;
+  icon?: "packages";
+  iconBg?: string;
+};
+
+const SALON_SUBCATEGORIES: SalonSubCategory[] = [
+  {
+    id: "packages",
+    name: "Packages",
+    icon: "packages",
+    iconBg: "#CCFBF1",
+  },
+  {
+    id: "haircut",
+    name: "Haircut &\nbeard styling",
+    image: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=200&q=80",
   },
   {
     id: "facial",
     name: "Facial &\ncleanup",
     image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "detan",
+    name: "Detan",
+    image: "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "pedicure",
+    name: "Manicure &\npedicure",
+    image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=200&q=80",
   },
   {
     id: "massage",
@@ -46,39 +91,40 @@ const SALON_SUBCATEGORIES = [
   },
   {
     id: "hair-color",
-    name: "Hair\ncolour",
+    name: "Hair colour",
     image: "https://images.unsplash.com/photo-1560869713-da86a9ec0744?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "detan",
-    name: "Detan &\nbleach",
-    image: "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "pedicure",
-    name: "Pedicure",
-    image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "packages",
-    name: "Grooming\npackages",
-    image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=200&q=80",
+    id: "shave",
+    name: "Shave &\nbeard",
+    image: "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=200&q=80",
   },
 ];
 
 // Grid item component with explicit sizing
-const GridItem = ({ item, onPress }: { item: typeof SALON_SUBCATEGORIES[0]; onPress: () => void }) => (
+const GridItem = ({ item, onPress }: { item: SalonSubCategory; onPress: () => void }) => (
   <TouchableOpacity 
     style={styles.gridItem} 
     onPress={onPress}
     activeOpacity={0.7}
   >
-    <View style={styles.gridImageWrapper}>
-      <Image
-        source={{ uri: item.image }}
-        style={styles.gridImage}
-        resizeMode="cover"
-      />
+    <View
+      style={[
+        styles.gridImageWrapper,
+        item.icon ? { backgroundColor: item.iconBg ?? "#CCFBF1" } : null,
+      ]}
+    >
+      {item.icon === "packages" ? (
+        <View style={styles.packageIconBox}>
+          <Bookmark size={28} color="#FFFFFF" fill="#FFFFFF" />
+        </View>
+      ) : item.image ? (
+        <Image
+          source={{ uri: item.image }}
+          style={styles.gridImage}
+          resizeMode="cover"
+        />
+      ) : null}
     </View>
     <Text style={styles.gridLabel} numberOfLines={2}>{item.name}</Text>
   </TouchableOpacity>
@@ -102,49 +148,26 @@ export default function SalonCategoryScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Hero Banner - Orange background for Salon */}
-        <View style={styles.heroBanner}>
-          {/* Header buttons overlaying the banner */}
-          <View style={styles.headerOverlay}>
+        {/* Hero Media Banner — swipeable images + tap-to-play video */}
+        <View style={styles.heroWrapper}>
+          <HeroMediaBanner items={HERO_MEDIA} height={300} />
+          {/* Floating header buttons over banner */}
+          <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
-              style={styles.backBtn}
+              style={styles.heroIconBtn}
               onPress={() => router.back()}
               hitSlop={12}
             >
-              <ArrowLeft size={20} color="#FFFFFF" />
+              <ArrowLeft size={20} color="#000000" />
             </TouchableOpacity>
-            
-            <View style={styles.saverBadge}>
-              <Text style={styles.saverText}>saver</Text>
-            </View>
-            
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.iconBtnDark}>
+            <View style={styles.heroHeaderRight}>
+              <TouchableOpacity style={styles.heroIconBtn}>
                 <Search size={18} color="#000000" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtnDark}>
+              <TouchableOpacity style={styles.heroIconBtn}>
                 <Share2 size={18} color="#000000" />
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Banner Content */}
-          <View style={styles.bannerContent}>
-            <View style={styles.bannerLeft}>
-              <Text style={styles.bannerTitle}>Grooming at{"\n"}your doorstep</Text>
-            </View>
-            <View style={styles.bannerImageContainer}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=300&q=80" }}
-                style={styles.bannerImage}
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          
-          {/* Progress bar */}
-          <View style={styles.progressBar}>
-            <View style={styles.progressFill} />
           </View>
         </View>
 
@@ -229,86 +252,33 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  heroBanner: {
-    backgroundColor: "#FFEDD5",
-    paddingTop: 8,
+  heroWrapper: {
+    position: "relative",
   },
-  headerOverlay: {
+  heroHeaderOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 8,
     zIndex: 10,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#EA580C",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saverBadge: {
-    backgroundColor: "#EA580C",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  saverText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  headerRight: {
-    flex: 1,
+  heroHeaderRight: {
     flexDirection: "row",
-    justifyContent: "flex-end",
     gap: 8,
   },
-  iconBtnDark: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  heroIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-  bannerContent: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  bannerLeft: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#000000",
-    lineHeight: 28,
-  },
-  bannerImageContainer: {
-    width: 140,
-    height: 120,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  bannerImage: {
-    width: 140,
-    height: 120,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "#FED7AA",
-    marginTop: 8,
-  },
-  progressFill: {
-    height: 4,
-    width: "75%",
-    backgroundColor: "#EA580C",
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.15)",
+    elevation: 3,
   },
   mainContent: {
     flex: 1,
@@ -418,25 +388,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   gridImageWrapper: {
-    width: 70,
-    height: 70,
+    width: 78,
+    height: 78,
     borderRadius: 16,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "#F3F4F6",
     overflow: "hidden",
     marginBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   gridImage: {
-    width: 70,
-    height: 70,
+    width: 78,
+    height: 78,
+  },
+  packageIconBox: {
+    width: 50,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: "#2DD4BF",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ scale: 1 }],
   },
   gridLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#000000",
+    color: "#111827",
     textAlign: "center",
-    lineHeight: 14,
+    lineHeight: 15,
   },
   bottomPromo: {
     position: "absolute",

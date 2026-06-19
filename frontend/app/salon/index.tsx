@@ -13,7 +13,6 @@ import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag } from 
 import { colors } from "@/src/theme";
 import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
 import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
-import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
 
 const CATEGORIES = [
   { id: "haircut", name: "Haircut &\nstyling", image: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=200&q=80" },
@@ -90,31 +89,6 @@ const ALL_SERVICES = {
     ],
   },
 };
-
-// Hero banner media — easy to swap with admin-managed list later.
-// Mix of images and a sample video that shows the play overlay.
-const HERO_MEDIA: HeroMediaItem[] = [
-  {
-    type: "video",
-    uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-    caption: "Mess free experience",
-  },
-  {
-    type: "image",
-    uri: "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80",
-    caption: "Salon at home",
-  },
-  {
-    type: "image",
-    uri: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=80",
-    caption: "Trusted pros",
-  },
-  {
-    type: "image",
-    uri: "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=900&q=80",
-    caption: "Premium grooming",
-  },
-];
 
 // Super Saver Packages Data — Urban Company–style packages for Men's Salon
 const SUPER_SAVER_PACKAGES: PackageData[] = [
@@ -436,9 +410,6 @@ export default function SalonMenFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "haircut"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        {/* Hero Media Banner — swipeable images + video */}
-        <HeroMediaBanner items={HERO_MEDIA} height={240} />
-
         {/* Packages Section (Urban Company–style) */}
         <SuperSaverPackages
           packages={SUPER_SAVER_PACKAGES}
