@@ -463,6 +463,28 @@ export default function PlumberFullPageScreen() {
           </View>
         ))}
 
+        {/* Mfixit Cover Section */}
+        <TouchableOpacity 
+          style={styles.coverSection}
+          onPress={() => router.push("/cover/plumber")}
+        >
+          <View style={styles.coverContent}>
+            <View style={styles.coverBadge}>
+              <View style={styles.coverCheckIcon}>
+                <Text style={styles.coverCheckText}>✓</Text>
+              </View>
+              <Text style={styles.coverBrandText}>
+                <Text style={styles.coverBrandAccent}>mfixit</Text>cover
+              </Text>
+            </View>
+            <Text style={styles.coverTitle}>Mfixit warranty and cover</Text>
+            <Text style={styles.coverSubtitle}>
+              Up to ₹10,000 cover • 30-day warranty • Fixed rate card
+            </Text>
+          </View>
+          <ChevronRight size={24} color={THEME_COLOR} />
+        </TouchableOpacity>
+
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
@@ -733,6 +755,27 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: "#F3F4F6",
   },
+  coverSection: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between",
+    padding: 20, 
+    marginHorizontal: 16, 
+    marginTop: 16,
+    marginBottom: 8,
+    backgroundColor: "#F0F9FF", 
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  coverContent: { flex: 1 },
+  coverBadge: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  coverCheckIcon: { width: 24, height: 24, borderRadius: 6, backgroundColor: THEME_COLOR, alignItems: "center", justifyContent: "center" },
+  coverCheckText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
+  coverBrandText: { fontSize: 18, fontWeight: "800", color: "#000" },
+  coverBrandAccent: { color: THEME_COLOR },
+  coverTitle: { fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 4 },
+  coverSubtitle: { fontSize: 13, color: "#6B7280" },
   menuButton: {
     position: "absolute",
     bottom: 100,

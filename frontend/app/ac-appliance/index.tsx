@@ -183,6 +183,29 @@ export default function ACApplianceFullPageScreen() {
             <View style={styles.sectionDivider} />
           </View>
         ))}
+
+        {/* Mfixit Cover Section */}
+        <TouchableOpacity 
+          style={styles.coverSection}
+          onPress={() => router.push("/cover/ac-appliance")}
+        >
+          <View style={styles.coverContent}>
+            <View style={styles.coverBadge}>
+              <View style={styles.coverCheckIcon}>
+                <Text style={styles.coverCheckText}>✓</Text>
+              </View>
+              <Text style={styles.coverBrandText}>
+                <Text style={styles.coverBrandAccent}>mfixit</Text>cover
+              </Text>
+            </View>
+            <Text style={styles.coverTitle}>Mfixit warranty and cover</Text>
+            <Text style={styles.coverSubtitle}>
+              Up to ₹10,000 cover • 30-day warranty • Fixed rate card
+            </Text>
+          </View>
+          <ChevronRight size={24} color="#0891B2" />
+        </TouchableOpacity>
+
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
@@ -241,6 +264,15 @@ const styles = StyleSheet.create({
   optionsText: { fontSize: 12, color: "#6B7280", marginTop: 6 },
   serviceDivider: { height: 1, backgroundColor: "#A5F3FC", marginHorizontal: 16 },
   sectionDivider: { height: 8, backgroundColor: "#ECFEFF" },
+  coverSection: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, marginHorizontal: 16, marginTop: 16, marginBottom: 8, backgroundColor: "#ECFEFF", borderRadius: 16, borderWidth: 1, borderColor: "#A5F3FC" },
+  coverContent: { flex: 1 },
+  coverBadge: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  coverCheckIcon: { width: 24, height: 24, borderRadius: 6, backgroundColor: "#0891B2", alignItems: "center", justifyContent: "center" },
+  coverCheckText: { color: "#FFF", fontWeight: "800", fontSize: 14 },
+  coverBrandText: { fontSize: 18, fontWeight: "800", color: "#000" },
+  coverBrandAccent: { color: "#0891B2" },
+  coverTitle: { fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 4 },
+  coverSubtitle: { fontSize: 13, color: "#6B7280" },
   menuButton: { position: "absolute", bottom: 100, alignSelf: "center", flexDirection: "row", alignItems: "center", backgroundColor: "#1F2937", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, gap: 8 },
   menuButtonText: { fontSize: 15, fontWeight: "600", color: "#FFF" },
   bottomPromo: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#ECFEFF", paddingVertical: 12, paddingHorizontal: 16, gap: 8, borderTopWidth: 1, borderTopColor: "#CFFAFE" },
