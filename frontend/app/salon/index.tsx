@@ -81,12 +81,8 @@ const ALL_SERVICES = {
     ],
   },
   "packages": {
-    title: "Grooming packages",
-    services: [
-      { id: "grooming-basic", name: "Basic grooming package", rating: 4.85, reviews: "125K", price: 599, originalPrice: 799, duration: "60 mins", image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=300&q=80" },
-      { id: "grooming-premium", name: "Premium grooming package", rating: 4.88, reviews: "85K", price: 999, originalPrice: 1299, duration: "90 mins", image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=300&q=80" },
-      { id: "groom-special", name: "Groom special package", rating: 4.92, reviews: "35K", price: 1999, options: 2, image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=300&q=80" },
-    ],
+    title: "Packages",
+    services: [],
   },
 };
 
@@ -410,17 +406,10 @@ export default function SalonMenFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "haircut"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        {/* Packages Section (Urban Company–style) */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#7C3AED"
-          sectionTitle="Packages"
-          onAddPackage={handleAddPackage}
-          onEditPackage={handleEditPackage}
-        />
-        <View style={styles.sectionDivider} />
-
-        {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
+        {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => {
+          // Skip rendering the placeholder "packages" entry — replaced by SuperSaverPackages section below
+          if (categoryId === "packages") return null;
+          return (
           <View key={categoryId} onLayout={(e) => setSectionPositions(prev => ({ ...prev, [categoryId]: e.nativeEvent.layout.y }))}>
             <View style={styles.sectionHeader}><Text style={styles.sectionLabel}>{categoryData.title}</Text><Text style={styles.sectionTitle}>{categoryData.title}</Text></View>
             {categoryData.services.map((service, index) => (
@@ -431,7 +420,20 @@ export default function SalonMenFullPageScreen() {
             ))}
             <View style={styles.sectionDivider} />
           </View>
-        ))}
+          );
+        })}
+
+        {/* Packages Section (Urban Company–style) — anchored at bottom so "Packages" tab scrolls here */}
+        <View onLayout={(e) => setSectionPositions(prev => ({ ...prev, packages: e.nativeEvent.layout.y }))}>
+          <SuperSaverPackages
+            packages={SUPER_SAVER_PACKAGES}
+            themeColor="#EA580C"
+            sectionTitle="Packages"
+            onAddPackage={handleAddPackage}
+            onEditPackage={handleEditPackage}
+          />
+          <View style={styles.sectionDivider} />
+        </View>
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 

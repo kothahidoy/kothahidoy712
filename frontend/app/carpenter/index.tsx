@@ -371,16 +371,6 @@ export default function CarpenterFullPageScreen() {
         }}
         scrollEventThrottle={16}
       >
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#0EA5E9"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View key={categoryId} onLayout={(e) => handleSectionLayout(categoryId, e.nativeEvent.layout.y)}>
             <View style={styles.sectionHeader}>
@@ -402,6 +392,15 @@ export default function CarpenterFullPageScreen() {
             <View style={styles.sectionDivider} />
           </View>
         ))}
+        {/* Urban-Company-style Packages */}
+        <SuperSaverPackages
+          packages={SUPER_SAVER_PACKAGES}
+          themeColor="#0EA5E9"
+          sectionTitle="Packages"
+          onAddPackage={handlePackageAdd}
+          onEditPackage={handlePackageEdit}
+        />
+        <View style={styles.sectionDivider} />
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 

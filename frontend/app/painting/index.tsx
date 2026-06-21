@@ -253,16 +253,6 @@ export default function PaintingFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "1bhk"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#EC4899"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View key={categoryId} onLayout={(e) => setSectionPositions(prev => ({ ...prev, [categoryId]: e.nativeEvent.layout.y }))}>
             <View style={styles.sectionHeader}><Text style={styles.sectionLabel}>{categoryData.title}</Text><Text style={styles.sectionTitle}>{categoryData.title}</Text></View>
@@ -275,6 +265,15 @@ export default function PaintingFullPageScreen() {
             <View style={styles.sectionDivider} />
           </View>
         ))}
+        {/* Urban-Company-style Packages */}
+        <SuperSaverPackages
+          packages={SUPER_SAVER_PACKAGES}
+          themeColor="#EC4899"
+          sectionTitle="Packages"
+          onAddPackage={handlePackageAdd}
+          onEditPackage={handlePackageEdit}
+        />
+        <View style={styles.sectionDivider} />
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 

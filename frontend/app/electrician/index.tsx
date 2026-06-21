@@ -386,16 +386,6 @@ export default function ElectricianFullPageScreen() {
         }}
         scrollEventThrottle={16}
       >
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#F59E0B"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View 
             key={categoryId}
@@ -423,6 +413,15 @@ export default function ElectricianFullPageScreen() {
           </View>
         ))}
 
+        {/* Urban-Company-style Packages */}
+        <SuperSaverPackages
+          packages={SUPER_SAVER_PACKAGES}
+          themeColor="#F59E0B"
+          sectionTitle="Packages"
+          onAddPackage={handlePackageAdd}
+          onEditPackage={handlePackageEdit}
+        />
+        <View style={styles.sectionDivider} />
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
