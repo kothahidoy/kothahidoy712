@@ -26,6 +26,31 @@ import {
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
+import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+
+// Hero banner media — swipeable images + tap-to-play video.
+const HERO_MEDIA: HeroMediaItem[] = [
+  {
+    type: "video",
+    uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    caption: "Help in minutes",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=900&q=80",
+    caption: "On-demand handyman",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1572177812156-58036aae439c?auto=format&fit=crop&w=900&q=80",
+    caption: "Any odd job",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1581094289810-adf5d25690e3?auto=format&fit=crop&w=900&q=80",
+    caption: "Fast & friendly",
+  },
+];
 
 // Time-based pricing options
 const TIME_OPTIONS = [
@@ -200,18 +225,21 @@ export default function InstaHelpServiceScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => router.back()}
-            hitSlop={12}
-          >
-            <ArrowLeft size={20} color="#000000" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Share2 size={20} color="#000000" />
-          </TouchableOpacity>
+        {/* Hero Media Banner — swipeable images + tap-to-play video */}
+        <View style={styles.heroWrapper}>
+          <HeroMediaBanner items={HERO_MEDIA} height={260} />
+          <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.heroIconBtn}
+              onPress={() => router.back()}
+              hitSlop={12}
+            >
+              <ArrowLeft size={20} color="#000000" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.heroIconBtn}>
+              <Share2 size={20} color="#000000" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Title Section */}
@@ -484,6 +512,30 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  heroWrapper: {
+    position: "relative",
+  },
+  heroHeaderOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  heroIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.15)",
+    elevation: 3,
   },
   header: {
     flexDirection: "row",

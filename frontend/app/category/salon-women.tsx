@@ -20,6 +20,32 @@ import {
 } from "lucide-react-native";
 
 import { colors, radius } from "@/src/theme";
+import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+
+// Hero banner media — swipeable images + tap-to-play video.
+// Easy to swap with admin-managed list later.
+const HERO_MEDIA: HeroMediaItem[] = [
+  {
+    type: "video",
+    uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    caption: "Salon, at your home",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=80",
+    caption: "Pampering you deserve",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=80",
+    caption: "Premium beauty care",
+  },
+  {
+    type: "image",
+    uri: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80",
+    caption: "Trusted beauticians",
+  },
+];
 
 const GRID_PADDING = 16;
 const GRID_GAP = 16;
@@ -133,49 +159,25 @@ export default function WomenSalonServiceScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Hero Banner - Pink/Rose gradient background */}
-        <View style={styles.heroBanner}>
-          {/* Header buttons */}
-          <View style={styles.headerOverlay}>
+        {/* Hero Media Banner — swipeable images + tap-to-play video */}
+        <View style={styles.heroWrapper}>
+          <HeroMediaBanner items={HERO_MEDIA} height={300} />
+          <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
-              style={styles.backBtn}
+              style={styles.heroIconBtn}
               onPress={() => router.back()}
               hitSlop={12}
             >
               <ArrowLeft size={20} color="#000000" />
             </TouchableOpacity>
-            
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.iconBtn}>
+            <View style={styles.heroHeaderRight}>
+              <TouchableOpacity style={styles.heroIconBtn}>
                 <Search size={18} color="#000000" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn}>
+              <TouchableOpacity style={styles.heroIconBtn}>
                 <Share2 size={18} color="#000000" />
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Banner Content */}
-          <View style={styles.bannerContent}>
-            <View style={styles.bannerLeft}>
-              <View style={styles.newLaunchBadge}>
-                <Text style={styles.newLaunchText}>New launch</Text>
-              </View>
-              <Text style={styles.bannerTitle}>Luxury{"\n"}bridal facial</Text>
-              <Text style={styles.bannerPrice}>Starting at ₹4,599</Text>
-            </View>
-            <View style={styles.bannerImageContainer}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=400&q=80" }}
-                style={styles.bannerImage}
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          
-          {/* Progress bar indicator */}
-          <View style={styles.progressBar}>
-            <View style={styles.progressFill} />
           </View>
         </View>
 
@@ -236,98 +238,33 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  heroBanner: {
-    backgroundColor: "#FECDD3",
+  heroWrapper: {
     position: "relative",
   },
-  headerOverlay: {
+  heroHeaderOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
     zIndex: 10,
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  heroHeaderRight: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  heroIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-  headerRight: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bannerContent: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingLeft: 16,
-    paddingTop: 70,
-    paddingBottom: 16,
-  },
-  bannerLeft: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  newLaunchBadge: {
-    backgroundColor: "#BE185D",
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  newLaunchText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  bannerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#000000",
-    lineHeight: 32,
-    marginBottom: 8,
-  },
-  bannerPrice: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  bannerImageContainer: {
-    width: 180,
-    height: 220,
-    overflow: "hidden",
-  },
-  bannerImage: {
-    width: 180,
-    height: 220,
-  },
-  progressBar: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  progressFill: {
-    height: 4,
-    width: 40,
-    backgroundColor: "#BE185D",
-    borderRadius: 2,
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.15)",
+    elevation: 3,
   },
   mainContent: {
     flex: 1,
