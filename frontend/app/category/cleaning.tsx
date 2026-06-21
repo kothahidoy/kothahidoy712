@@ -169,7 +169,7 @@ export default function CleaningCategoryScreen() {
           </View>
 
           {/* Warranty Card */}
-          <TouchableOpacity style={styles.warrantyCard}>
+          <TouchableOpacity style={styles.warrantyCard} onPress={() => router.push("/cover/cleaning")}>
             <View style={styles.warrantyLeft}>
               <View style={styles.warrantyIcon}>
                 <Shield size={16} color="#6B7280" />

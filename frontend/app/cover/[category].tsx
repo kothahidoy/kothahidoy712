@@ -95,7 +95,108 @@ const CATEGORY_CONFIGS: Record<string, {
       "Proper finishing guarantee",
     ],
   },
+  cleaning: {
+    name: "Cleaning",
+    accentColor: "#16A34A",
+    bgColor: "#F0FDF4",
+    warrantyDays: 7,
+    coverAmount: "₹10,000",
+    specialFeatures: [
+      "Eco-friendly chemicals only",
+      "Deep sanitization included",
+      "Trained & verified crew",
+    ],
+  },
+  "pest-control": {
+    name: "Pest Control",
+    accentColor: "#7C3AED",
+    bgColor: "#F5F3FF",
+    warrantyDays: 90,
+    coverAmount: "₹10,000",
+    specialFeatures: [
+      "Child & pet safe chemicals",
+      "Government approved treatment",
+      "Follow-up visit included",
+    ],
+  },
 };
+
+// Rate card items by category - Can be edited from admin panel later
+interface RateCardItem {
+  service: string;
+  description?: string;
+  price: number;
+  unit?: string;
+}
+
+const RATE_CARD_DATA: Record<string, RateCardItem[]> = {
+  electrician: [
+    { service: "Switch/Socket replacement", price: 49, unit: "per unit" },
+    { service: "Fan installation", description: "Ceiling/wall fan", price: 149, unit: "per unit" },
+    { service: "MCB repair/replacement", price: 99, unit: "per unit" },
+    { service: "Wiring repair", description: "Minor wiring work", price: 199, unit: "per point" },
+    { service: "Inverter installation", price: 399 },
+    { service: "Doorbell installation", price: 99 },
+    { service: "Light fixture installation", price: 99, unit: "per unit" },
+  ],
+  plumber: [
+    { service: "Tap repair/replacement", price: 99, unit: "per tap" },
+    { service: "Flush tank repair", price: 149 },
+    { service: "Pipe leakage repair", price: 199, unit: "per joint" },
+    { service: "Drain blockage removal", price: 249 },
+    { service: "Water tank cleaning", description: "Up to 500L", price: 499 },
+    { service: "Geyser installation", price: 349 },
+    { service: "Basin/sink installation", price: 199 },
+  ],
+  "ac-appliance": [
+    { service: "AC service (split)", description: "Foam jet clean", price: 499 },
+    { service: "AC service (window)", price: 399 },
+    { service: "AC gas refill", description: "R22/R32/R410", price: 1499 },
+    { service: "AC installation", price: 899 },
+    { service: "AC uninstallation", price: 499 },
+    { service: "Washing machine repair", price: 299, unit: "inspection" },
+    { service: "Refrigerator repair", price: 299, unit: "inspection" },
+  ],
+  painting: [
+    { service: "Interior painting", description: "Per sq.ft (2 coats)", price: 18, unit: "per sq.ft" },
+    { service: "Exterior painting", description: "Per sq.ft (2 coats)", price: 22, unit: "per sq.ft" },
+    { service: "Primer application", price: 8, unit: "per sq.ft" },
+    { service: "Putty application", description: "2 coats", price: 12, unit: "per sq.ft" },
+    { service: "Texture painting", price: 35, unit: "per sq.ft" },
+    { service: "Wood polish", price: 85, unit: "per sq.ft" },
+  ],
+  carpenter: [
+    { service: "Door repair", description: "Hinges, locks etc.", price: 199 },
+    { service: "Furniture repair", description: "Minor repairs", price: 299 },
+    { service: "Drawer repair/installation", price: 149, unit: "per drawer" },
+    { service: "Handle replacement", price: 49, unit: "per handle" },
+    { service: "Shelf installation", price: 199, unit: "per shelf" },
+    { service: "Bed assembly", price: 399 },
+    { service: "Wardrobe repair", price: 399 },
+  ],
+  cleaning: [
+    { service: "Full home cleaning (1BHK)", price: 999 },
+    { service: "Full home cleaning (2BHK)", price: 1499 },
+    { service: "Full home cleaning (3BHK)", price: 1999 },
+    { service: "Bathroom deep cleaning", price: 449, unit: "per bathroom" },
+    { service: "Kitchen deep cleaning", price: 549 },
+    { service: "Sofa cleaning", price: 349, unit: "per seat" },
+    { service: "Carpet cleaning", price: 3, unit: "per sq.ft" },
+  ],
+  "pest-control": [
+    { service: "Cockroach treatment", description: "Gel treatment", price: 699 },
+    { service: "Ant control", price: 599 },
+    { service: "Mosquito control", price: 599 },
+    { service: "Bed bug treatment", price: 1299 },
+    { service: "Termite treatment", description: "Drilling method", price: 2499 },
+    { service: "General pest control (1BHK)", price: 999 },
+    { service: "General pest control (2BHK)", price: 1299 },
+  ],
+};
+
+function getRateCardItems(category: string): RateCardItem[] {
+  return RATE_CARD_DATA[category] || RATE_CARD_DATA.electrician;
+}
 
 export default function MfixitCoverScreen() {
   const router = useRouter();
@@ -252,6 +353,48 @@ export default function MfixitCoverScreen() {
                 <Text style={styles.illustrationPriceText}>₹</Text>
               </View>
             </View>
+          </View>
+        </View>
+
+        {/* Section 4: Rate Card Items - Editable from Admin */}
+        <View style={[styles.section, { backgroundColor: "#FFF" }]}>
+          <View style={styles.rateCardHeader}>
+            <Text style={styles.sectionTitle}>Rate card</Text>
+            <Text style={styles.rateCardSubtitle}>Standard prices for {config.name.toLowerCase()} services</Text>
+          </View>
+
+          {/* Rate Card Table */}
+          <View style={styles.rateCardTable}>
+            {/* Table Header */}
+            <View style={styles.rateCardRow}>
+              <Text style={styles.rateCardHeaderCell}>Service</Text>
+              <Text style={[styles.rateCardHeaderCell, styles.rateCardPriceHeader]}>Price</Text>
+            </View>
+
+            {/* Rate Card Items - These can be edited from admin panel */}
+            {getRateCardItems(category || "electrician").map((item, index) => (
+              <View key={index} style={[styles.rateCardRow, index % 2 === 0 && styles.rateCardRowAlt]}>
+                <View style={styles.rateCardServiceCell}>
+                  <Text style={styles.rateCardServiceName}>{item.service}</Text>
+                  {item.description && (
+                    <Text style={styles.rateCardServiceDesc}>{item.description}</Text>
+                  )}
+                </View>
+                <View style={styles.rateCardPriceCell}>
+                  <Text style={styles.rateCardPrice}>₹{item.price}</Text>
+                  {item.unit && <Text style={styles.rateCardUnit}>{item.unit}</Text>}
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.rateCardNote}>
+            <Text style={styles.rateCardNoteText}>
+              * Prices are indicative and may vary based on complexity
+            </Text>
+            <Text style={styles.rateCardNoteText}>
+              * Parts/materials charged separately if required
+            </Text>
           </View>
         </View>
 
@@ -486,5 +629,81 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 20,
+  },
+
+  // Rate Card Styles
+  rateCardHeader: {
+    marginBottom: 8,
+  },
+  rateCardSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: -16,
+    marginBottom: 20,
+  },
+  rateCardTable: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  rateCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  rateCardRowAlt: {
+    backgroundColor: "#FFF",
+  },
+  rateCardHeaderCell: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+    textTransform: "uppercase",
+  },
+  rateCardPriceHeader: {
+    textAlign: "right",
+    flex: 0.4,
+  },
+  rateCardServiceCell: {
+    flex: 1,
+  },
+  rateCardServiceName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  rateCardServiceDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  rateCardPriceCell: {
+    flex: 0.4,
+    alignItems: "flex-end",
+  },
+  rateCardPrice: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#000",
+  },
+  rateCardUnit: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  rateCardNote: {
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  rateCardNoteText: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    lineHeight: 18,
   },
 });
