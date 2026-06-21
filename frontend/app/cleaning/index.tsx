@@ -4,8 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag } from "lucide-react-native";
 import { colors } from "@/src/theme";
-import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
-import { PackageCustomizerModal } from "@/src/components/PackageCustomizerModal";
 
 const THEME_COLOR = "#16A34A";
 
@@ -89,95 +87,6 @@ const ALL_SERVICES = {
   },
 };
 
-const SUPER_SAVER_PACKAGES: PackageData[] = [
-  {
-    id: "complete-home",
-    name: "Complete home cleaning",
-    rating: 4.88,
-    reviewCount: "425K",
-    price: 5999,
-    originalPrice: 7499,
-    duration: "8-10 hrs",
-    discount: 20,
-    items: [
-      { category: "Full home", description: "2 BHK deep cleaning" },
-      { category: "Bathroom", description: "2 bathroom intense cleaning" },
-      { category: "Kitchen", description: "Deep kitchen cleaning" },
-      { category: "Sofa", description: "5 seater sofa cleaning" },
-    ],
-    customizable: true,
-    customizableItems: [
-      {
-        category: "Home Cleaning",
-        items: [
-          { id: "hc1", name: "1 BHK deep cleaning", price: 2499, variants: ["Standard", "Premium"] },
-          { id: "hc2", name: "2 BHK deep cleaning", price: 3499, selected: true, variants: ["Standard", "Premium"] },
-          { id: "hc3", name: "3 BHK deep cleaning", price: 4499, variants: ["Standard", "Premium"] },
-        ],
-      },
-      {
-        category: "Bathroom Cleaning",
-        items: [
-          { id: "bc1", name: "Classic bathroom cleaning", price: 449 },
-          { id: "bc2", name: "Intense bathroom cleaning", price: 649, selected: true },
-          { id: "bc3", name: "2 Bathrooms combo", price: 799, selected: true },
-        ],
-      },
-      {
-        category: "Kitchen & Others",
-        items: [
-          { id: "kc1", name: "Classic kitchen cleaning", price: 699 },
-          { id: "kc2", name: "Deep kitchen cleaning", price: 999, selected: true },
-          { id: "kc3", name: "5 seater sofa cleaning", price: 849, selected: true },
-        ],
-      },
-    ],
-  },
-  {
-    id: "move-in-special",
-    name: "Move-in/Move-out package",
-    rating: 4.85,
-    reviewCount: "285K",
-    price: 4499,
-    originalPrice: 4999,
-    duration: "6-8 hrs",
-    discount: 10,
-    items: [
-      { category: "Full home", description: "Complete deep cleaning" },
-      { category: "Bathroom", description: "All bathroom cleaning" },
-      { category: "Kitchen", description: "Kitchen deep cleaning" },
-    ],
-    customizable: false,
-  },
-  {
-    id: "monthly-maintenance",
-    name: "Monthly maintenance pack",
-    rating: 4.82,
-    reviewCount: "165K",
-    price: 2999,
-    originalPrice: 3749,
-    duration: "4-5 hrs",
-    discount: 20,
-    items: [
-      { category: "Full home", description: "Basic home cleaning" },
-      { category: "Bathroom", description: "2 bathroom cleaning" },
-      { category: "AC cleaning", description: "2 AC deep cleaning" },
-    ],
-    customizable: true,
-    customizableItems: [
-      {
-        category: "Monthly Services",
-        items: [
-          { id: "m1", name: "Basic home cleaning", price: 1499, selected: true },
-          { id: "m2", name: "2 Bathroom cleaning", price: 799, selected: true },
-          { id: "m3", name: "2 AC deep cleaning", price: 999, selected: true },
-          { id: "m4", name: "Chimney cleaning", price: 399 },
-        ],
-      },
-    ],
-  },
-];
-
 const ServiceCard = ({ service, quantity, onAdd, onRemove, onViewDetails }: any) => (
   <View style={styles.serviceCard}>
     <View style={styles.serviceInfo}>
@@ -214,8 +123,6 @@ export default function CleaningFullPageScreen() {
   const [activeCategory, setActiveCategory] = useState("full-home");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
-  const [showPackageModal, setShowPackageModal] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
@@ -237,30 +144,6 @@ export default function CleaningFullPageScreen() {
 
   const getCartTotal = () => { let total = 0; Object.entries(cart).forEach(([id, qty]) => { Object.values(ALL_SERVICES).forEach(cat => { const s = cat.services.find(x => x.id === id); if (s) total += s.price * qty; }); }); return total; };
   const getCartItemCount = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-
-  const handleAddPackage = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
-    if (pkg) {
-      if (pkg.customizable) {
-        setSelectedPackage(pkg);
-        setShowPackageModal(true);
-      } else {
-        setCart(prev => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
-      }
-    }
-  };
-
-  const handleEditPackage = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
-    if (pkg) {
-      setSelectedPackage(pkg);
-      setShowPackageModal(true);
-    }
-  };
-
-  const handlePackageAddToCart = (packageId: string, selectedItems: any[], totalPrice: number) => {
-    setCart(prev => ({ ...prev, [`pkg-${packageId}`]: 1 }));
-  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -293,14 +176,6 @@ export default function CleaningFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "full-home"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor={THEME_COLOR}
-          onAddPackage={handleAddPackage}
-          onEditPackage={handleEditPackage}
-        />
-        <View style={styles.sectionDivider} />
-
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View key={categoryId} onLayout={(e) => setSectionPositions(prev => ({ ...prev, [categoryId]: e.nativeEvent.layout.y }))}>
             <View style={styles.sectionHeader}><Text style={styles.sectionLabel}>{categoryData.title}</Text><Text style={styles.sectionTitle}>{categoryData.title}</Text></View>
@@ -315,14 +190,6 @@ export default function CleaningFullPageScreen() {
         ))}
         <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
-
-      <PackageCustomizerModal
-        visible={showPackageModal}
-        onClose={() => setShowPackageModal(false)}
-        packageData={selectedPackage}
-        themeColor={THEME_COLOR}
-        onAddToCart={handlePackageAddToCart}
-      />
 
       <TouchableOpacity style={styles.menuButton}><Menu size={20} color="#FFF" /><Text style={styles.menuButtonText}>Menu</Text></TouchableOpacity>
       <View style={[styles.bottomPromo, { bottom: getCartItemCount() > 0 ? 80 : 0 }]}><Tag size={16} color={THEME_COLOR} /><Text style={styles.bottomPromoText}>₹200 off on 2+ rooms deep cleaning</Text></View>
