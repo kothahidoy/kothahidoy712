@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://code-importer-43.preview.emergentagent.com/api"
+BACKEND_URL = "https://code-bridge-31.preview.emergentagent.com/api"
 
 # Test results storage
 test_results = {
