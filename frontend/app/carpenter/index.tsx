@@ -21,8 +21,6 @@ import {
 } from "lucide-react-native";
 
 import { colors } from "@/src/theme";
-import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
-import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
 
 
 // Category tabs data
@@ -35,73 +33,6 @@ const CATEGORIES = [
   { id: "window-curtain", name: "Window &\ncurtain", image: "https://images.unsplash.com/photo-1604147706283-d7119b5b822c?auto=format&fit=crop&w=200&q=80" },
   { id: "bed", name: "Bed", image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=200&q=80" },
   { id: "furniture", name: "Furniture\nassembly", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=200&q=80" },
-];
-
-const SUPER_SAVER_PACKAGES: PackageData[] = [
-  {
-    id: "fittings-essentials",
-    name: "Fittings essentials",
-    rating: 4.83,
-    reviewCount: "210K",
-    price: 749,
-    originalPrice: 899,
-    duration: "1 hr 30 mins",
-    discount: 17,
-    customizable: true,
-    items: [
-      { category: "Door work", description: "Door alignment / hinge fix" },
-      { category: "Drawer", description: "Drawer channel repair" },
-      { category: "Hardware", description: "Latch & handle tighten (up to 6)" },
-    ],
-    customizableItems: [
-      {
-        category: "Door & Drawer",
-        items: [
-          { id: "fe-d1", name: "Door alignment / hinge fix", price: 349, selected: true, variants: ["1 door", "2 doors", "3 doors"] },
-          { id: "fe-d2", name: "Drawer channel repair", price: 299, selected: true, variants: ["1 drawer", "2 drawers"] },
-        ],
-      },
-      {
-        category: "Hardware",
-        items: [
-          { id: "fe-h1", name: "Latch & handle tighten", price: 149, selected: true, variants: ["Up to 6", "7-12"] },
-          { id: "fe-h2", name: "Magnet catch fix", price: 99 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "wood-care-pro",
-    name: "Wood-care pro",
-    rating: 4.85,
-    reviewCount: "152K",
-    price: 1199,
-    originalPrice: 1399,
-    duration: "2 hrs 30 mins",
-    discount: 14,
-    customizable: true,
-    items: [
-      { category: "Cupboard", description: "Shutter alignment & polish" },
-      { category: "Furniture", description: "Loose joint refit" },
-      { category: "Polish", description: "Wood polishing (small area)" },
-    ],
-    customizableItems: [
-      {
-        category: "Cupboard",
-        items: [
-          { id: "wc-c1", name: "Shutter alignment", price: 399, selected: true, variants: ["1 shutter", "2 shutters"] },
-          { id: "wc-c2", name: "Cupboard polish", price: 599, selected: true },
-        ],
-      },
-      {
-        category: "Furniture",
-        items: [
-          { id: "wc-f1", name: "Loose joint refit", price: 299, selected: true, variants: ["Chair", "Table", "Bed"] },
-          { id: "wc-f2", name: "Furniture assembly", price: 499 },
-        ],
-      },
-    ],
-  },
 ];
 
 // All services organized by category
@@ -232,8 +163,6 @@ export default function CarpenterFullPageScreen() {
   const [activeCategory, setActiveCategory] = useState("cupboard-drawer");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
-  const [packageModalVisible, setPackageModalVisible] = useState(false);
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
@@ -273,28 +202,6 @@ export default function CarpenterFullPageScreen() {
       }
       return { ...prev, [serviceId]: newQty };
     });
-  };
-
-  const handlePackageAdd = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find((p) => p.id === packageId);
-    if (!pkg) return;
-    if (pkg.customizable) {
-      setSelectedPackageId(packageId);
-      setPackageModalVisible(true);
-    } else {
-      // Add the whole package as a single cart item
-      setCart((prev) => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
-    }
-  };
-
-  const handlePackageEdit = (packageId: string) => {
-    setSelectedPackageId(packageId);
-    setPackageModalVisible(true);
-  };
-
-  const handlePackageAddToCart = (packageId: string, _items: PackageItem[], totalPrice: number) => {
-    // Store package as a synthetic cart entry; price is encoded in the id via getCartTotal override
-    setCart((prev) => ({ ...prev, [`pkg-${packageId}-${totalPrice}`]: 1 }));
   };
 
   const handleViewDetails = (serviceId: string) => {
@@ -391,17 +298,7 @@ export default function CarpenterFullPageScreen() {
             ))}
             <View style={styles.sectionDivider} />
           </View>
-        ))}
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#0EA5E9"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
+        ))}        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
       <TouchableOpacity style={styles.menuButton}>
@@ -425,15 +322,7 @@ export default function CarpenterFullPageScreen() {
             <ChevronRight size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      )}
-          <PackageCustomizerModal
-        visible={packageModalVisible}
-        onClose={() => setPackageModalVisible(false)}
-        packageData={SUPER_SAVER_PACKAGES.find((p) => p.id === selectedPackageId) || null}
-        themeColor="#0EA5E9"
-        onAddToCart={handlePackageAddToCart}
-      />
-</SafeAreaView>
+      )}</SafeAreaView>
   );
 }
 

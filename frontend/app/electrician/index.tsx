@@ -21,8 +21,6 @@ import {
 } from "lucide-react-native";
 
 import { colors } from "@/src/theme";
-import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
-import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
 
 
 // Category tabs data
@@ -35,72 +33,6 @@ const CATEGORIES = [
   { id: "mcb-fuse", name: "MCB/fuse", image: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?auto=format&fit=crop&w=200&q=80" },
   { id: "appliances", name: "Appliances", image: "https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=200&q=80" },
   { id: "consultation", name: "Book a\nconsultation", image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=200&q=80" },
-];
-
-const SUPER_SAVER_PACKAGES: PackageData[] = [
-  {
-    id: "home-safety-check",
-    name: "Home safety check",
-    rating: 4.87,
-    reviewCount: "324K",
-    price: 499,
-    originalPrice: 599,
-    duration: "1 hr",
-    discount: 17,
-    customizable: true,
-    items: [
-      { category: "Switch & socket", description: "Inspection of up to 10 switches" },
-      { category: "MCB", description: "MCB & earth check" },
-      { category: "Wiring", description: "Loose wiring fix" },
-    ],
-    customizableItems: [
-      {
-        category: "Switch & Socket",
-        items: [
-          { id: "hsc-s1", name: "Switch / socket inspection", price: 199, selected: true, variants: ["Up to 10", "11-20"] },
-          { id: "hsc-s2", name: "Switch replacement", price: 149, variants: ["Modular", "Heavy duty"] },
-        ],
-      },
-      {
-        category: "Power & Safety",
-        items: [
-          { id: "hsc-m1", name: "MCB & earth check", price: 199, selected: true },
-          { id: "hsc-w1", name: "Loose wiring fix", price: 249, selected: true },
-        ],
-      },
-    ],
-  },
-  {
-    id: "fan-light-combo",
-    name: "Fan & light combo",
-    rating: 4.85,
-    reviewCount: "278K",
-    price: 599,
-    originalPrice: 749,
-    duration: "1 hr 15 mins",
-    discount: 20,
-    customizable: true,
-    items: [
-      { category: "Fan", description: "Ceiling fan install / repair" },
-      { category: "Light", description: "Tube light / LED installation" },
-    ],
-    customizableItems: [
-      {
-        category: "Fan",
-        items: [
-          { id: "flc-f1", name: "Ceiling fan install", price: 399, selected: true, variants: ["Regular", "BLDC", "Designer"] },
-          { id: "flc-f2", name: "Fan capacitor replacement", price: 249 },
-        ],
-      },
-      {
-        category: "Light",
-        items: [
-          { id: "flc-l1", name: "Tube light / LED install", price: 199, selected: true, variants: ["Single", "Double"] },
-          { id: "flc-l2", name: "Chandelier install", price: 599 },
-        ],
-      },
-    ],
-  },
 ];
 
 // All services organized by category
@@ -230,8 +162,6 @@ export default function ElectricianFullPageScreen() {
   const [activeCategory, setActiveCategory] = useState("switch-socket");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
-  const [packageModalVisible, setPackageModalVisible] = useState(false);
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
@@ -271,28 +201,6 @@ export default function ElectricianFullPageScreen() {
       }
       return { ...prev, [serviceId]: newQty };
     });
-  };
-
-  const handlePackageAdd = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find((p) => p.id === packageId);
-    if (!pkg) return;
-    if (pkg.customizable) {
-      setSelectedPackageId(packageId);
-      setPackageModalVisible(true);
-    } else {
-      // Add the whole package as a single cart item
-      setCart((prev) => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
-    }
-  };
-
-  const handlePackageEdit = (packageId: string) => {
-    setSelectedPackageId(packageId);
-    setPackageModalVisible(true);
-  };
-
-  const handlePackageAddToCart = (packageId: string, _items: PackageItem[], totalPrice: number) => {
-    // Store package as a synthetic cart entry; price is encoded in the id via getCartTotal override
-    setCart((prev) => ({ ...prev, [`pkg-${packageId}-${totalPrice}`]: 1 }));
   };
 
   const handleViewDetails = (serviceId: string) => {
@@ -411,18 +319,7 @@ export default function ElectricianFullPageScreen() {
 
             <View style={styles.sectionDivider} />
           </View>
-        ))}
-
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#F59E0B"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
+        ))}        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
       {/* Floating Menu Button */}
@@ -449,15 +346,7 @@ export default function ElectricianFullPageScreen() {
             <ChevronRight size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      )}
-          <PackageCustomizerModal
-        visible={packageModalVisible}
-        onClose={() => setPackageModalVisible(false)}
-        packageData={SUPER_SAVER_PACKAGES.find((p) => p.id === selectedPackageId) || null}
-        themeColor="#F59E0B"
-        onAddToCart={handlePackageAddToCart}
-      />
-</SafeAreaView>
+      )}</SafeAreaView>
   );
 }
 

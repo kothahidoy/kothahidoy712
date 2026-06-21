@@ -4,8 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Star, Clock, Menu, Tag } from "lucide-react-native";
 import { colors } from "@/src/theme";
-import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
-import { PackageCustomizerModal, PackageItem } from "@/src/components/PackageCustomizerModal";
 
 
 const CATEGORIES = [
@@ -17,72 +15,6 @@ const CATEGORIES = [
   { id: "exterior", name: "Exterior full\nhome", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80" },
   { id: "waterproofing", name: "Waterproofing", image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=200&q=80" },
   { id: "wood-polish", name: "Wood polish\n& painting", image: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&w=200&q=80" },
-];
-
-const SUPER_SAVER_PACKAGES: PackageData[] = [
-  {
-    id: "wall-touch-up",
-    name: "Wall touch-up combo",
-    rating: 4.88,
-    reviewCount: "118K",
-    price: 1499,
-    originalPrice: 1799,
-    duration: "3 hrs",
-    discount: 17,
-    customizable: true,
-    items: [
-      { category: "Wall", description: "Patch + repaint (up to 25 sqft)" },
-      { category: "Finish", description: "Premium emulsion" },
-    ],
-    customizableItems: [
-      {
-        category: "Wall area",
-        items: [
-          { id: "wtu-w1", name: "Patch + repaint", price: 999, selected: true, variants: ["Up to 25 sqft", "26-50 sqft", "51-100 sqft"] },
-          { id: "wtu-w2", name: "Damp / putty fix", price: 499 },
-        ],
-      },
-      {
-        category: "Finish",
-        items: [
-          { id: "wtu-f1", name: "Premium emulsion", price: 499, selected: true, variants: ["Matte", "Sheen", "Royale"] },
-          { id: "wtu-f2", name: "Texture finish", price: 799 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "room-makeover",
-    name: "1 Room makeover",
-    rating: 4.9,
-    reviewCount: "92K",
-    price: 5999,
-    originalPrice: 7499,
-    duration: "1-2 days",
-    discount: 20,
-    customizable: true,
-    items: [
-      { category: "Walls", description: "Full room repaint (up to 350 sqft)" },
-      { category: "Ceiling", description: "Ceiling repaint" },
-      { category: "Putty", description: "Wall putty + sanding" },
-    ],
-    customizableItems: [
-      {
-        category: "Paint choice",
-        items: [
-          { id: "rm-p1", name: "Asian Paints Royale", price: 4499, selected: true, variants: ["Matte", "Lustre", "Sheen"] },
-          { id: "rm-p2", name: "Berger Silk", price: 3999, variants: ["Matte", "Glossy"] },
-        ],
-      },
-      {
-        category: "Surface prep",
-        items: [
-          { id: "rm-s1", name: "Putty + sanding", price: 999, selected: true },
-          { id: "rm-s2", name: "Primer coat", price: 499, selected: true },
-        ],
-      },
-    ],
-  },
 ];
 
 const ALL_SERVICES = {
@@ -186,8 +118,6 @@ export default function PaintingFullPageScreen() {
   const [activeCategory, setActiveCategory] = useState("1bhk");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
-  const [packageModalVisible, setPackageModalVisible] = useState(false);
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
@@ -206,21 +136,6 @@ export default function PaintingFullPageScreen() {
 
   const handleAddToCart = (serviceId: string) => setCart(prev => ({ ...prev, [serviceId]: (prev[serviceId] || 0) + 1 }));
   const handleRemoveFromCart = (serviceId: string) => setCart(prev => { const newQty = (prev[serviceId] || 0) - 1; if (newQty <= 0) { const { [serviceId]: _, ...rest } = prev; return rest; } return { ...prev, [serviceId]: newQty }; });
-
-  const handlePackageAdd = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find((p) => p.id === packageId);
-    if (!pkg) return;
-    if (pkg.customizable) {
-      setSelectedPackageId(packageId);
-      setPackageModalVisible(true);
-    } else {
-      setCart((prev) => ({ ...prev, [`pkg-${packageId}`]: (prev[`pkg-${packageId}`] || 0) + 1 }));
-    }
-  };
-  const handlePackageEdit = (packageId: string) => { setSelectedPackageId(packageId); setPackageModalVisible(true); };
-  const handlePackageAddToCart = (packageId: string, _items: PackageItem[], totalPrice: number) => {
-    setCart((prev) => ({ ...prev, [`pkg-${packageId}-${totalPrice}`]: 1 }));
-  };
 
   const getCartTotal = () => { let total = 0; Object.entries(cart).forEach(([id, qty]) => { Object.values(ALL_SERVICES).forEach(cat => { const s = cat.services.find(x => x.id === id); if (s) total += s.price * qty; }); }); return total; };
   const getCartItemCount = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
@@ -264,17 +179,7 @@ export default function PaintingFullPageScreen() {
             ))}
             <View style={styles.sectionDivider} />
           </View>
-        ))}
-        {/* Urban-Company-style Packages */}
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor="#EC4899"
-          sectionTitle="Packages"
-          onAddPackage={handlePackageAdd}
-          onEditPackage={handlePackageEdit}
-        />
-        <View style={styles.sectionDivider} />
-        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
+        ))}        <View style={{ height: getCartItemCount() > 0 ? 140 : 100 }} />
       </ScrollView>
 
       <TouchableOpacity style={styles.menuButton}><Menu size={20} color="#FFF" /><Text style={styles.menuButtonText}>Menu</Text></TouchableOpacity>
@@ -285,15 +190,7 @@ export default function PaintingFullPageScreen() {
           <View><Text style={styles.cartItemCount}>{getCartItemCount()} item{getCartItemCount() > 1 ? "s" : ""}</Text><Text style={styles.cartTotal}>₹{getCartTotal().toLocaleString()}</Text></View>
           <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/booking/new")}><Text style={styles.viewCartText}>View Cart</Text><ChevronRight size={18} color="#FFF" /></TouchableOpacity>
         </View>
-      )}
-          <PackageCustomizerModal
-        visible={packageModalVisible}
-        onClose={() => setPackageModalVisible(false)}
-        packageData={SUPER_SAVER_PACKAGES.find((p) => p.id === selectedPackageId) || null}
-        themeColor="#EC4899"
-        onAddToCart={handlePackageAddToCart}
-      />
-</SafeAreaView>
+      )}</SafeAreaView>
   );
 }
 
