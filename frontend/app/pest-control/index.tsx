@@ -3,7 +3,6 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag, Shield } from "lucide-react-native";
-import { colors } from "@/src/theme";
 
 const CATEGORIES = [
   { id: "cockroach", name: "Cockroach\ncontrol", image: "https://images.unsplash.com/photo-1632935190508-bef6c4c2fcd9?auto=format&fit=crop&w=200&q=80" },
