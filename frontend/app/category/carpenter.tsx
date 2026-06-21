@@ -175,7 +175,7 @@ export default function CarpenterServiceScreen() {
           </View>
 
           {/* Warranty Card */}
-          <TouchableOpacity style={styles.warrantyCard}>
+          <TouchableOpacity style={styles.warrantyCard} onPress={() => router.push("/cover/carpenter")}>
             <View style={styles.warrantyLeft}>
               <Shield size={20} color="#6B7280" />
               <Text style={styles.warrantyText}>Mfixit warranty & protection</Text>

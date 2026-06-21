@@ -181,6 +181,17 @@ export default function PaintingServiceScreen() {
           {/* Divider */}
           <View style={styles.divider} />
 
+          {/* Warranty Card */}
+          <TouchableOpacity style={styles.warrantyCard} onPress={() => router.push("/cover/painting")}>
+            <View style={styles.warrantyLeft}>
+              <View style={styles.warrantyIcon}>
+                <Text style={styles.warrantyCheckmark}>✓</Text>
+              </View>
+              <Text style={styles.warrantyText}>Mfixit warranty & protection</Text>
+            </View>
+            <ChevronRight size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
           {/* Category Grid */}
           <View style={styles.gridSection}>
             {rows.map((row, rowIndex) => (
@@ -404,5 +415,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#6B7280",
+  },
+  warrantyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  warrantyLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  warrantyIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: "#D97706",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  warrantyCheckmark: {
+    color: "#FFF",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  warrantyText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
   },
 });

@@ -169,7 +169,7 @@ export default function ACApplianceCategoryScreen() {
           </View>
 
           {/* Warranty Card */}
-          <TouchableOpacity style={styles.warrantyCard}>
+          <TouchableOpacity style={styles.warrantyCard} onPress={() => router.push("/cover/ac-appliance")}>
             <View style={styles.warrantyLeft}>
               <View style={styles.warrantyIcon}>
                 <Shield size={16} color="#6B7280" />

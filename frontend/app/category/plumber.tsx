@@ -176,7 +176,7 @@ export default function PlumberServiceScreen() {
           </View>
 
           {/* Warranty Card */}
-          <TouchableOpacity style={styles.warrantyCard}>
+          <TouchableOpacity style={styles.warrantyCard} onPress={() => router.push("/cover/plumber")}>
             <View style={styles.warrantyLeft}>
               <Shield size={20} color="#6B7280" />
               <Text style={styles.warrantyText}>Mfixit warranty & protection</Text>
