@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   FlatList,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -90,31 +91,97 @@ const TASK_CATEGORIES = [
     id: "kitchen",
     name: "Kitchen & utensil cleaning",
     image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Crockery & lunch boxes",
+      "Wiping cabinet exterior",
+      "Sink cleaning",
+      "Gas stove wiping",
+    ],
+    exclusions: [
+      "Hard food stains",
+      "Chimney cleaning",
+      "Heavy appliance cleaning",
+    ],
   },
   {
     id: "meal-prep",
     name: "Meal prep & serving",
     image: "https://images.unsplash.com/photo-1466637574441-749b8f19452f?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Veggies chopping & salad prep",
+      "Meat marination",
+      "Serving food",
+      "Table setting",
+    ],
+    exclusions: [
+      "Cooking full meals",
+      "Non-veg cooking",
+      "Baking",
+    ],
   },
   {
     id: "mopping",
     name: "Mopping, dusting & wiping",
     image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Dusting & Mopping floor",
+      "Wet wiping furniture",
+      "Bed making",
+      "Organizing items",
+    ],
+    exclusions: [
+      "Wiping walls",
+      "Hard to reach areas",
+      "Ceiling fans",
+    ],
   },
   {
     id: "bathroom",
     name: "Bathroom cleaning",
     image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Toilet seat cleaning",
+      "Sink & Taps",
+      "Floor mopping",
+      "Mirror cleaning",
+    ],
+    exclusions: [
+      "Walls scrubbing",
+      "Hard stains removal",
+      "Ceiling cleaning",
+    ],
   },
   {
     id: "laundry",
     name: "Laundry & Ironing",
     image: "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Machine-wash & drying",
+      "Ironing clothes",
+      "Folding & arranging",
+      "Sorting clothes",
+    ],
+    exclusions: [
+      "Hand-washing delicates",
+      "Dry cleaning items",
+      "Stain removal",
+    ],
   },
   {
     id: "packing",
     name: "Packing & un-packing",
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80",
+    inclusions: [
+      "Move-in / move-out help",
+      "Vacation packing",
+      "Wardrobe organizing",
+      "Labeling boxes",
+    ],
+    exclusions: [
+      "Lifting heavy objects",
+      "Moving full homes",
+      "Furniture assembly",
+    ],
   },
 ];
 
@@ -185,6 +252,13 @@ export default function InstaHelpServiceScreen() {
   const [selectedTab, setSelectedTab] = useState<"instant" | "later">("later");
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<typeof TASK_CATEGORIES[0] | null>(null);
+
+  const handleTaskPress = (task: typeof TASK_CATEGORIES[0]) => {
+    setSelectedTask(task);
+    setShowTaskDetails(true);
+  };
 
   const handleAddToCart = (optionId: string) => {
     setCart(prev => ({
@@ -371,7 +445,11 @@ export default function InstaHelpServiceScreen() {
           <Text style={styles.sectionTitle}>One help who can do it all</Text>
           <View style={styles.taskGrid}>
             {TASK_CATEGORIES.map((task) => (
-              <TouchableOpacity key={task.id} style={styles.taskCard}>
+              <TouchableOpacity 
+                key={task.id} 
+                style={styles.taskCard}
+                onPress={() => handleTaskPress(task)}
+              >
                 <View style={styles.taskHeader}>
                   <Text style={styles.taskName}>{task.name}</Text>
                   <View style={styles.taskArrow}>
@@ -501,6 +579,94 @@ export default function InstaHelpServiceScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Task Details Modal - Similar to Urban Company */}
+      <Modal
+        visible={showTaskDetails}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTaskDetails(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowTaskDetails(false)}
+              >
+                <X size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedTask && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Task Title with Image */}
+                <View style={styles.taskDetailHeader}>
+                  <View style={styles.taskDetailInfo}>
+                    <Text style={styles.taskDetailTitle}>{selectedTask.name}</Text>
+                    <View style={styles.taskDetailMeta}>
+                      <Clock size={14} color="#6B7280" />
+                      <Text style={styles.taskDetailMetaText}>Approx. 20-30 mins</Text>
+                    </View>
+                  </View>
+                  <Image
+                    source={{ uri: selectedTask.image }}
+                    style={styles.taskDetailImage}
+                    resizeMode="cover"
+                  />
+                </View>
+
+                {/* Inclusions */}
+                <View style={styles.taskDetailSection}>
+                  <Text style={styles.taskDetailSectionTitle}>Inclusions</Text>
+                  {selectedTask.inclusions.map((item, index) => (
+                    <View key={index} style={styles.taskDetailItem}>
+                      <View style={styles.taskDetailCheckIcon}>
+                        <Check size={14} color="#16A34A" strokeWidth={3} />
+                      </View>
+                      <Text style={styles.taskDetailItemText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Exclusions */}
+                <View style={styles.taskDetailSection}>
+                  <Text style={styles.taskDetailSectionTitle}>Exclusions</Text>
+                  {selectedTask.exclusions.map((item, index) => (
+                    <View key={index} style={styles.taskDetailItem}>
+                      <View style={styles.taskDetailXIcon}>
+                        <X size={14} color="#DC2626" strokeWidth={3} />
+                      </View>
+                      <Text style={styles.taskDetailItemText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Info Note */}
+                <View style={styles.taskDetailNote}>
+                  <Info size={16} color="#6B7280" />
+                  <Text style={styles.taskDetailNoteText}>
+                    Please provide cleaning equipment & supplies to the help
+                  </Text>
+                </View>
+
+                <View style={{ height: 100 }} />
+              </ScrollView>
+            )}
+
+            {/* Confirm Button */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={() => setShowTaskDetails(false)}
+              >
+                <Text style={styles.modalConfirmText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1012,5 +1178,135 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBody: {
+    flex: 1,
+    padding: 20,
+  },
+  taskDetailHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 16,
+    marginBottom: 24,
+  },
+  taskDetailInfo: {
+    flex: 1,
+  },
+  taskDetailTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#000",
+    marginBottom: 8,
+  },
+  taskDetailMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  taskDetailMetaText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  taskDetailImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  taskDetailSection: {
+    marginBottom: 24,
+  },
+  taskDetailSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 16,
+  },
+  taskDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  taskDetailCheckIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskDetailXIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskDetailItemText: {
+    fontSize: 15,
+    color: "#374151",
+    flex: 1,
+  },
+  taskDetailNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 16,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  taskDetailNoteText: {
+    fontSize: 14,
+    color: "#6B7280",
+    flex: 1,
+    lineHeight: 20,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    backgroundColor: "#FFF",
+  },
+  modalConfirmBtn: {
+    backgroundColor: "#16A34A",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalConfirmText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFF",
   },
 });
