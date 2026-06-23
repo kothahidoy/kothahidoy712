@@ -51,42 +51,43 @@ const HERO_PROMO = {
   image: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80",
 };
 
-// Mock data for "In the Spotlight" - Small icon-based items
-const SPOTLIGHT_ITEMS = [
+// Mock data for "In the Spotlight" - Large promotional banner cards
+const SPOTLIGHT_BANNERS = [
   {
     id: "spot-1",
-    label: "Mfixit",
-    icon: "https://img.icons8.com/fluency/96/maintenance.png",
-    hasNotification: false,
-    bgColor: "#EFF6FF",
+    title: "Get your AC",
+    titleLine2: "summer-ready",
+    subtitle: "Foam-jet AC service",
+    bgColor: "#F5F5F5",
+    textColor: "#1a1a1a",
+    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=400&q=80",
   },
   {
     id: "spot-2",
-    label: "Revamp",
-    icon: "https://img.icons8.com/fluency/96/interior.png",
-    hasNotification: true,
-    bgColor: "#F0FDF4",
+    title: "Insta Help",
+    titleLine2: "in 10 mins",
+    subtitle: "Trained house help when your maid is on leave",
+    bgColor: "#7C3AED",
+    textColor: "#FFFFFF",
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=400&q=80",
   },
   {
     id: "spot-3",
-    label: "Native",
-    icon: "https://img.icons8.com/fluency/96/potted-plant.png",
-    hasNotification: true,
-    bgColor: "#FEF3C7",
+    title: "Home repairs at",
+    titleLine2: "affordable prices",
+    subtitle: "Electricians, plumbers, carpenters",
+    bgColor: "#2563EB",
+    textColor: "#FFFFFF",
+    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80",
   },
   {
     id: "spot-4",
-    label: "Beauty",
-    icon: "https://img.icons8.com/fluency/96/cosmetic-brush.png",
-    hasNotification: false,
-    bgColor: "#FCE7F3",
-  },
-  {
-    id: "spot-5",
-    label: "Appliances",
-    icon: "https://img.icons8.com/fluency/96/washing-machine.png",
-    hasNotification: false,
-    bgColor: "#F3E8FF",
+    title: "Expert haircut at",
+    titleLine2: "your doorstep",
+    subtitle: "Salon for men",
+    bgColor: "#0EA5E9",
+    textColor: "#FFFFFF",
+    image: "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=400&q=80",
   },
 ];
 
@@ -388,35 +389,69 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* In the Spotlight Section - Small Icon-based Items */}
+        {/* In the Spotlight Section - Large Promotional Banner Cards */}
         <View style={styles.spotlightSection}>
           <Text style={styles.spotlightTitle}>In the spotlight</Text>
-          <ScrollView
+          <FlatList
+            data={SPOTLIGHT_BANNERS}
+            keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.spotlightScrollContent}
-          >
-            {SPOTLIGHT_ITEMS.map((item) => (
+            pagingEnabled
+            snapToInterval={SCREEN_WIDTH - 40}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                key={item.id}
-                style={styles.spotlightItem}
-                activeOpacity={0.8}
+                style={[styles.spotlightBannerCard, { backgroundColor: item.bgColor }]}
+                activeOpacity={0.95}
                 testID={`spotlight-${item.id}`}
               >
-                <View style={[styles.spotlightIconContainer, { backgroundColor: item.bgColor }]}>
-                  <Image
-                    source={{ uri: item.icon }}
-                    style={styles.spotlightIcon}
-                    resizeMode="contain"
-                  />
-                  {item.hasNotification && (
-                    <View style={styles.spotlightNotificationDot} />
-                  )}
+                <View style={styles.spotlightBannerContent}>
+                  <Text style={[styles.spotlightBannerTitle, { color: item.textColor }]}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.spotlightBannerTitleBold, { color: item.textColor }]}>
+                    {item.titleLine2}
+                  </Text>
+                  <Text style={[styles.spotlightBannerSubtitle, { color: item.textColor, opacity: 0.85 }]}>
+                    {item.subtitle}
+                  </Text>
+                  <TouchableOpacity 
+                    style={[
+                      styles.spotlightBookBtn,
+                      { backgroundColor: item.textColor === "#FFFFFF" ? "#FFFFFF" : "#1a1a1a" }
+                    ]}
+                  >
+                    <Text style={[
+                      styles.spotlightBookBtnText,
+                      { color: item.textColor === "#FFFFFF" ? item.bgColor : "#FFFFFF" }
+                    ]}>
+                      Book now
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.spotlightLabel}>{item.label}</Text>
+                <Image
+                  source={{ uri: item.image }}
+                  style={styles.spotlightBannerImage}
+                  resizeMode="cover"
+                />
               </TouchableOpacity>
+            )}
+          />
+          {/* Pagination dots */}
+          <View style={styles.spotlightPaginationDots}>
+            {SPOTLIGHT_BANNERS.map((item, index) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.spotlightDot,
+                  index === 0 ? styles.spotlightDotActive : styles.spotlightDotInactive,
+                ]}
+              />
             ))}
-          </ScrollView>
+          </View>
         </View>
 
         {/* Thoughtful Curations - Video Section */}
@@ -829,7 +864,7 @@ const styles = StyleSheet.create({
   proRating: { fontSize: 12, fontWeight: "700", color: colors.textMain },
   proSub: { fontSize: 11, color: colors.textMuted },
 
-  // Spotlight Section Styles - Urban Company Style with Circular Icons
+  // Spotlight Section Styles - Urban Company Style Large Banner Cards
   spotlightSection: {
     marginTop: 24,
     marginBottom: 8,
@@ -840,6 +875,64 @@ const styles = StyleSheet.create({
     color: colors.textMain,
     marginBottom: 16,
     paddingHorizontal: 20,
+  },
+  spotlightBannerCard: {
+    width: SCREEN_WIDTH - 52,
+    height: 180,
+    borderRadius: radius.lg,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  spotlightBannerContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  spotlightBannerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  spotlightBannerTitleBold: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  spotlightBannerSubtitle: {
+    fontSize: 13,
+    marginBottom: 14,
+  },
+  spotlightBookBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+  },
+  spotlightBookBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  spotlightBannerImage: {
+    width: 150,
+    height: "100%",
+  },
+  spotlightPaginationDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 14,
+    gap: 6,
+  },
+  spotlightDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  spotlightDotActive: {
+    backgroundColor: "#1a1a1a",
+    width: 20,
+  },
+  spotlightDotInactive: {
+    backgroundColor: "#D1D5DB",
   },
   spotlightScrollContent: {
     paddingHorizontal: 20,
