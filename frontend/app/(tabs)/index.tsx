@@ -15,14 +15,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  Award,
   Bell,
   ChevronRight,
   MapPin,
   Search,
-  Sparkles,
   Star,
-  TrendingUp,
 } from "lucide-react-native";
 
 import { CategoryTile } from "@/src/components/IconBubble";
@@ -39,79 +36,63 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Mock data for "In the Spotlight" section
+// Mock data for "In the Spotlight" section - Urban Company style
 const SPOTLIGHT_DATA = [
   {
     id: "spot-1",
-    title: "AC Summer Sale",
-    subtitle: "Beat the heat with expert AC service",
-    discount: "40% OFF",
-    image: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=600&q=80",
-    bgGradient: ["#1E40AF", "#3B82F6"] as const,
+    title: "Get your AC",
+    titleLine2: "summer-ready",
+    subtitle: "Foam-jet AC service",
+    image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80",
+    bgColor: "#F5F5F5",
   },
   {
     id: "spot-2",
-    title: "Salon at Home",
-    subtitle: "Premium beauty services at your doorstep",
-    discount: "₹200 OFF",
-    image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
-    bgGradient: ["#7C3AED", "#A78BFA"] as const,
+    title: "Instant home",
+    titleLine2: "repairs",
+    subtitle: "Plumber & Electrician",
+    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80",
+    bgColor: "#EEF2FF",
   },
   {
     id: "spot-3",
-    title: "Deep Cleaning",
-    subtitle: "Transform your home this weekend",
-    discount: "25% OFF",
+    title: "Transform your",
+    titleLine2: "space",
+    subtitle: "Deep home cleaning",
     image: "https://images.pexels.com/photos/6195274/pexels-photo-6195274.jpeg?auto=compress&cs=tinysrgb&w=600",
-    bgGradient: ["#059669", "#34D399"] as const,
+    bgColor: "#F0FDF4",
   },
 ];
 
-// Mock data for "Thoughtful Curation" section
-const CURATED_SERVICES = [
+// Mock data for "Thoughtful Curations" VIDEO section
+const CURATED_VIDEOS = [
   {
-    id: "cur-1",
-    title: "Premium Home Makeover",
-    subtitle: "Complete painting & renovation",
-    price: "₹2,999",
-    rating: 4.9,
-    reviews: "2.1K",
-    image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=400&q=80",
-    tag: "Bestseller",
-    tagColor: "#F59E0B",
+    id: "vid-1",
+    title: "Roll-on",
+    titleLine2: "waxing",
+    thumbnail: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=400&q=80",
+    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
   },
   {
-    id: "cur-2",
-    title: "Luxury Spa at Home",
-    subtitle: "Full body massage & facial",
-    price: "₹1,499",
-    rating: 4.8,
-    reviews: "3.4K",
-    image: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=400&q=80",
-    tag: "Popular",
-    tagColor: "#2563EB",
+    id: "vid-2",
+    title: "MEN'S",
+    titleLine2: "HAIRCUT",
+    thumbnail: "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=400&q=80",
+    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
   },
   {
-    id: "cur-3",
-    title: "Smart Home Setup",
-    subtitle: "Complete electrical & automation",
-    price: "₹4,999",
-    rating: 4.7,
-    reviews: "890",
-    image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=400&q=80",
-    tag: "New",
-    tagColor: "#16A34A",
+    id: "vid-3",
+    title: "Bathroom",
+    titleLine2: "Deep clean",
+    thumbnail: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=400&q=80",
+    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
   },
   {
-    id: "cur-4",
-    title: "Kitchen Deep Clean",
-    subtitle: "Professional chimney & appliance cleaning",
-    price: "₹799",
-    rating: 4.9,
-    reviews: "1.8K",
-    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=400&q=80",
-    tag: "Top Rated",
-    tagColor: "#EF4444",
+    id: "vid-4",
+    title: "AC",
+    titleLine2: "Service",
+    thumbnail: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=400&q=80",
+    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
   },
 ];
 
@@ -291,89 +272,99 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* In the Spotlight Section */}
+        {/* In the Spotlight Section - Urban Company Style */}
         <View style={styles.spotlightSection}>
-          <View style={styles.spotlightHeader}>
-            <View style={styles.spotlightTitleRow}>
-              <Sparkles size={20} color={colors.primary} />
-              <Text style={styles.spotlightTitle}>In the Spotlight</Text>
-            </View>
-            <Text style={styles.spotlightSubtitle}>Handpicked deals just for you</Text>
-          </View>
+          <Text style={styles.spotlightTitle}>In the spotlight</Text>
           <FlatList
             data={SPOTLIGHT_DATA}
             keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}
+            pagingEnabled
+            snapToInterval={SCREEN_WIDTH - 40}
+            decelerationRate="fast"
             contentContainerStyle={{ paddingHorizontal: 20 }}
-            ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.spotlightCard}
-                activeOpacity={0.9}
+                style={[styles.spotlightCard, { backgroundColor: item.bgColor }]}
+                activeOpacity={0.95}
                 testID={`spotlight-${item.id}`}
               >
-                <ImageBackground
-                  source={{ uri: item.image }}
-                  style={styles.spotlightImage}
-                  imageStyle={styles.spotlightImageStyle}
-                >
-                  <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.85)"]}
-                    style={styles.spotlightGradient}
-                  >
-                    <View style={styles.spotlightBadge}>
-                      <TrendingUp size={12} color="#FFFFFF" />
-                      <Text style={styles.spotlightBadgeText}>{item.discount}</Text>
-                    </View>
+                <View style={styles.spotlightContent}>
+                  <View style={styles.spotlightTextArea}>
                     <Text style={styles.spotlightCardTitle}>{item.title}</Text>
+                    <Text style={styles.spotlightCardTitle}>{item.titleLine2}</Text>
                     <Text style={styles.spotlightCardSubtitle}>{item.subtitle}</Text>
+                    <TouchableOpacity style={styles.spotlightBookBtn}>
+                      <Text style={styles.spotlightBookBtnText}>Book now</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Image
+                    source={{ uri: item.image }}
+                    style={styles.spotlightImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+          {/* Pagination dots */}
+          <View style={styles.paginationDots}>
+            {SPOTLIGHT_DATA.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  index === 0 ? styles.dotActive : styles.dotInactive,
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Thoughtful Curations - Video Section */}
+        <View style={styles.curationSection}>
+          <View style={styles.curationHeader}>
+            <Text style={styles.curationTitle}>Thoughtful curations</Text>
+            <Text style={styles.curationSubtitle}>of our finest experiences</Text>
+          </View>
+          <FlatList
+            data={CURATED_VIDEOS}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.videoCard}
+                activeOpacity={0.9}
+                testID={`video-${item.id}`}
+              >
+                <ImageBackground
+                  source={{ uri: item.thumbnail }}
+                  style={styles.videoThumbnail}
+                  imageStyle={styles.videoThumbnailImage}
+                >
+                  {/* Play button overlay */}
+                  <View style={styles.playButtonOverlay}>
+                    <View style={styles.playButton}>
+                      <View style={styles.playTriangle} />
+                    </View>
+                  </View>
+                  {/* Title overlay at bottom */}
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.8)"]}
+                    style={styles.videoGradient}
+                  >
+                    <Text style={styles.videoTitle}>{item.title}</Text>
+                    <Text style={styles.videoTitleLine2}>{item.titleLine2}</Text>
                   </LinearGradient>
                 </ImageBackground>
               </TouchableOpacity>
             )}
           />
-        </View>
-
-        {/* Thoughtful Curation Section */}
-        <View style={styles.curationSection}>
-          <View style={styles.curationHeader}>
-            <View style={styles.curationTitleRow}>
-              <Award size={20} color={colors.primary} />
-              <Text style={styles.curationTitle}>Thoughtful Curation</Text>
-            </View>
-            <Text style={styles.curationSubtitle}>Our finest selection of premium services</Text>
-          </View>
-          <View style={styles.curationGrid}>
-            {CURATED_SERVICES.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.curationCard}
-                activeOpacity={0.9}
-                testID={`curated-${item.id}`}
-              >
-                <Image
-                  source={{ uri: item.image }}
-                  style={styles.curationImage}
-                />
-                <View style={[styles.curationTag, { backgroundColor: item.tagColor }]}>
-                  <Text style={styles.curationTagText}>{item.tag}</Text>
-                </View>
-                <View style={styles.curationContent}>
-                  <Text style={styles.curationCardTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.curationCardSubtitle} numberOfLines={1}>{item.subtitle}</Text>
-                  <View style={styles.curationFooter}>
-                    <Text style={styles.curationPrice}>{item.price}</Text>
-                    <View style={styles.curationRating}>
-                      <Star size={12} color={colors.star} fill={colors.star} />
-                      <Text style={styles.curationRatingText}>{item.rating}</Text>
-                      <Text style={styles.curationReviews}>({item.reviews})</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Popular services */}
@@ -629,169 +620,163 @@ const styles = StyleSheet.create({
   proRating: { fontSize: 12, fontWeight: "700", color: colors.textMain },
   proSub: { fontSize: 11, color: colors.textMuted },
 
-  // Spotlight Section Styles
+  // Spotlight Section Styles - Urban Company Style
   spotlightSection: {
     marginTop: 24,
+    marginBottom: 8,
   },
-  spotlightHeader: {
+  spotlightTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.textMain,
     paddingHorizontal: 20,
     marginBottom: 16,
   },
-  spotlightTitleRow: {
+  spotlightCard: {
+    width: SCREEN_WIDTH - 52,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  spotlightContent: {
     flexDirection: "row",
+    padding: 16,
     alignItems: "center",
-    gap: 8,
   },
-  spotlightTitle: {
-    fontSize: 20,
-    fontWeight: "800",
+  spotlightTextArea: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  spotlightCardTitle: {
+    fontSize: 22,
+    fontWeight: "700",
     color: colors.textMain,
-    letterSpacing: -0.3,
+    lineHeight: 28,
   },
-  spotlightSubtitle: {
-    fontSize: 13,
+  spotlightCardSubtitle: {
+    fontSize: 14,
     color: colors.textMuted,
     marginTop: 4,
   },
-  spotlightCard: {
-    width: SCREEN_WIDTH * 0.75,
-    height: 180,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    ...shadow.floating,
+  spotlightBookBtn: {
+    backgroundColor: "#1a1a1a",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+    marginTop: 16,
+  },
+  spotlightBookBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   spotlightImage: {
-    width: "100%",
-    height: "100%",
+    width: 140,
+    height: 140,
+    borderRadius: radius.md,
   },
-  spotlightImageStyle: {
-    borderRadius: radius.xl,
-  },
-  spotlightGradient: {
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: 16,
-  },
-  spotlightBadge: {
+  paginationDots: {
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    alignSelf: "flex-start",
-    marginBottom: 8,
+    marginTop: 16,
+    gap: 6,
   },
-  spotlightBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#FFFFFF",
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  spotlightCardTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    marginBottom: 4,
+  dotActive: {
+    backgroundColor: "#1a1a1a",
+    width: 24,
   },
-  spotlightCardSubtitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.9)",
+  dotInactive: {
+    backgroundColor: "#D1D5DB",
   },
 
-  // Curation Section Styles
+  // Video Curation Section Styles
   curationSection: {
     marginTop: 28,
+    paddingTop: 24,
+    paddingBottom: 24,
+    backgroundColor: "#F7F7F7",
   },
   curationHeader: {
     paddingHorizontal: 20,
     marginBottom: 16,
   },
-  curationTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   curationTitle: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: 22,
+    fontWeight: "700",
     color: colors.textMain,
-    letterSpacing: -0.3,
   },
   curationSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-  curationGrid: {
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  curationCard: {
-    width: (SCREEN_WIDTH - 52) / 2,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadow.card,
-  },
-  curationImage: {
-    width: "100%",
-    height: 100,
-  },
-  curationTag: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-  },
-  curationTagText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  curationContent: {
-    padding: 12,
-  },
-  curationCardTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textMain,
-  },
-  curationCardSubtitle: {
-    fontSize: 11,
+    fontSize: 16,
     color: colors.textMuted,
     marginTop: 2,
   },
-  curationFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  videoCard: {
+    width: (SCREEN_WIDTH - 52) / 2,
+    height: 260,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  videoThumbnail: {
+    width: "100%",
+    height: "100%",
+  },
+  videoThumbnailImage: {
+    borderRadius: radius.lg,
+  },
+  playButtonOverlay: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -20 }, { translateY: -40 }],
+    zIndex: 2,
+  },
+  playButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
   },
-  curationPrice: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.primary,
+  playTriangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: "transparent",
+    borderStyle: "solid",
+    borderLeftWidth: 12,
+    borderRightWidth: 0,
+    borderBottomWidth: 8,
+    borderTopWidth: 8,
+    borderLeftColor: "#1a1a1a",
+    borderRightColor: "transparent",
+    borderBottomColor: "transparent",
+    borderTopColor: "transparent",
+    marginLeft: 4,
   },
-  curationRating: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
+  videoGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    paddingTop: 40,
   },
-  curationRatingText: {
-    fontSize: 12,
+  videoTitle: {
+    fontSize: 18,
     fontWeight: "700",
-    color: colors.textMain,
+    color: "#FFFFFF",
   },
-  curationReviews: {
-    fontSize: 11,
-    color: colors.textMuted,
+  videoTitleLine2: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
   },
 });
