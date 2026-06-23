@@ -13,12 +13,18 @@ import {
   Calendar,
   CheckCircle2,
   ChevronRight,
+  FolderOpen,
+  Gift,
   IndianRupee,
+  Megaphone,
+  Package,
   Settings as SettingsIcon,
   ShieldAlert,
   TrendingUp,
   Users,
   XCircle,
+  Clock,
+  Play,
 } from "lucide-react-native";
 
 import { adminService, AdminStats } from "@/src/data/admin";
@@ -139,7 +145,7 @@ export default function AdminDashboard() {
         <View style={styles.menu}>
           <MenuItem
             icon={Calendar}
-            label="All bookings"
+            label="All Bookings"
             sub="View & update status, contact customers"
             onPress={() => router.push("/admin/bookings")}
             testID="admin-bookings-link"
@@ -152,9 +158,44 @@ export default function AdminDashboard() {
             testID="admin-customers-link"
           />
           <MenuItem
+            icon={FolderOpen}
+            label="Categories"
+            sub="Manage service categories"
+            onPress={() => router.push("/admin/categories")}
+            testID="admin-categories-link"
+          />
+          <MenuItem
+            icon={Package}
+            label="Services"
+            sub="Add, edit, delete services"
+            onPress={() => router.push("/admin/settings")}
+            testID="admin-services-link"
+          />
+          <MenuItem
+            icon={Gift}
+            label="Offers & Promos"
+            sub="Manage discount codes and offers"
+            onPress={() => router.push("/admin/settings")}
+            testID="admin-offers-link"
+          />
+          <MenuItem
+            icon={Megaphone}
+            label="Spotlight Banners"
+            sub="Home screen promotional banners"
+            onPress={() => router.push("/admin/spotlight")}
+            testID="admin-spotlight-link"
+          />
+          <MenuItem
+            icon={Clock}
+            label="Time Slots"
+            sub="Manage booking availability slots"
+            onPress={() => router.push("/admin/settings")}
+            testID="admin-slots-link"
+          />
+          <MenuItem
             icon={SettingsIcon}
-            label="Settings"
-            sub="Services, slots, bookings & offers management"
+            label="All Settings"
+            sub="Services, slots, bookings & offers"
             onPress={() => router.push("/admin/settings")}
             testID="admin-settings-link"
             last

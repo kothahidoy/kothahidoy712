@@ -120,14 +120,6 @@ async def upload_image_base64(data: ImageUploadBase64):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
 
-def get_supabase_headers():
-    return {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
-    }
-
 # ==================== MODELS ====================
 
 class ServiceCreate(BaseModel):
@@ -769,6 +761,21 @@ async def delete_offer(offer_id: str):
 
 # ==================== CATEGORIES ====================
 
+class CategoryCreate(BaseModel):
+    id: str
+    name: str
+    icon: Optional[str] = ""
+    color: Optional[str] = "#2563EB"
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
 @router.get("/categories")
 async def list_categories():
     """List all categories for service assignment"""
@@ -777,13 +784,88 @@ async def list_categories():
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{SUPABASE_URL}/rest/v1/categories?select=id,name&order=name",
+            f"{SUPABASE_URL}/rest/v1/categories?select=*&order=name",
             headers=get_supabase_headers()
         )
         
         if response.status_code == 200:
             return response.json()
         return []
+
+@router.post("/categories")
+async def create_category(category: CategoryCreate):
+    """Create a new category"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    payload = {
+        "id": category.id,
+        "name": category.name,
+        "icon": category.icon,
+        "color": category.color,
+        "description": category.description,
+        "image_url": category.image_url,
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{SUPABASE_URL}/rest/v1/categories",
+            headers=get_supabase_headers(),
+            json=payload
+        )
+        
+        if response.status_code in [200, 201]:
+            data = response.json()
+            return data[0] if isinstance(data, list) else data
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+@router.patch("/categories/{category_id}")
+async def update_category(category_id: str, category: CategoryUpdate):
+    """Update a category"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    payload = {}
+    if category.name is not None:
+        payload["name"] = category.name
+    if category.icon is not None:
+        payload["icon"] = category.icon
+    if category.color is not None:
+        payload["color"] = category.color
+    if category.description is not None:
+        payload["description"] = category.description
+    if category.image_url is not None:
+        payload["image_url"] = category.image_url
+    
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/categories?id=eq.{category_id}",
+            headers=get_supabase_headers(),
+            json=payload
+        )
+        
+        if response.status_code in [200, 204]:
+            return {"message": "Category updated"}
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+@router.delete("/categories/{category_id}")
+async def delete_category(category_id: str):
+    """Delete a category"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/categories?id=eq.{category_id}",
+            headers=get_supabase_headers()
+        )
+        
+        if response.status_code in [200, 204]:
+            return {"message": "Category deleted"}
+        raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
 # ==================== SPOTLIGHT BANNERS CRUD ====================
