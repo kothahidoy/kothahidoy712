@@ -216,6 +216,40 @@ class OfferResponse(BaseModel):
     banner_url: str
     bg_color: str
 
+# Spotlight Banner Models
+class SpotlightBannerCreate(BaseModel):
+    title: str
+    title_line2: Optional[str] = ""
+    subtitle: Optional[str] = ""
+    bg_color: Optional[str] = "#F5F5F5"
+    text_color: Optional[str] = "#1a1a1a"
+    image: Optional[str] = ""
+    link_to: Optional[str] = ""
+    sort_order: Optional[int] = 0
+
+class SpotlightBannerUpdate(BaseModel):
+    title: Optional[str] = None
+    title_line2: Optional[str] = None
+    subtitle: Optional[str] = None
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
+    image: Optional[str] = None
+    link_to: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class SpotlightBannerResponse(BaseModel):
+    id: str
+    title: str
+    title_line2: Optional[str] = ""
+    subtitle: Optional[str] = ""
+    bg_color: str
+    text_color: str
+    image: Optional[str] = ""
+    link_to: Optional[str] = ""
+    sort_order: int
+    is_active: bool
+
 # ==================== TABLE INITIALIZATION ====================
 
 @router.post("/init-tables")
@@ -744,6 +778,179 @@ async def list_categories():
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{SUPABASE_URL}/rest/v1/categories?select=id,name&order=name",
+            headers=get_supabase_headers()
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        return []
+
+
+# ==================== SPOTLIGHT BANNERS CRUD ====================
+
+@router.get("/spotlight-banners", response_model=List[SpotlightBannerResponse])
+async def list_spotlight_banners():
+    """List all spotlight banners"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return []
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{SUPABASE_URL}/rest/v1/spotlight_banners?select=*&order=sort_order",
+            headers=get_supabase_headers()
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return [
+                SpotlightBannerResponse(
+                    id=b.get("id", ""),
+                    title=b.get("title", ""),
+                    title_line2=b.get("title_line2", "") or "",
+                    subtitle=b.get("subtitle", "") or "",
+                    bg_color=b.get("bg_color", "#F5F5F5") or "#F5F5F5",
+                    text_color=b.get("text_color", "#1a1a1a") or "#1a1a1a",
+                    image=b.get("image", "") or "",
+                    link_to=b.get("link_to", "") or "",
+                    sort_order=b.get("sort_order", 0),
+                    is_active=b.get("is_active", True)
+                )
+                for b in data
+            ]
+        return []
+
+@router.post("/spotlight-banners", response_model=SpotlightBannerResponse)
+async def create_spotlight_banner(banner: SpotlightBannerCreate):
+    """Create a new spotlight banner"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    banner_id = f"spot-{str(uuid.uuid4())[:8]}"
+    
+    payload = {
+        "id": banner_id,
+        "title": banner.title,
+        "title_line2": banner.title_line2,
+        "subtitle": banner.subtitle,
+        "bg_color": banner.bg_color,
+        "text_color": banner.text_color,
+        "image": banner.image,
+        "link_to": banner.link_to,
+        "sort_order": banner.sort_order,
+        "is_active": True
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{SUPABASE_URL}/rest/v1/spotlight_banners",
+            headers=get_supabase_headers(),
+            json=payload
+        )
+        
+        if response.status_code in [200, 201]:
+            data = response.json()
+            if isinstance(data, list):
+                data = data[0]
+            return SpotlightBannerResponse(
+                id=data.get("id", ""),
+                title=data.get("title", ""),
+                title_line2=data.get("title_line2", "") or "",
+                subtitle=data.get("subtitle", "") or "",
+                bg_color=data.get("bg_color", "#F5F5F5") or "#F5F5F5",
+                text_color=data.get("text_color", "#1a1a1a") or "#1a1a1a",
+                image=data.get("image", "") or "",
+                link_to=data.get("link_to", "") or "",
+                sort_order=data.get("sort_order", 0),
+                is_active=data.get("is_active", True)
+            )
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+@router.patch("/spotlight-banners/{banner_id}", response_model=SpotlightBannerResponse)
+async def update_spotlight_banner(banner_id: str, banner: SpotlightBannerUpdate):
+    """Update a spotlight banner"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    payload = {}
+    if banner.title is not None:
+        payload["title"] = banner.title
+    if banner.title_line2 is not None:
+        payload["title_line2"] = banner.title_line2
+    if banner.subtitle is not None:
+        payload["subtitle"] = banner.subtitle
+    if banner.bg_color is not None:
+        payload["bg_color"] = banner.bg_color
+    if banner.text_color is not None:
+        payload["text_color"] = banner.text_color
+    if banner.image is not None:
+        payload["image"] = banner.image
+    if banner.link_to is not None:
+        payload["link_to"] = banner.link_to
+    if banner.sort_order is not None:
+        payload["sort_order"] = banner.sort_order
+    if banner.is_active is not None:
+        payload["is_active"] = banner.is_active
+    
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/spotlight_banners?id=eq.{banner_id}",
+            headers=get_supabase_headers(),
+            json=payload
+        )
+        
+        if response.status_code in [200, 204]:
+            get_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/spotlight_banners?id=eq.{banner_id}",
+                headers=get_supabase_headers()
+            )
+            if get_response.status_code == 200:
+                data = get_response.json()
+                if data:
+                    b = data[0]
+                    return SpotlightBannerResponse(
+                        id=b.get("id", ""),
+                        title=b.get("title", ""),
+                        title_line2=b.get("title_line2", "") or "",
+                        subtitle=b.get("subtitle", "") or "",
+                        bg_color=b.get("bg_color", "#F5F5F5") or "#F5F5F5",
+                        text_color=b.get("text_color", "#1a1a1a") or "#1a1a1a",
+                        image=b.get("image", "") or "",
+                        link_to=b.get("link_to", "") or "",
+                        sort_order=b.get("sort_order", 0),
+                        is_active=b.get("is_active", True)
+                    )
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+@router.delete("/spotlight-banners/{banner_id}")
+async def delete_spotlight_banner(banner_id: str):
+    """Delete a spotlight banner"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/spotlight_banners?id=eq.{banner_id}",
+            headers=get_supabase_headers()
+        )
+        
+        if response.status_code in [200, 204]:
+            return {"message": "Spotlight banner deleted"}
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+# ==================== PUBLIC SPOTLIGHT API ====================
+
+@router.get("/public/spotlight-banners")
+async def get_public_spotlight_banners():
+    """Get active spotlight banners for frontend"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return []
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{SUPABASE_URL}/rest/v1/spotlight_banners?is_active=eq.true&select=*&order=sort_order",
             headers=get_supabase_headers()
         )
         

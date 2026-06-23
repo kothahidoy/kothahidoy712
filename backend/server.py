@@ -63,6 +63,14 @@ app.include_router(payments_router)
 from admin_routes import router as admin_router  # noqa: E402
 app.include_router(admin_router)
 
+# Cart API endpoints
+from cart_routes import router as cart_router  # noqa: E402
+app.include_router(cart_router)
+
+# Seed data API endpoints
+from seed_routes import router as seed_router  # noqa: E402
+app.include_router(seed_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
