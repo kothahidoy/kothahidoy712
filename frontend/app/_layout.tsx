@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 
 import { SessionProvider } from "@/src/context/SessionContext";
+import { CartProvider } from "@/src/context/CartContext";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 // Initialize Firebase at app startup (before any component uses it)
 import { ensureFirebaseInitialized, isFirebaseConfigured } from "@/src/lib/firebase";
@@ -47,8 +48,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }} />
+        <CartProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }} />
+        </CartProvider>
       </SessionProvider>
     </SafeAreaProvider>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   ScrollView,
@@ -16,12 +17,14 @@ import {
   Check,
   Clock,
   Share2,
+  ShoppingCart,
   Star,
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { ServiceCard } from "@/src/components/ServiceCard";
 import { dataService } from "@/src/data/service";
+import { useCart } from "@/src/context/CartContext";
 import { colors, radius, shadow } from "@/src/theme";
 import { Service } from "@/src/types";
 
@@ -49,8 +52,10 @@ const FAKE_REVIEWS = [
 export default function ServiceDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { addToCart, itemCount } = useCart();
   const [service, setService] = useState<Service | null>(null);
   const [related, setRelated] = useState<Service[]>([]);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -201,17 +206,42 @@ export default function ServiceDetails() {
             <Text style={styles.ctaLabel}>Starts at</Text>
             <Text style={styles.ctaPrice}>₹{service.startingPrice}</Text>
           </View>
-          <View style={{ flex: 1, paddingLeft: 16 }}>
-            <PrimaryButton
-              label="Book Now"
-              onPress={() =>
-                router.push({
-                  pathname: "/booking/new",
-                  params: { serviceId: service.id },
-                })
-              }
-              testID="svc-book-now-btn"
-            />
+          <View style={styles.ctaButtons}>
+            <TouchableOpacity
+              style={styles.addToCartBtn}
+              onPress={async () => {
+                setAddingToCart(true);
+                const success = await addToCart(service.id);
+                setAddingToCart(false);
+                if (success) {
+                  Alert.alert("Added to Cart", `${service.title} added to your cart`, [
+                    { text: "Continue Shopping", style: "cancel" },
+                    { text: "View Cart", onPress: () => router.push("/cart") },
+                  ]);
+                }
+              }}
+              disabled={addingToCart}
+              testID="svc-add-to-cart-btn"
+            >
+              <ShoppingCart size={20} color={colors.primary} />
+              {itemCount > 0 && (
+                <View style={styles.cartBadgeSmall}>
+                  <Text style={styles.cartBadgeSmallText}>{itemCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <PrimaryButton
+                label="Book Now"
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/new",
+                    params: { serviceId: service.id },
+                  })
+                }
+                testID="svc-book-now-btn"
+              />
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -357,6 +387,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     paddingTop: 12,
+  },
+  ctaButtons: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: 12,
+    gap: 10,
+  },
+  addToCartBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.primary,
+    position: "relative",
+  },
+  cartBadgeSmall: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  cartBadgeSmallText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
   ctaLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
   ctaPrice: { fontSize: 22, fontWeight: "800", color: colors.textMain, marginTop: 2 },

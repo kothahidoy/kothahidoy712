@@ -31,6 +31,7 @@ import {
 import { CategoryTile } from "@/src/components/IconBubble";
 import { ServiceCard } from "@/src/components/ServiceCard";
 import { useSession } from "@/src/context/SessionContext";
+import { useCart } from "@/src/context/CartContext";
 import { dataService } from "@/src/data/service";
 import { colors, radius, shadow } from "@/src/theme";
 import {
@@ -211,6 +212,7 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useSession();
+  const { itemCount } = useCart();
   const [categories, setCategories] = useState<Category[]>([]);
   const [popular, setPopular] = useState<Service[]>([]);
   const [topRated, setTopRated] = useState<Service[]>([]);
@@ -286,8 +288,17 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
-            <TouchableOpacity style={styles.heroCartBtn} testID="home-cart-btn">
+            <TouchableOpacity 
+              style={styles.heroCartBtn} 
+              testID="home-cart-btn"
+              onPress={() => router.push("/cart")}
+            >
               <ShoppingCart size={22} color="#1a1a1a" />
+              {itemCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -655,6 +666,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  cartBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
   },
   heroSearchBar: {
     height: 48,
