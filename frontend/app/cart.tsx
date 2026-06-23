@@ -60,10 +60,12 @@ export default function CartScreen() {
       return;
     }
 
-    // Navigate to booking screen with cart items
+    // Navigate to booking screen with first cart item's service ID
+    // For multiple items, we'll book the first one and user can book others separately
+    const firstItem = items[0];
     router.push({
-      pathname: "/booking",
-      params: { fromCart: "true" },
+      pathname: "/booking/new",
+      params: { serviceId: firstItem.service_id },
     });
   };
 

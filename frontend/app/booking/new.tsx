@@ -39,6 +39,7 @@ export default function BookingNew() {
   const { profile } = useSession();
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
   const [service, setService] = useState<Service | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const [date, setDate] = useState<Date>(today);
@@ -60,8 +61,17 @@ export default function BookingNew() {
   const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
   useEffect(() => {
-    if (!serviceId) return;
-    dataService.getServiceById(serviceId).then((s) => setService(s ?? null));
+    if (!serviceId) {
+      setLoadError(true);
+      return;
+    }
+    dataService.getServiceById(serviceId).then((s) => {
+      if (s) {
+        setService(s);
+      } else {
+        setLoadError(true);
+      }
+    }).catch(() => setLoadError(true));
   }, [serviceId]);
 
   const detectLocation = async () => {
@@ -208,10 +218,46 @@ export default function BookingNew() {
     });
   };
 
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.back}
+            onPress={() => router.back()}
+            hitSlop={12}
+          >
+            <ArrowLeft size={22} color={colors.textMain} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.crumb}>Book service</Text>
+            <Text style={styles.title}>Service not found</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 8 }}>
+            Service not found
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: "center", marginBottom: 20 }}>
+            The service you're looking for doesn't exist or has been removed.
+          </Text>
+          <TouchableOpacity
+            style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 999 }}
+            onPress={() => router.push("/(tabs)")}
+          >
+            <Text style={{ color: "#FFF", fontWeight: "700" }}>Browse Services</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!service) {
     return (
       <SafeAreaView style={styles.root}>
-        <Text style={{ padding: 20 }}>Loading...</Text>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ padding: 20, color: colors.textMuted }}>Loading service...</Text>
+        </View>
       </SafeAreaView>
     );
   }
