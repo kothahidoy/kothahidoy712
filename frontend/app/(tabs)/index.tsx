@@ -18,11 +18,14 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import {
   Bell,
   ChevronRight,
+  Clock,
   MapPin,
   Search,
+  ShoppingCart,
   Star,
   Volume2,
   VolumeX,
+  ArrowRight,
 } from "lucide-react-native";
 
 import { CategoryTile } from "@/src/components/IconBubble";
@@ -39,31 +42,51 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Mock data for "In the Spotlight" section - Urban Company style
-const SPOTLIGHT_DATA = [
+// Hero Banner promo data
+const HERO_PROMO = {
+  title: "Try InstaHelp at just",
+  price: "₹79",
+  originalPrice: "₹245",
+  discount: "68% OFF",
+  image: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80",
+};
+
+// Mock data for "In the Spotlight" - Small icon-based items
+const SPOTLIGHT_ITEMS = [
   {
     id: "spot-1",
-    title: "Get your AC",
-    titleLine2: "summer-ready",
-    subtitle: "Foam-jet AC service",
-    image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80",
-    bgColor: "#F5F5F5",
+    label: "Mfixit",
+    icon: "https://img.icons8.com/fluency/96/maintenance.png",
+    hasNotification: false,
+    bgColor: "#EFF6FF",
   },
   {
     id: "spot-2",
-    title: "Instant home",
-    titleLine2: "repairs",
-    subtitle: "Plumber & Electrician",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80",
-    bgColor: "#EEF2FF",
+    label: "Revamp",
+    icon: "https://img.icons8.com/fluency/96/interior.png",
+    hasNotification: true,
+    bgColor: "#F0FDF4",
   },
   {
     id: "spot-3",
-    title: "Transform your",
-    titleLine2: "space",
-    subtitle: "Deep home cleaning",
-    image: "https://images.pexels.com/photos/6195274/pexels-photo-6195274.jpeg?auto=compress&cs=tinysrgb&w=600",
-    bgColor: "#F0FDF4",
+    label: "Native",
+    icon: "https://img.icons8.com/fluency/96/potted-plant.png",
+    hasNotification: true,
+    bgColor: "#FEF3C7",
+  },
+  {
+    id: "spot-4",
+    label: "Beauty",
+    icon: "https://img.icons8.com/fluency/96/cosmetic-brush.png",
+    hasNotification: false,
+    bgColor: "#FCE7F3",
+  },
+  {
+    id: "spot-5",
+    label: "Appliances",
+    icon: "https://img.icons8.com/fluency/96/washing-machine.png",
+    hasNotification: false,
+    bgColor: "#F3E8FF",
   },
 ];
 
@@ -240,48 +263,72 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <View style={styles.locRow}>
-              <MapPin size={14} color={colors.primary} strokeWidth={2.5} />
-              <Text style={styles.locText}>{cityLabel}</Text>
+        {/* Hero Banner - Urban Company Style with App Theme */}
+        <LinearGradient
+          colors={[colors.primaryDark, colors.primary]}
+          style={styles.heroBanner}
+        >
+          {/* Top Row: Location & Cart */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroLocationRow}>
+              <View style={styles.heroLocationDot} />
+              <View>
+                <View style={styles.heroTimeRow}>
+                  <Clock size={12} color="#FFFFFF" />
+                  <Text style={styles.heroTimeText}>In 19 minutes</Text>
+                </View>
+                <View style={styles.heroAddressRow}>
+                  <Text style={styles.heroAddressText} numberOfLines={1}>
+                    {cityLabel} - Block B, Sector 122...
+                  </Text>
+                  <ChevronRight size={14} color="#FFFFFF" style={{ opacity: 0.7 }} />
+                </View>
+              </View>
             </View>
-            <Text style={styles.hello}>Hi {firstName} 👋</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.notifBtn}
-            testID="home-notifications-btn"
-          >
-            <Bell size={20} color={colors.textMain} />
-            <View style={styles.dot} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search */}
-        <View style={styles.searchBar}>
-          <Search size={18} color={colors.textMuted} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search for AC service, cleaning..."
-            placeholderTextColor={colors.textSubtle}
-            style={styles.searchInput}
-            testID="home-search-input"
-            returnKeyType="search"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {search.length > 0 ? (
-            <TouchableOpacity
-              onPress={() => setSearch("")}
-              hitSlop={10}
-              testID="home-search-clear"
-            >
-              <Text style={styles.searchClear}>Clear</Text>
+            <TouchableOpacity style={styles.heroCartBtn} testID="home-cart-btn">
+              <ShoppingCart size={22} color="#1a1a1a" />
             </TouchableOpacity>
-          ) : null}
-        </View>
+          </View>
+
+          {/* Search Bar */}
+          <View style={styles.heroSearchBar}>
+            <Search size={18} color={colors.textMuted} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search for 'Kitchen cleaning'"
+              placeholderTextColor={colors.textSubtle}
+              style={styles.heroSearchInput}
+              testID="home-search-input"
+              returnKeyType="search"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Promo Card */}
+          <View style={styles.heroPromoCard}>
+            <View style={styles.heroPromoContent}>
+              <Text style={styles.heroPromoTitle}>{HERO_PROMO.title}</Text>
+              <View style={styles.heroPromoPrice}>
+                <Text style={styles.heroPromoPriceValue}>{HERO_PROMO.price}</Text>
+                <Text style={styles.heroPromoOriginalPrice}>{HERO_PROMO.originalPrice}</Text>
+              </View>
+              <View style={styles.heroPromoDiscount}>
+                <Text style={styles.heroPromoDiscountText}>🏷️ {HERO_PROMO.discount}</Text>
+              </View>
+              <TouchableOpacity style={styles.heroPromoBookBtn}>
+                <Text style={styles.heroPromoBookBtnText}>Book now</Text>
+                <ArrowRight size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <Image
+              source={{ uri: HERO_PROMO.image }}
+              style={styles.heroPromoImage}
+              resizeMode="cover"
+            />
+          </View>
+        </LinearGradient>
 
         {/* Search results — show filtered services while typing */}
         {search.trim().length > 0 ? (() => {
@@ -298,7 +345,7 @@ export default function HomeScreen() {
             })
             .slice(0, 12);
           return (
-            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+            <View style={{ paddingHorizontal: 20, marginBottom: 16, marginTop: 16 }}>
               <Text style={styles.h2}>
                 {results.length > 0
                   ? `${results.length} result${results.length === 1 ? "" : "s"} for "${search.trim()}"`
@@ -323,37 +370,6 @@ export default function HomeScreen() {
           );
         })() : null}
 
-        {/* Hero offer banner */}
-        <FlatList
-          data={offers}
-          keyExtractor={(o) => o.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.offer, { backgroundColor: item.bgColor }]}
-              activeOpacity={0.9}
-              testID={`home-offer-${item.id}`}
-            >
-              <View style={styles.offerBody}>
-                <Text style={styles.offerTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <Text style={styles.offerSub} numberOfLines={2}>
-                  {item.subtitle}
-                </Text>
-                <View style={styles.offerCode}>
-                  <Text style={styles.offerCodeText}>USE {item.code}</Text>
-                </View>
-              </View>
-              <Image source={{ uri: item.bannerUrl }} style={styles.offerImg} />
-            </TouchableOpacity>
-          )}
-        />
-
         {/* Categories */}
         <View style={styles.sectionHead}>
           <Text style={styles.h2}>What do you need?</Text>
@@ -372,55 +388,35 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* In the Spotlight Section - Urban Company Style */}
+        {/* In the Spotlight Section - Small Icon-based Items */}
         <View style={styles.spotlightSection}>
           <Text style={styles.spotlightTitle}>In the spotlight</Text>
-          <FlatList
-            data={SPOTLIGHT_DATA}
-            keyExtractor={(item) => item.id}
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            pagingEnabled
-            snapToInterval={SCREEN_WIDTH - 40}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: 20 }}
-            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-            renderItem={({ item }) => (
+            contentContainerStyle={styles.spotlightScrollContent}
+          >
+            {SPOTLIGHT_ITEMS.map((item) => (
               <TouchableOpacity
-                style={[styles.spotlightCard, { backgroundColor: item.bgColor }]}
-                activeOpacity={0.95}
+                key={item.id}
+                style={styles.spotlightItem}
+                activeOpacity={0.8}
                 testID={`spotlight-${item.id}`}
               >
-                <View style={styles.spotlightContent}>
-                  <View style={styles.spotlightTextArea}>
-                    <Text style={styles.spotlightCardTitle}>{item.title}</Text>
-                    <Text style={styles.spotlightCardTitle}>{item.titleLine2}</Text>
-                    <Text style={styles.spotlightCardSubtitle}>{item.subtitle}</Text>
-                    <TouchableOpacity style={styles.spotlightBookBtn}>
-                      <Text style={styles.spotlightBookBtnText}>Book now</Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={[styles.spotlightIconContainer, { backgroundColor: item.bgColor }]}>
                   <Image
-                    source={{ uri: item.image }}
-                    style={styles.spotlightImage}
-                    resizeMode="cover"
+                    source={{ uri: item.icon }}
+                    style={styles.spotlightIcon}
+                    resizeMode="contain"
                   />
+                  {item.hasNotification && (
+                    <View style={styles.spotlightNotificationDot} />
+                  )}
                 </View>
+                <Text style={styles.spotlightLabel}>{item.label}</Text>
               </TouchableOpacity>
-            )}
-          />
-          {/* Pagination dots */}
-          <View style={styles.paginationDots}>
-            {SPOTLIGHT_DATA.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  index === 0 ? styles.paginationDotActive : styles.paginationDotInactive,
-                ]}
-              />
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Thoughtful Curations - Video Section */}
@@ -572,6 +568,139 @@ function ProCard({ pro }: { pro: Professional }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scroll: { paddingBottom: 30 },
+  
+  // Hero Banner Styles
+  heroBanner: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  heroLocationRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  heroLocationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#4ADE80",
+    marginTop: 4,
+  },
+  heroTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  heroTimeText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+  },
+  heroAddressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  heroAddressText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    maxWidth: 220,
+  },
+  heroCartBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroSearchBar: {
+    height: 48,
+    borderRadius: radius.lg,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    gap: 10,
+    marginBottom: 16,
+  },
+  heroSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textMain,
+    paddingVertical: 0,
+  },
+  heroPromoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.lg,
+    flexDirection: "row",
+    overflow: "hidden",
+    minHeight: 140,
+  },
+  heroPromoContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  heroPromoTitle: {
+    fontSize: 15,
+    color: colors.textMain,
+    marginBottom: 4,
+  },
+  heroPromoPrice: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+  },
+  heroPromoPriceValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: colors.textMain,
+  },
+  heroPromoOriginalPrice: {
+    fontSize: 16,
+    color: colors.textMuted,
+    textDecorationLine: "line-through",
+  },
+  heroPromoDiscount: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+  },
+  heroPromoDiscountText: {
+    fontSize: 12,
+    color: "#16A34A",
+    fontWeight: "600",
+  },
+  heroPromoBookBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    alignSelf: "flex-start",
+    marginTop: 12,
+    gap: 6,
+  },
+  heroPromoBookBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  heroPromoImage: {
+    width: 140,
+    height: "100%",
+    minHeight: 140,
+  },
+
+  // Legacy header styles (kept for compatibility)
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -700,7 +829,7 @@ const styles = StyleSheet.create({
   proRating: { fontSize: 12, fontWeight: "700", color: colors.textMain },
   proSub: { fontSize: 11, color: colors.textMuted },
 
-  // Spotlight Section Styles - Urban Company Style
+  // Spotlight Section Styles - Urban Company Style with Circular Icons
   spotlightSection: {
     marginTop: 24,
     marginBottom: 8,
@@ -709,8 +838,52 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     color: colors.textMain,
-    paddingHorizontal: 20,
     marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  spotlightScrollContent: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  spotlightRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  spotlightItem: {
+    alignItems: "center",
+    width: 64,
+  },
+  spotlightIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    position: "relative",
+  },
+  spotlightIcon: {
+    width: 28,
+    height: 28,
+  },
+  spotlightNotificationDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.error,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  spotlightLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.textMain,
+    textAlign: "center",
   },
   spotlightCard: {
     width: SCREEN_WIDTH - 52,
