@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Dimensions,
   FlatList,
   Image,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,12 +13,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import {
+  Award,
   Bell,
   ChevronRight,
   MapPin,
   Search,
+  Sparkles,
   Star,
+  TrendingUp,
 } from "lucide-react-native";
 
 import { CategoryTile } from "@/src/components/IconBubble";
@@ -30,6 +36,84 @@ import {
   Professional,
   Service,
 } from "@/src/types";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Mock data for "In the Spotlight" section
+const SPOTLIGHT_DATA = [
+  {
+    id: "spot-1",
+    title: "AC Summer Sale",
+    subtitle: "Beat the heat with expert AC service",
+    discount: "40% OFF",
+    image: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=600&q=80",
+    bgGradient: ["#1E40AF", "#3B82F6"] as const,
+  },
+  {
+    id: "spot-2",
+    title: "Salon at Home",
+    subtitle: "Premium beauty services at your doorstep",
+    discount: "₹200 OFF",
+    image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
+    bgGradient: ["#7C3AED", "#A78BFA"] as const,
+  },
+  {
+    id: "spot-3",
+    title: "Deep Cleaning",
+    subtitle: "Transform your home this weekend",
+    discount: "25% OFF",
+    image: "https://images.pexels.com/photos/6195274/pexels-photo-6195274.jpeg?auto=compress&cs=tinysrgb&w=600",
+    bgGradient: ["#059669", "#34D399"] as const,
+  },
+];
+
+// Mock data for "Thoughtful Curation" section
+const CURATED_SERVICES = [
+  {
+    id: "cur-1",
+    title: "Premium Home Makeover",
+    subtitle: "Complete painting & renovation",
+    price: "₹2,999",
+    rating: 4.9,
+    reviews: "2.1K",
+    image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=400&q=80",
+    tag: "Bestseller",
+    tagColor: "#F59E0B",
+  },
+  {
+    id: "cur-2",
+    title: "Luxury Spa at Home",
+    subtitle: "Full body massage & facial",
+    price: "₹1,499",
+    rating: 4.8,
+    reviews: "3.4K",
+    image: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=400&q=80",
+    tag: "Popular",
+    tagColor: "#2563EB",
+  },
+  {
+    id: "cur-3",
+    title: "Smart Home Setup",
+    subtitle: "Complete electrical & automation",
+    price: "₹4,999",
+    rating: 4.7,
+    reviews: "890",
+    image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=400&q=80",
+    tag: "New",
+    tagColor: "#16A34A",
+  },
+  {
+    id: "cur-4",
+    title: "Kitchen Deep Clean",
+    subtitle: "Professional chimney & appliance cleaning",
+    price: "₹799",
+    rating: 4.9,
+    reviews: "1.8K",
+    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=400&q=80",
+    tag: "Top Rated",
+    tagColor: "#EF4444",
+  },
+];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -205,6 +289,91 @@ export default function HomeScreen() {
               testID={`home-cat-${c.id}`}
             />
           ))}
+        </View>
+
+        {/* In the Spotlight Section */}
+        <View style={styles.spotlightSection}>
+          <View style={styles.spotlightHeader}>
+            <View style={styles.spotlightTitleRow}>
+              <Sparkles size={20} color={colors.primary} />
+              <Text style={styles.spotlightTitle}>In the Spotlight</Text>
+            </View>
+            <Text style={styles.spotlightSubtitle}>Handpicked deals just for you</Text>
+          </View>
+          <FlatList
+            data={SPOTLIGHT_DATA}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+            ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.spotlightCard}
+                activeOpacity={0.9}
+                testID={`spotlight-${item.id}`}
+              >
+                <ImageBackground
+                  source={{ uri: item.image }}
+                  style={styles.spotlightImage}
+                  imageStyle={styles.spotlightImageStyle}
+                >
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.85)"]}
+                    style={styles.spotlightGradient}
+                  >
+                    <View style={styles.spotlightBadge}>
+                      <TrendingUp size={12} color="#FFFFFF" />
+                      <Text style={styles.spotlightBadgeText}>{item.discount}</Text>
+                    </View>
+                    <Text style={styles.spotlightCardTitle}>{item.title}</Text>
+                    <Text style={styles.spotlightCardSubtitle}>{item.subtitle}</Text>
+                  </LinearGradient>
+                </ImageBackground>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+
+        {/* Thoughtful Curation Section */}
+        <View style={styles.curationSection}>
+          <View style={styles.curationHeader}>
+            <View style={styles.curationTitleRow}>
+              <Award size={20} color={colors.primary} />
+              <Text style={styles.curationTitle}>Thoughtful Curation</Text>
+            </View>
+            <Text style={styles.curationSubtitle}>Our finest selection of premium services</Text>
+          </View>
+          <View style={styles.curationGrid}>
+            {CURATED_SERVICES.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.curationCard}
+                activeOpacity={0.9}
+                testID={`curated-${item.id}`}
+              >
+                <Image
+                  source={{ uri: item.image }}
+                  style={styles.curationImage}
+                />
+                <View style={[styles.curationTag, { backgroundColor: item.tagColor }]}>
+                  <Text style={styles.curationTagText}>{item.tag}</Text>
+                </View>
+                <View style={styles.curationContent}>
+                  <Text style={styles.curationCardTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.curationCardSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                  <View style={styles.curationFooter}>
+                    <Text style={styles.curationPrice}>{item.price}</Text>
+                    <View style={styles.curationRating}>
+                      <Star size={12} color={colors.star} fill={colors.star} />
+                      <Text style={styles.curationRatingText}>{item.rating}</Text>
+                      <Text style={styles.curationReviews}>({item.reviews})</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Popular services */}
@@ -459,4 +628,170 @@ const styles = StyleSheet.create({
   proRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
   proRating: { fontSize: 12, fontWeight: "700", color: colors.textMain },
   proSub: { fontSize: 11, color: colors.textMuted },
+
+  // Spotlight Section Styles
+  spotlightSection: {
+    marginTop: 24,
+  },
+  spotlightHeader: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  spotlightTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  spotlightTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.textMain,
+    letterSpacing: -0.3,
+  },
+  spotlightSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  spotlightCard: {
+    width: SCREEN_WIDTH * 0.75,
+    height: 180,
+    borderRadius: radius.xl,
+    overflow: "hidden",
+    ...shadow.floating,
+  },
+  spotlightImage: {
+    width: "100%",
+    height: "100%",
+  },
+  spotlightImageStyle: {
+    borderRadius: radius.xl,
+  },
+  spotlightGradient: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 16,
+  },
+  spotlightBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+  },
+  spotlightBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  spotlightCardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    marginBottom: 4,
+  },
+  spotlightCardSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.9)",
+  },
+
+  // Curation Section Styles
+  curationSection: {
+    marginTop: 28,
+  },
+  curationHeader: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  curationTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  curationTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.textMain,
+    letterSpacing: -0.3,
+  },
+  curationSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  curationGrid: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  curationCard: {
+    width: (SCREEN_WIDTH - 52) / 2,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
+  },
+  curationImage: {
+    width: "100%",
+    height: 100,
+  },
+  curationTag: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+  },
+  curationTagText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  curationContent: {
+    padding: 12,
+  },
+  curationCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textMain,
+  },
+  curationCardSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  curationFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  curationPrice: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+  curationRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  curationRatingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textMain,
+  },
+  curationReviews: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
 });
