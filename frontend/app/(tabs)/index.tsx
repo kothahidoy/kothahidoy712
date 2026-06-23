@@ -1,25 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Dimensions,
   FlatList,
   Image,
-  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ViewToken,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useVideoPlayer, VideoView } from "expo-video";
 import {
   Bell,
   ChevronRight,
   MapPin,
   Search,
   Star,
+  Volume2,
+  VolumeX,
 } from "lucide-react-native";
 
 import { CategoryTile } from "@/src/components/IconBubble";
@@ -71,30 +74,115 @@ const CURATED_VIDEOS = [
     title: "Roll-on",
     titleLine2: "waxing",
     thumbnail: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=400&q=80",
-    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
   },
   {
     id: "vid-2",
     title: "MEN'S",
     titleLine2: "HAIRCUT",
     thumbnail: "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=400&q=80",
-    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
   },
   {
     id: "vid-3",
     title: "Bathroom",
     titleLine2: "Deep clean",
     thumbnail: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=400&q=80",
-    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
   },
   {
     id: "vid-4",
     title: "AC",
     titleLine2: "Service",
     thumbnail: "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=400&q=80",
-    videoUrl: "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
   },
 ];
+
+// VideoCard component with auto-play on visibility
+interface VideoCardProps {
+  item: typeof CURATED_VIDEOS[0];
+  isVisible: boolean;
+}
+
+function VideoCard({ item, isVisible }: VideoCardProps) {
+  const [isMuted, setIsMuted] = useState(true);
+  const [showVideo, setShowVideo] = useState(false);
+  
+  const player = useVideoPlayer(item.videoUrl, (player) => {
+    player.loop = true;
+    player.muted = true;
+  });
+
+  useEffect(() => {
+    if (isVisible) {
+      // Small delay before showing video
+      const timer = setTimeout(() => {
+        setShowVideo(true);
+        player.play();
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setShowVideo(false);
+      player.pause();
+    }
+  }, [isVisible, player]);
+
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [isMuted, player]);
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.videoCard}
+      activeOpacity={0.95}
+      testID={`video-${item.id}`}
+    >
+      <View style={styles.videoContainer}>
+        {showVideo && isVisible ? (
+          <VideoView
+            style={styles.videoPlayer}
+            player={player}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        ) : (
+          <Image
+            source={{ uri: item.thumbnail }}
+            style={styles.videoThumbnail}
+            resizeMode="cover"
+          />
+        )}
+        
+        {/* Mute/Unmute button */}
+        <TouchableOpacity
+          style={styles.muteButton}
+          onPress={toggleMute}
+          activeOpacity={0.8}
+        >
+          {isMuted ? (
+            <VolumeX size={16} color="#FFFFFF" />
+          ) : (
+            <Volume2 size={16} color="#FFFFFF" />
+          )}
+        </TouchableOpacity>
+
+        {/* Title overlay at bottom */}
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.85)"]}
+          style={styles.videoGradient}
+        >
+          <Text style={styles.videoTitle}>{item.title}</Text>
+          <Text style={styles.videoTitleLine2}>{item.titleLine2}</Text>
+        </LinearGradient>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -107,6 +195,18 @@ export default function HomeScreen() {
   const [pros, setPros] = useState<Professional[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [search, setSearch] = useState("");
+  const [visibleVideoIds, setVisibleVideoIds] = useState<string[]>([]);
+
+  const onViewableVideosChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const visibleIds = viewableItems
+      .filter((item) => item.isViewable)
+      .map((item) => item.item.id);
+    setVisibleVideoIds(visibleIds);
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+  }).current;
 
   const load = useCallback(async () => {
     const [c, p, t, r, o, pr, all] = await Promise.all([
@@ -315,8 +415,8 @@ export default function HomeScreen() {
               <View
                 key={index}
                 style={[
-                  styles.dot,
-                  index === 0 ? styles.dotActive : styles.dotInactive,
+                  styles.paginationDot,
+                  index === 0 ? styles.paginationDotActive : styles.paginationDotInactive,
                 ]}
               />
             ))}
@@ -336,33 +436,13 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20 }}
             ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            onViewableItemsChanged={onViewableVideosChanged}
+            viewabilityConfig={viewabilityConfig}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.videoCard}
-                activeOpacity={0.9}
-                testID={`video-${item.id}`}
-              >
-                <ImageBackground
-                  source={{ uri: item.thumbnail }}
-                  style={styles.videoThumbnail}
-                  imageStyle={styles.videoThumbnailImage}
-                >
-                  {/* Play button overlay */}
-                  <View style={styles.playButtonOverlay}>
-                    <View style={styles.playButton}>
-                      <View style={styles.playTriangle} />
-                    </View>
-                  </View>
-                  {/* Title overlay at bottom */}
-                  <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.8)"]}
-                    style={styles.videoGradient}
-                  >
-                    <Text style={styles.videoTitle}>{item.title}</Text>
-                    <Text style={styles.videoTitleLine2}>{item.titleLine2}</Text>
-                  </LinearGradient>
-                </ImageBackground>
-              </TouchableOpacity>
+              <VideoCard
+                item={item}
+                isVisible={visibleVideoIds.includes(item.id)}
+              />
             )}
           />
         </View>
@@ -682,16 +762,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 6,
   },
-  dot: {
+  paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  dotActive: {
+  paginationDotActive: {
     backgroundColor: "#1a1a1a",
     width: 24,
   },
-  dotInactive: {
+  paginationDotInactive: {
     backgroundColor: "#D1D5DB",
   },
 
@@ -722,12 +802,35 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: "hidden",
   },
-  videoThumbnail: {
+  videoContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  videoPlayer: {
     width: "100%",
     height: "100%",
   },
+  videoThumbnail: {
+    width: "100%",
+    height: "100%",
+    borderRadius: radius.lg,
+  },
   videoThumbnailImage: {
     borderRadius: radius.lg,
+  },
+  muteButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 3,
   },
   playButtonOverlay: {
     position: "absolute",
