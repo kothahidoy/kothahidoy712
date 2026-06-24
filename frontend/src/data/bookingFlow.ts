@@ -132,7 +132,21 @@ export const bookingApi = {
   ): Promise<RecommendItem[]> {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
-      if (categoryId) params.set("category_id", categoryId);
+      // Map route slugs (used in cart) to actual DB category_id values (multi-value supported via comma)
+      const ROUTE_TO_DB: Record<string, string> = {
+        "ac-appliance":  "appliance,ac-repair",
+        "salon-women":   "salon",
+        "salon":         "salon",
+        "plumber":       "plumber",
+        "electrician":   "electrician",
+        "cleaning":      "cleaning",
+        "carpenter":     "carpenter",
+        "painting":      "painting",
+        "pest-control":  "pest-control",
+      };
+      if (categoryId) {
+        params.set("category_id", ROUTE_TO_DB[categoryId] || categoryId);
+      }
       if (excludeIds.length) params.set("exclude", excludeIds.join(","));
       const r = await fetch(`${API_BASE}/api/booking/recommendations?${params}`);
       if (!r.ok) return [];

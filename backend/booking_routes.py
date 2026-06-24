@@ -233,23 +233,32 @@ async def apply_coupon(payload: CouponApply):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/recommendations")
 async def recommendations(
-    category_id: Optional[str] = Query(None),
+    category_id: Optional[str] = Query(None, description="single id OR comma-separated list of ids"),
     exclude: Optional[str] = Query(None, description="comma-separated service IDs to exclude"),
     limit: int = Query(8, ge=1, le=20),
 ):
-    """Return top-rated / popular services for the 'People also take' carousel."""
+    """Return top-rated / popular services for the 'People also take' carousel.
+    Supports a single category_id OR a comma-separated list of categories
+    (useful when one route maps to multiple DB categories, e.g. 'ac-appliance' → 'appliance,ac-repair').
+    """
     exclude_ids = [x.strip() for x in (exclude or "").split(",") if x.strip()]
+    cat_ids = [c.strip() for c in (category_id or "").split(",") if c.strip()]
     async with httpx.AsyncClient(timeout=15.0) as client:
-        url = f"{SUPABASE_URL}/rest/v1/services?is_active=eq.true&select=id,title,image,starting_price,rating,review_count,duration_mins,category_id&order=rating.desc,review_count.desc&limit={limit + len(exclude_ids) + 4}"
-        if category_id:
-            # prefer same-category but allow cross
-            url = url.replace("is_active=eq.true", f"is_active=eq.true&category_id=eq.{category_id}")
+        base = "select=id,title,image,starting_price,rating,review_count,duration_mins,category_id&order=rating.desc,review_count.desc"
+        if cat_ids:
+            if len(cat_ids) == 1:
+                cat_filter = f"category_id=eq.{cat_ids[0]}"
+            else:
+                cat_filter = f"category_id=in.({','.join(cat_ids)})"
+            url = f"{SUPABASE_URL}/rest/v1/services?is_active=eq.true&{cat_filter}&{base}&limit={limit + len(exclude_ids) + 4}"
+        else:
+            url = f"{SUPABASE_URL}/rest/v1/services?is_active=eq.true&{base}&limit={limit + len(exclude_ids) + 4}"
         r = await client.get(url, headers=_sb_headers())
         items = r.json() if r.status_code == 200 else []
         # if too few same-category, top up with general
-        if category_id and len(items) < limit:
+        if cat_ids and len(items) < limit:
             r2 = await client.get(
-                f"{SUPABASE_URL}/rest/v1/services?is_active=eq.true&select=id,title,image,starting_price,rating,review_count,duration_mins,category_id&order=rating.desc&limit={limit + 6}",
+                f"{SUPABASE_URL}/rest/v1/services?is_active=eq.true&{base}&limit={limit + 6}",
                 headers=_sb_headers(),
             )
             extra = r2.json() if r2.status_code == 200 else []
@@ -422,3 +431,39 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
                 "grand_total": grand_total,
             },
         }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Profile — update phone (used by Cart UI when user has email but no phone)
+# ─────────────────────────────────────────────────────────────────────────────
+class PhoneUpdate(BaseModel):
+    phone: str
+    name: Optional[str] = None  # optional, in case user wants to set name too
+
+
+@router.post("/profile/phone")
+async def update_phone(payload: PhoneUpdate, authorization: Optional[str] = Header(None)):
+    uid = await _user_id_from_token(authorization)
+    if not uid:
+        raise HTTPException(401, "Please sign in")
+    phone = payload.phone.strip()
+    if len(phone.replace("+", "").replace("-", "").replace(" ", "")) < 8:
+        raise HTTPException(400, "Please enter a valid phone number")
+    body = {"phone": phone}
+    if payload.name and payload.name.strip():
+        body["name"] = payload.name.strip()
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{uid}",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, f"Failed to update phone: {r.text}")
+        # return updated user record
+        u = await client.get(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{uid}&select=*",
+            headers=_sb_headers(),
+        )
+        user = u.json()[0] if u.status_code == 200 and u.json() else None
+        return {"ok": True, "user": user}

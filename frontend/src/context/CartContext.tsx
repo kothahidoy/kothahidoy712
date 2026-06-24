@@ -10,6 +10,8 @@ export interface CartItem {
   service_title?: string;
   service_image?: string;
   service_price?: number;
+  /** Category route name (e.g. "ac-appliance", "salon-women") — for "Add more items" return-to-category nav and category-aware recommendations */
+  category?: string;
   quantity: number;
 }
 
@@ -21,7 +23,7 @@ interface CartContextType {
   addToCart: (
     serviceId: string,
     quantity?: number,
-    override?: { title?: string; image?: string; price?: number }
+    override?: { title?: string; image?: string; price?: number; category?: string }
   ) => Promise<boolean>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
@@ -29,7 +31,7 @@ interface CartContextType {
   refreshCart: () => Promise<void>;
   /** Replace entire local cart (guest-mode). Used by category screens to sync their inline cart UI with the global cart. */
   replaceAllItems: (
-    items: { service_id: string; quantity: number; title?: string; image?: string; price?: number }[]
+    items: { service_id: string; quantity: number; title?: string; image?: string; price?: number; category?: string }[]
   ) => Promise<void>;
 }
 
@@ -96,7 +98,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addToCart = async (
     serviceId: string,
     quantity: number = 1,
-    override?: { title?: string; image?: string; price?: number }
+    override?: { title?: string; image?: string; price?: number; category?: string }
   ): Promise<boolean> => {
     try {
       if (session?.access_token && !override) {
@@ -126,6 +128,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           let title = override?.title;
           let image = override?.image;
           let price = override?.price;
+          const category = override?.category;
           // If no override, try fetching service details
           if (!override) {
             try {
@@ -143,6 +146,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             service_title: title || "Service",
             service_image: image || "",
             service_price: price ?? 0,
+            category,
             quantity,
           };
           await saveLocalCart([...items, newItem]);
@@ -216,12 +220,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Replace all local cart items (used by category screens to sync inline state)
   const replaceAllItems = async (
-    incoming: { service_id: string; quantity: number; title?: string; image?: string; price?: number }[]
+    incoming: { service_id: string; quantity: number; title?: string; image?: string; price?: number; category?: string }[]
   ) => {
     try {
-      // Build merged item list: keep ANY existing items whose service_id isn't in incoming list
-      // (so items from other categories aren't wiped when this category re-syncs).
-      // Identify the set of service_ids passed in.
       const incomingIds = new Set(incoming.map((x) => x.service_id));
       const preserved = items.filter((it) => !incomingIds.has(it.service_id));
       const merged: CartItem[] = [
@@ -229,7 +230,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ...incoming
           .filter((x) => x.quantity > 0)
           .map((x) => {
-            // Preserve existing CartItem id if same service_id existed before
             const existing = items.find((i) => i.service_id === x.service_id);
             return {
               id: existing?.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${x.service_id}`,
@@ -237,6 +237,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               service_title: x.title || existing?.service_title || "Service",
               service_image: x.image || existing?.service_image || "",
               service_price: x.price ?? existing?.service_price ?? 0,
+              category: x.category || existing?.category,
               quantity: x.quantity,
             } as CartItem;
           }),

@@ -3,85 +3,104 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft, Minus, Plus, ShoppingCart, Home, Pencil, Phone,
-  Percent, Tag, ChevronRight, X, Check, Sparkles,
+  Percent, Tag, ChevronRight, X, Info,
 } from "lucide-react-native";
 
-import { colors, radius, shadow } from "@/src/theme";
+import { colors, shadow } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
 import { useSession } from "@/src/context/SessionContext";
-import { bookingApi, PlusPlan, Coupon, RecommendItem } from "@/src/data/bookingFlow";
+import { bookingApi, Coupon, RecommendItem } from "@/src/data/bookingFlow";
 import { notify } from "@/src/utils/dialogs";
+import { supabase } from "@/src/lib/supabase";
 
 const PURPLE = "#6E3DF5";
 const PURPLE_LIGHT = "#EFE9FE";
 const GREEN = "#16A34A";
 const GREEN_LIGHT = "#D1FAE5";
+const AMBER = "#B7791F";
+const AMBER_LIGHT = "#FEF3C7";
+
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 
 export default function CartScreen() {
   const router = useRouter();
   const { items, total, updateQuantity, removeFromCart, addToCart } = useCart();
-  const { profile, isAuthenticated } = useSession();
+  const { profile, isAuthenticated, setProfile } = useSession();
 
-  const [plusPlans, setPlusPlans] = useState<PlusPlan[]>([]);
-  const [plusActive, setPlusActive] = useState(false);
-  const [selectedPlusPlanId, setSelectedPlusPlanId] = useState<string | null>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [recommendations, setRecommendations] = useState<RecommendItem[]>([]);
   const [tip, setTip] = useState(0);
+
+  // Modal states
   const [coupModalOpen, setCoupModalOpen] = useState(false);
   const [customTipOpen, setCustomTipOpen] = useState(false);
   const [customTipInput, setCustomTipInput] = useState("");
+  const [cancelPolicyOpen, setCancelPolicyOpen] = useState(false);
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  // Coupon code input state (in modal)
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [applyingCode, setApplyingCode] = useState(false);
+
+  // Dominant category from cart items (used for "Add more items" + recommendations)
+  const dominantCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach((it) => {
+      if (it.category) counts[it.category] = (counts[it.category] || 0) + it.quantity;
+    });
+    let best: string | null = null;
+    let bestCount = 0;
+    Object.entries(counts).forEach(([cat, c]) => {
+      if (c > bestCount) { best = cat; bestCount = c; }
+    });
+    return best;
+  }, [items]);
 
   // Load data
   useEffect(() => {
     (async () => {
-      const [plans, statusObj, coupList, recs] = await Promise.all([
-        bookingApi.getPlusPlans(),
-        bookingApi.getPlusStatus(),
+      const [coupList, recs] = await Promise.all([
         bookingApi.getCoupons(total),
-        bookingApi.getRecommendations(items.map((i) => i.service_id), undefined, 8),
+        bookingApi.getRecommendations(
+          items.map((i) => i.service_id),
+          dominantCategory || undefined,
+          8
+        ),
       ]);
-      setPlusPlans(plans);
-      setPlusActive(!!statusObj.active);
       setCoupons(coupList);
       setRecommendations(recs);
     })();
-  }, [total, items.length]);
+  }, [total, items.length, dominantCategory]);
 
   // Calculate amounts
   const itemTotal = total;
-  const selectedPlan = useMemo(
-    () => plusPlans.find((p) => p.id === selectedPlusPlanId) || null,
-    [plusPlans, selectedPlusPlanId]
-  );
-  const plusBenefit = useMemo(() => {
-    if (!plusActive && !selectedPlan) return 0;
-    const pct = (selectedPlan?.duration_months || 6) >= 12 ? 15 : 10;
-    return Math.min(itemTotal * (pct / 100), 100);
-  }, [plusActive, selectedPlan, itemTotal]);
   const couponSaving = appliedDiscount;
-  const taxes = Math.round((itemTotal - couponSaving - plusBenefit) * 0.08 * 100) / 100;
-  const plusPrice = selectedPlan?.price || 0;
-  const total_amount = Math.max(0, itemTotal - couponSaving - plusBenefit + taxes);
-  const amount_to_pay = total_amount + tip + plusPrice;
-  const totalSavings = (items.reduce((s, it) => s + (it.service_price || 0) * it.quantity, 0) * 0.1)
-    + couponSaving + plusBenefit;
+  const taxes = Math.round((itemTotal - couponSaving) * 0.08 * 100) / 100;
+  const total_amount = Math.max(0, itemTotal - couponSaving + taxes);
+  const amount_to_pay = total_amount + tip;
+  const totalSavings = couponSaving;
 
-  // Group items by category (using service_title prefix as fallback "group")
+  // Group items by category
   const groupedItems = useMemo(() => {
     const groups: Record<string, typeof items> = {};
     items.forEach((it) => {
@@ -93,14 +112,18 @@ export default function CartScreen() {
   }, [items]);
 
   const handleApplyCoupon = async (code: string) => {
+    setApplyingCode(true);
     try {
       const r = await bookingApi.applyCoupon(code, itemTotal);
       setAppliedCoupon(r.coupon);
       setAppliedDiscount(r.discount);
       setCoupModalOpen(false);
+      setCouponCodeInput("");
       notify("Coupon applied", `You saved ₹${r.discount}`);
     } catch (e: any) {
       notify("Couldn't apply", e?.message || "Invalid coupon");
+    } finally {
+      setApplyingCode(false);
     }
   };
 
@@ -114,14 +137,65 @@ export default function CartScreen() {
       notify("Empty cart", "Add services to your cart first");
       return;
     }
+    if (!profile?.phone) {
+      // Force phone collection before checkout
+      setPhoneInput("");
+      setNameInput(profile?.name || "");
+      setPhoneModalOpen(true);
+      return;
+    }
     router.push({
       pathname: "/booking/slot",
       params: {
         coupon: appliedCoupon?.code || "",
         tip: String(tip),
-        plus_plan: selectedPlusPlanId || "",
       },
     });
+  };
+
+  // Add-more-items: return to last category, fallback home
+  const handleAddMore = () => {
+    if (dominantCategory) {
+      router.push(`/${dominantCategory}` as any);
+    } else {
+      router.push("/");
+    }
+  };
+
+  // Phone update handler
+  const handleSavePhone = async () => {
+    const ph = phoneInput.trim();
+    if (!/^\+?\d[\d\s\-]{6,}$/.test(ph)) {
+      notify("Invalid phone", "Please enter a valid phone number");
+      return;
+    }
+    setSavingPhone(true);
+    try {
+      const { data } = await supabase!.auth.getSession();
+      const token = data?.session?.access_token;
+      const res = await fetch(`${API_BASE}/api/booking/profile/phone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ phone: ph, name: nameInput.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.detail || "Could not save phone");
+      }
+      // Update local profile
+      if (profile) {
+        setProfile({ ...profile, phone: ph, name: nameInput.trim() || profile.name });
+      }
+      setPhoneModalOpen(false);
+      notify("Phone updated", "Your contact details are saved");
+    } catch (e: any) {
+      notify("Update failed", e?.message || "Try again");
+    } finally {
+      setSavingPhone(false);
+    }
   };
 
   if (items.length === 0) {
@@ -145,6 +219,11 @@ export default function CartScreen() {
       </SafeAreaView>
     );
   }
+
+  // Determine which name/phone state to render
+  const hasName = !!(profile?.name && profile.name.trim());
+  const hasPhone = !!(profile?.phone && profile.phone.trim());
+  const userFirstName = hasName ? profile!.name.split(" ")[0] : "";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -191,68 +270,14 @@ export default function CartScreen() {
                 </View>
               </View>
             ))}
-            <TouchableOpacity style={styles.addMoreBtn} onPress={() => router.push("/")} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.addMoreBtn} onPress={handleAddMore} activeOpacity={0.7}>
               <Plus size={16} color={PURPLE} />
               <Text style={styles.addMoreText}>Add more items</Text>
             </TouchableOpacity>
           </View>
         ))}
 
-        {/* Plus membership */}
-        {plusPlans.length > 0 && !plusActive && (
-          <View style={styles.plusCard}>
-            <View style={styles.plusHeader}>
-              <View style={[styles.plusIconBubble]}><Sparkles size={14} color="#fff" /></View>
-              <Text style={styles.plusBrand}>plus</Text>
-            </View>
-            {(() => {
-              const featured = plusPlans.find((p) => p.duration_months === 6) || plusPlans[0];
-              const isAdded = selectedPlusPlanId === featured.id;
-              return (
-                <View>
-                  <View style={styles.plusRow}>
-                    <Text style={styles.plusTitle}>{featured.name}</Text>
-                    <TouchableOpacity
-                      style={[styles.plusAddBtn, isAdded && styles.plusAddedBtn]}
-                      onPress={() => setSelectedPlusPlanId(isAdded ? null : featured.id)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[styles.plusAddText, isAdded && styles.plusAddedText]}>
-                        {isAdded ? "Added" : "Add"}
-                      </Text>
-                    </TouchableOpacity>
-                    <View style={{ alignItems: "flex-end", marginLeft: 10 }}>
-                      <Text style={styles.plusPrice}>₹{featured.price}</Text>
-                      {featured.original_price && (
-                        <Text style={styles.plusOriginal}>₹{featured.original_price}</Text>
-                      )}
-                    </View>
-                  </View>
-                  {featured.benefits.slice(0, 1).map((b, i) => (
-                    <View key={i} style={styles.plusBenefit}>
-                      <View style={styles.bulletDot} />
-                      <Text style={styles.plusBenefitText}>{b}</Text>
-                    </View>
-                  ))}
-                  <TouchableOpacity activeOpacity={0.7}>
-                    <Text style={styles.plusViewAll}>View all benefits</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })()}
-          </View>
-        )}
-        {plusActive && (
-          <View style={[styles.plusCard, { backgroundColor: GREEN_LIGHT }]}>
-            <View style={styles.plusHeader}>
-              <View style={[styles.plusIconBubble, { backgroundColor: GREEN }]}><Check size={14} color="#fff" /></View>
-              <Text style={[styles.plusBrand, { color: GREEN }]}>plus</Text>
-            </View>
-            <Text style={styles.plusActiveText}>You&apos;re a Plus member • Enjoy your benefits</Text>
-          </View>
-        )}
-
-        {/* People also take */}
+        {/* People also take — same-category preferred */}
         {recommendations.length > 0 && (
           <View style={[styles.section, { paddingHorizontal: 0 }]}>
             <Text style={[styles.groupTitle, { paddingHorizontal: 16 }]}>People also take</Text>
@@ -281,7 +306,12 @@ export default function CartScreen() {
                       style={styles.recAddBtn}
                       activeOpacity={0.8}
                       onPress={async () => {
-                        const ok = await addToCart(item.id, 1);
+                        const ok = await addToCart(item.id, 1, {
+                          title: item.title,
+                          image: item.image,
+                          price: item.starting_price,
+                          category: dominantCategory || undefined,
+                        });
                         if (ok) notify("Added", "Service added to cart");
                       }}
                     >
@@ -310,36 +340,55 @@ export default function CartScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Phone */}
-        {profile?.phone && (
-          <View style={styles.phoneRow}>
-            <Phone size={18} color={colors.textMain} />
-            <Text style={styles.phoneText}>
-              {profile.name?.split(" ")[0] || "User"}, {profile.phone}
-            </Text>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/profile")}>
-              <Text style={styles.changeLink}>Change</Text>
+        {/* Customer name + phone OR Phone-required prompt */}
+        {isAuthenticated ? (
+          hasPhone ? (
+            <View style={styles.phoneRow}>
+              <Phone size={18} color={colors.textMain} />
+              <Text style={styles.phoneText}>
+                {hasName ? `${userFirstName}, ` : ""}{profile?.phone}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setPhoneInput(profile?.phone || "");
+                  setNameInput(profile?.name || "");
+                  setPhoneModalOpen(true);
+                }}
+              >
+                <Text style={styles.changeLink}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.phoneRow, styles.phoneRowMissing]}
+              activeOpacity={0.7}
+              onPress={() => {
+                setPhoneInput("");
+                setNameInput(profile?.name || "");
+                setPhoneModalOpen(true);
+              }}
+            >
+              <Phone size={18} color={AMBER} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.phoneMissingTitle}>Add your phone number</Text>
+                <Text style={styles.phoneMissingDesc}>Required so the professional can contact you</Text>
+              </View>
+              <Text style={styles.changeLink}>Add</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )
+        ) : null}
 
         {/* Payment summary */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Payment summary</Text>
-          <Row label="Item total" right={(
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
-              <Text style={styles.strikethrough}>₹{Math.round(itemTotal * 1.12)}</Text>
-              <Text style={styles.rowValue}>₹{Math.round(itemTotal)}</Text>
-            </View>
-          )} />
+          <Row label="Item total" value={`₹${Math.round(itemTotal)}`} />
           {couponSaving > 0 && <Row label="Coupon discount" value={`-₹${Math.round(couponSaving)}`} valueColor={GREEN} />}
-          {plusBenefit > 0 && <Row label="Plus savings" value={`-₹${Math.round(plusBenefit)}`} valueColor={GREEN} />}
           <Row label="Taxes and Fee" value={`₹${Math.round(taxes)}`} />
           <View style={styles.summaryDivider} />
           <Row label="Total amount" value={`₹${Math.round(total_amount)}`} bold />
-          {plusPrice > 0 && <Row label={`Plus (${selectedPlan?.name})`} value={`₹${plusPrice}`} />}
           {tip > 0 && <Row label="Tip" value={`₹${tip}`} />}
-          <Row label="Amount to pay" value={`₹${Math.round(amount_to_pay)}`} bold large />
+          {tip > 0 && <Row label="Amount to pay" value={`₹${Math.round(amount_to_pay)}`} bold large />}
         </View>
 
         {/* Tip */}
@@ -374,7 +423,7 @@ export default function CartScreen() {
           <Text style={styles.policyText}>
             Free cancellations if done more than 12 hrs before the service. A fee will be charged otherwise.
           </Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setCancelPolicyOpen(true)}>
             <Text style={styles.policyLink}>Read full policy</Text>
           </TouchableOpacity>
         </View>
@@ -382,30 +431,63 @@ export default function CartScreen() {
 
       {/* Sticky address + CTA */}
       <View style={styles.bottomBar}>
-        <View style={styles.addressRow}>
+        <TouchableOpacity
+          style={styles.addressRow}
+          activeOpacity={0.7}
+          onPress={() => router.push("/addresses")}
+        >
           <Home size={18} color={colors.textMain} />
           <Text style={styles.addressText} numberOfLines={1}>
             Home — Add your address to continue
           </Text>
           <Pencil size={16} color={colors.textMuted} />
-        </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.selectSlotBtn} onPress={handleProceedToSlot} activeOpacity={0.9}>
           <Text style={styles.selectSlotText}>Select slot</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Coupons Modal */}
+      {/* ───── Coupons Modal ───── */}
       <Modal visible={coupModalOpen} animationType="slide" transparent onRequestClose={() => setCoupModalOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Coupons & Offers</Text>
-              <TouchableOpacity onPress={() => setCoupModalOpen(false)} hitSlop={8}><X size={22} color={colors.textMain} /></TouchableOpacity>
+              <Text style={styles.modalTitle}>Coupons &amp; Offers</Text>
+              <TouchableOpacity onPress={() => setCoupModalOpen(false)} hitSlop={8} style={styles.modalCloseBtn}>
+                <X size={20} color={colors.textMain} />
+              </TouchableOpacity>
             </View>
+
+            {/* Enter coupon code row */}
+            <View style={styles.couponCodeRow}>
+              <TextInput
+                value={couponCodeInput}
+                onChangeText={setCouponCodeInput}
+                placeholder="Enter Coupon Code"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="characters"
+                style={styles.couponCodeInput}
+              />
+              <TouchableOpacity
+                style={[styles.couponCodeApplyBtn, (!couponCodeInput.trim() || applyingCode) && { opacity: 0.5 }]}
+                onPress={() => couponCodeInput.trim() && handleApplyCoupon(couponCodeInput.trim().toUpperCase())}
+                disabled={!couponCodeInput.trim() || applyingCode}
+              >
+                {applyingCode ? (
+                  <ActivityIndicator color={PURPLE} size="small" />
+                ) : (
+                  <Text style={styles.couponCodeApplyText}>Apply</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
             <FlatList
               data={coupons}
               keyExtractor={(x) => x.id}
               contentContainerStyle={{ padding: 16, gap: 12 }}
+              ListHeaderComponent={
+                <Text style={styles.couponSectionLabel}>Available coupons</Text>
+              }
               renderItem={({ item }) => (
                 <View style={[styles.coupItem, !item.applicable && { opacity: 0.55 }]}>
                   <View style={styles.coupBadge}><Text style={styles.coupCode}>{item.code}</Text></View>
@@ -432,31 +514,148 @@ export default function CartScreen() {
         </View>
       </Modal>
 
-      {/* Custom tip modal */}
+      {/* ───── Custom Tip Modal ───── */}
       <Modal visible={customTipOpen} animationType="fade" transparent onRequestClose={() => setCustomTipOpen(false)}>
+        <TouchableWithoutFeedback onPress={() => setCustomTipOpen(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.tipModal}>
+                <Text style={styles.modalTitle}>Custom tip</Text>
+                <TextInput
+                  value={customTipInput}
+                  onChangeText={setCustomTipInput}
+                  keyboardType="number-pad"
+                  placeholder="Enter amount"
+                  style={styles.tipInput}
+                />
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#F1F5F9" }]} onPress={() => setCustomTipOpen(false)}>
+                    <Text style={{ color: colors.textMain, fontWeight: "600" }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: PURPLE }]}
+                    onPress={() => { setTip(Number(customTipInput) || 0); setCustomTipOpen(false); }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ───── Cancellation Policy Modal ───── */}
+      <Modal visible={cancelPolicyOpen} animationType="slide" transparent onRequestClose={() => setCancelPolicyOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.tipModal}>
-            <Text style={styles.modalTitle}>Custom tip</Text>
-            <TextInput
-              value={customTipInput}
-              onChangeText={setCustomTipInput}
-              keyboardType="number-pad"
-              placeholder="Enter amount"
-              style={styles.tipInput}
-            />
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#F1F5F9" }]} onPress={() => setCustomTipOpen(false)}>
-                <Text style={{ color: colors.textMain, fontWeight: "600" }}>Cancel</Text>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Cancellation policy</Text>
+              <TouchableOpacity onPress={() => setCancelPolicyOpen(false)} hitSlop={8} style={styles.modalCloseBtn}>
+                <X size={20} color={colors.textMain} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: PURPLE }]}
-                onPress={() => { setTip(Number(customTipInput) || 0); setCustomTipOpen(false); }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>Apply</Text>
+            </View>
+            <ScrollView style={{ paddingHorizontal: 20, paddingTop: 8 }} contentContainerStyle={{ paddingBottom: 30 }}>
+              <View style={styles.policyTableHeader}>
+                <Text style={styles.policyTimeCol}>Time</Text>
+                <Text style={styles.policyFeeCol}>Fee</Text>
+              </View>
+
+              <View style={styles.policyTableRow}>
+                <Text style={styles.policyRowTime}>More than 12 hrs before the service</Text>
+                <Text style={[styles.policyRowFee, { color: GREEN }]}>Free</Text>
+              </View>
+              <View style={styles.policyDivider} />
+
+              <View style={styles.policyTableRow}>
+                <Text style={styles.policyRowTime}>Within 12 hrs of the service</Text>
+                <Text style={styles.policyRowFee}>Up to ₹100</Text>
+              </View>
+              <View style={styles.policyDivider} />
+
+              <View style={styles.policyTableRow}>
+                <Text style={styles.policyRowTime}>Within 3 hrs of the service</Text>
+                <Text style={styles.policyRowFee}>Up to ₹200</Text>
+              </View>
+
+              <View style={styles.policyNote}>
+                <Info size={16} color={AMBER} />
+                <Text style={styles.policyNoteText}>
+                  If request is rescheduled, then cancelled, fee will be applied as per original booking time
+                </Text>
+              </View>
+
+              <View style={styles.policyProTip}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.policyProTipTitle}>This fee goes to the professional</Text>
+                  <Text style={styles.policyProTipDesc}>
+                    Their time is reserved for the service &amp; they cannot get another job for the reserved time
+                  </Text>
+                </View>
+                <View style={styles.policyProEmoji}><Text style={{ fontSize: 28 }}>💰</Text></View>
+              </View>
+            </ScrollView>
+            <View style={styles.policyOkBar}>
+              <TouchableOpacity style={styles.policyOkBtn} onPress={() => setCancelPolicyOpen(false)} activeOpacity={0.9}>
+                <Text style={styles.policyOkText}>Okay</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* ───── Phone Update Modal ───── */}
+      <Modal visible={phoneModalOpen} animationType="slide" transparent onRequestClose={() => setPhoneModalOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalSheet, { paddingBottom: 24 }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {hasPhone ? "Update contact" : "Add your phone number"}
+                </Text>
+                <TouchableOpacity onPress={() => setPhoneModalOpen(false)} hitSlop={8} style={styles.modalCloseBtn}>
+                  <X size={20} color={colors.textMain} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ padding: 20 }}>
+                {!hasPhone && (
+                  <Text style={styles.phoneModalDesc}>
+                    A valid phone number is required so the professional can contact you.
+                  </Text>
+                )}
+                <Text style={styles.phoneInputLabel}>Full name</Text>
+                <TextInput
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  placeholder="Your name"
+                  style={styles.phoneInputBox}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <Text style={[styles.phoneInputLabel, { marginTop: 14 }]}>Phone number</Text>
+                <TextInput
+                  value={phoneInput}
+                  onChangeText={setPhoneInput}
+                  placeholder="+91 98765 43210"
+                  keyboardType="phone-pad"
+                  style={styles.phoneInputBox}
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TouchableOpacity
+                  style={[styles.phoneSaveBtn, savingPhone && { opacity: 0.6 }]}
+                  onPress={handleSavePhone}
+                  disabled={savingPhone}
+                  activeOpacity={0.85}
+                >
+                  {savingPhone ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.phoneSaveText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -535,30 +734,6 @@ const styles = StyleSheet.create({
   addMoreBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 12 },
   addMoreText: { color: PURPLE, fontWeight: "700", fontSize: 14 },
 
-  plusCard: {
-    marginHorizontal: 16, marginTop: 16,
-    backgroundColor: PURPLE_LIGHT,
-    borderRadius: 14, padding: 14,
-  },
-  plusHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  plusIconBubble: { width: 22, height: 22, borderRadius: 6, backgroundColor: PURPLE, alignItems: "center", justifyContent: "center" },
-  plusBrand: { fontSize: 17, fontWeight: "800", color: PURPLE, letterSpacing: 0.5 },
-
-  plusRow: { flexDirection: "row", alignItems: "center" },
-  plusTitle: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.textMain },
-  plusAddBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 8, backgroundColor: "#fff", borderWidth: 1, borderColor: PURPLE },
-  plusAddText: { color: PURPLE, fontWeight: "700", fontSize: 13 },
-  plusAddedBtn: { backgroundColor: PURPLE, borderColor: PURPLE },
-  plusAddedText: { color: "#fff" },
-  plusPrice: { fontSize: 16, fontWeight: "800", color: colors.textMain },
-  plusOriginal: { fontSize: 12, color: colors.textMuted, textDecorationLine: "line-through" },
-
-  plusBenefit: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 10 },
-  bulletDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.textBody, marginTop: 8 },
-  plusBenefitText: { flex: 1, fontSize: 13, color: colors.textBody, lineHeight: 18 },
-  plusViewAll: { marginTop: 10, color: colors.textMain, fontSize: 13, fontWeight: "600", textDecorationLine: "underline" },
-  plusActiveText: { color: colors.textMain, fontWeight: "600", fontSize: 14 },
-
   recCard: {
     width: 150,
     backgroundColor: "#fff",
@@ -588,13 +763,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
+  phoneRowMissing: { backgroundColor: AMBER_LIGHT },
   phoneText: { flex: 1, fontSize: 14, color: colors.textMain, fontWeight: "500" },
+  phoneMissingTitle: { fontSize: 14, fontWeight: "700", color: colors.textMain },
+  phoneMissingDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   changeLink: { color: PURPLE, fontWeight: "700", fontSize: 14 },
 
   summaryCard: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   summaryTitle: { fontSize: 16, fontWeight: "800", color: colors.textMain, marginBottom: 10 },
-  strikethrough: { fontSize: 13, color: colors.textMuted, textDecorationLine: "line-through" },
-  rowValue: { fontSize: 14, color: colors.textMain, fontWeight: "600" },
   summaryDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
 
   tipSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -626,9 +802,20 @@ const styles = StyleSheet.create({
   selectSlotText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "85%" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.textMain },
+  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: "#0F172A", borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#fff" },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+
+  couponCodeRow: { flexDirection: "row", alignItems: "center", padding: 16, paddingBottom: 12 },
+  couponCodeInput: {
+    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, backgroundColor: "#fff",
+  },
+  couponCodeApplyBtn: { paddingHorizontal: 16, paddingVertical: 12, marginLeft: 10 },
+  couponCodeApplyText: { color: PURPLE, fontWeight: "800", fontSize: 15 },
+
+  couponSectionLabel: { fontSize: 13, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" },
 
   coupItem: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, backgroundColor: "#fff" },
   coupBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, backgroundColor: GREEN_LIGHT, borderRadius: 6, marginBottom: 8, borderStyle: "dashed", borderWidth: 1, borderColor: GREEN },
@@ -639,7 +826,32 @@ const styles = StyleSheet.create({
   coupApplyText: { color: "#fff", fontWeight: "700" },
   coupNa: { marginTop: 8, color: colors.textMuted, fontSize: 12 },
 
-  tipModal: { backgroundColor: "#fff", margin: 30, padding: 18, borderRadius: 16 },
+  tipModal: { backgroundColor: "#fff", margin: 30, padding: 18, borderRadius: 16, alignSelf: "center", width: "85%" },
   tipInput: { marginTop: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16 },
   modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+
+  // Cancellation policy
+  policyTableHeader: { flexDirection: "row", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  policyTimeCol: { flex: 1, fontSize: 14, color: colors.textMain, fontWeight: "700" },
+  policyFeeCol: { width: 80, fontSize: 14, color: colors.textMain, fontWeight: "700", textAlign: "right" },
+  policyTableRow: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 18 },
+  policyRowTime: { flex: 1, fontSize: 14, color: colors.textMain, lineHeight: 20 },
+  policyRowFee: { width: 90, fontSize: 14, color: colors.textMain, fontWeight: "700", textAlign: "right" },
+  policyDivider: { height: 1, backgroundColor: colors.border, borderStyle: "dashed" },
+  policyNote: { flexDirection: "row", gap: 10, padding: 14, backgroundColor: AMBER_LIGHT, borderRadius: 10, marginTop: 16, alignItems: "flex-start" },
+  policyNoteText: { flex: 1, fontSize: 13, color: AMBER, lineHeight: 19, fontWeight: "600" },
+  policyProTip: { flexDirection: "row", gap: 14, marginTop: 18, padding: 16, backgroundColor: "#F8FAFC", borderRadius: 14 },
+  policyProTipTitle: { fontSize: 15, fontWeight: "800", color: colors.textMain, marginBottom: 4 },
+  policyProTipDesc: { fontSize: 12, color: colors.textBody, lineHeight: 18 },
+  policyProEmoji: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#FEF3C7", alignItems: "center", justifyContent: "center" },
+  policyOkBar: { padding: 14, borderTopWidth: 1, borderTopColor: colors.border },
+  policyOkBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  policyOkText: { color: PURPLE, fontWeight: "700", fontSize: 16 },
+
+  // Phone modal
+  phoneModalDesc: { fontSize: 13, color: colors.textBody, lineHeight: 19, marginBottom: 16 },
+  phoneInputLabel: { fontSize: 13, color: colors.textMain, fontWeight: "700", marginBottom: 6 },
+  phoneInputBox: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  phoneSaveBtn: { backgroundColor: PURPLE, marginTop: 22, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  phoneSaveText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

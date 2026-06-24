@@ -124,7 +124,7 @@ export default function ACApplianceFullPageScreen() {
         const s = cat.services?.find((x: any) => x.id === id);
         if (s) svc = s;
       });
-      return { service_id: id, quantity: qty, title: svc?.name, image: svc?.image, price: svc?.price };
+      return { service_id: id, quantity: qty, title: svc?.name, image: svc?.image, price: svc?.price, category: "ac-appliance" };
     });
     __syncGlobalCart(list);
     // eslint-disable-next-line react-hooks/exhaustive-deps
