@@ -321,7 +321,7 @@ export default function ACApplianceServiceDetailScreen() {
           itemCount={getCartItemCount()}
           total={getCartTotal()}
           accentColor="#0891B2"
-          onViewCart={() => router.push("/booking/new")}
+          onViewCart={() => router.push("/cart")}
         />
       )}
     </SafeAreaView>

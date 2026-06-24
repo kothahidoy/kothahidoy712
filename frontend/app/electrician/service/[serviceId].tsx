@@ -321,7 +321,7 @@ export default function ElectricianServiceDetailScreen() {
           itemCount={getCartItemCount()}
           total={getCartTotal()}
           accentColor={serviceData.categoryColor}
-          onViewCart={() => router.push("/booking/new")}
+          onViewCart={() => router.push("/cart")}
         />
       )}
     </SafeAreaView>

@@ -296,7 +296,7 @@ export default function PestControlServiceDetailScreen() {
           itemCount={getCartItemCount()}
           total={getCartTotal()}
           accentColor="#7C3AED"
-          onViewCart={() => router.push("/booking/new")}
+          onViewCart={() => router.push("/cart")}
         />
       )}
     </SafeAreaView>

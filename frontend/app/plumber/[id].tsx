@@ -429,7 +429,7 @@ export default function PlumberServiceListScreen() {
           </View>
           <TouchableOpacity 
             style={styles.viewCartBtn}
-            onPress={() => router.push("/booking/new")}
+            onPress={() => router.push("/cart")}
           >
             <Text style={styles.viewCartText}>View Cart</Text>
             <ChevronRight size={18} color="#FFFFFF" />

@@ -329,7 +329,7 @@ export default function CarpenterServiceDetailScreen() {
           itemCount={getCartItemCount()}
           total={getCartTotal()}
           accentColor="#B45309"
-          onViewCart={() => router.push("/booking/new")}
+          onViewCart={() => router.push("/cart")}
         />
       )}
     </SafeAreaView>

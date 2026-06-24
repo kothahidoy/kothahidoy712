@@ -516,7 +516,7 @@ export default function PlumberFullPageScreen() {
             <Text style={styles.cartItemCount}>{getCartItemCount()} item{getCartItemCount() > 1 ? "s" : ""}</Text>
             <Text style={styles.cartTotal}>₹{getCartTotal()}</Text>
           </View>
-          <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/booking/new")}>
+          <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/cart")}>
             <Text style={styles.viewCartText}>View Cart</Text>
             <ChevronRight size={18} color="#FFFFFF" />
           </TouchableOpacity>

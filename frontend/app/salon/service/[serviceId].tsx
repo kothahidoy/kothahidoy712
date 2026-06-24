@@ -268,7 +268,7 @@ export default function SalonServiceDetailScreen() {
           itemCount={getCartItemCount()}
           total={getCartTotal()}
           accentColor="#BE185D"
-          onViewCart={() => router.push("/booking/new")}
+          onViewCart={() => router.push("/cart")}
         />
       )}
     </SafeAreaView>

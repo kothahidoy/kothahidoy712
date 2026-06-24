@@ -196,7 +196,7 @@ export default function CleaningFullPageScreen() {
       {getCartItemCount() > 0 && (
         <View style={styles.cartBar}>
           <View><Text style={styles.cartItemCount}>{getCartItemCount()} item{getCartItemCount() > 1 ? "s" : ""}</Text><Text style={styles.cartTotal}>₹{getCartTotal()}</Text></View>
-          <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/booking/new")}><Text style={styles.viewCartText}>View Cart</Text><ChevronRight size={18} color="#FFF" /></TouchableOpacity>
+          <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/cart")}><Text style={styles.viewCartText}>View Cart</Text><ChevronRight size={18} color="#FFF" /></TouchableOpacity>
         </View>
       )}
     </SafeAreaView>

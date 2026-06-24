@@ -105,6 +105,21 @@
 user_problem_statement: "Build Urban Company-style booking flow: redesigned cart with Plus membership / coupons / 'people also take' / tip / payment summary / cancellation policy, plus a slot picker screen and final checkout"
 
 frontend:
+  - task: "View Cart Routing Bug Fix"
+    implemented: true
+    working: true
+    file: "app/ac-appliance/index.tsx, app/plumber/index.tsx, app/electrician/index.tsx (and 18 other category pages)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Fixed 'View Cart' button routing from /booking/new to /cart across 21 category/service-listing screens. Bulk-replaced router.push('/booking/new') → router.push('/cart')."
+      - working: true
+        agent: "testing"
+        comment: "✅ BUG FIX VERIFIED: Tested AC & Appliance, Plumber, and Electrician flows. Clicking 'View Cart' button correctly navigates to /cart (NOT /booking/new). The exact bug reported by user is FIXED. Screenshots captured showing correct navigation. Note: Cart persistence issue exists (items don't persist in CartContext) but this is a separate pre-existing issue, not related to the routing bug fix."
+
   - task: "UC-style Cart redesign"
     implemented: true
     working: "NA"
@@ -116,6 +131,9 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Built Urban Company-style cart with: Saving banner, item cards with quantity steppers, Plus membership card (Add button), 'People also take' horizontal scroll with real services, Coupons & offers row (opens picker modal), phone change row, Payment summary (item total / discount / taxes / total / amount to pay), Tip selector (50/75 POPULAR/100/Custom), Cancellation policy, sticky bottom address + Select slot CTA."
+      - working: "NA"
+        agent: "testing"
+        comment: "⚠️ CART INTEGRATION ISSUE: Cart UI renders correctly when items are present, but service listing pages (ac-appliance, plumber, electrician) use local component state for cart instead of CartContext. When user clicks 'Add' button, items are stored in local state (lines 117, 137-138 in ac-appliance/index.tsx) but not added to CartContext via addToCart(). This causes cart to appear empty when navigating to /cart. This is a separate issue from the routing bug fix."
 
   - task: "Slot Picker screen"
     implemented: true
@@ -184,6 +202,36 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      BUG FIX (2026-06-24): "View Cart" button routed to old /booking/new (single-service flow that shows "Service not found" without a serviceId).
+      Fixed by sed-replacing `router.push("/booking/new")` → `router.push("/cart")` in all 21 category/service-listing screens.
+      Single-service "Book now" flow that uses `pathname: "/booking/new"` with serviceId remains intact (app/service/[id].tsx:238).
+      Screenshot verified: clicking View Cart from /ac-appliance now navigates to /cart (UC-style cart).
+  
+  - agent: "testing"
+    message: |
+      ✅ BUG FIX VERIFICATION COMPLETE - ROUTING FIX WORKING
+      
+      **PRIMARY BUG FIX VERIFIED:**
+      - ✅ AC & Appliance (/ac-appliance): "View Cart" button correctly navigates to /cart (NOT /booking/new)
+      - ✅ Electrician (/electrician): "View Cart" button correctly navigates to /cart
+      - ✅ Plumber (/plumber): "View Cart" button correctly navigates to /cart
+      
+      **SCREENSHOTS CAPTURED:**
+      - ac-appliance-cart-bar.png: Shows cart bar with "View Cart" button after adding item
+      - cart-page-from-ac-appliance.png: Shows successful navigation to /cart page
+      
+      **SEPARATE ISSUE IDENTIFIED (NOT PART OF BUG FIX):**
+      ⚠️ Cart Integration Issue: Service listing pages use local component state for cart items instead of CartContext.
+      - When user clicks "Add" button, items are stored in local state (e.g., ac-appliance/index.tsx line 117)
+      - Items are NOT added to CartContext via addToCart() method
+      - Result: Cart appears empty when navigating to /cart
+      - This is a pre-existing architectural issue, NOT related to the routing bug fix
+      
+      **RECOMMENDATION:**
+      The routing bug fix is COMPLETE and WORKING. The cart integration issue requires updating all 21 service listing pages to use CartContext.addToCart() instead of local state.
+
   - agent: "main"
     message: |
       UC-STYLE BOOKING FLOW IMPLEMENTED
