@@ -18,11 +18,19 @@ interface CartContextType {
   itemCount: number;
   total: number;
   loading: boolean;
-  addToCart: (serviceId: string, quantity?: number) => Promise<boolean>;
+  addToCart: (
+    serviceId: string,
+    quantity?: number,
+    override?: { title?: string; image?: string; price?: number }
+  ) => Promise<boolean>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  /** Replace entire local cart (guest-mode). Used by category screens to sync their inline cart UI with the global cart. */
+  replaceAllItems: (
+    items: { service_id: string; quantity: number; title?: string; image?: string; price?: number }[]
+  ) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -85,10 +93,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Add item to cart
-  const addToCart = async (serviceId: string, quantity: number = 1): Promise<boolean> => {
+  const addToCart = async (
+    serviceId: string,
+    quantity: number = 1,
+    override?: { title?: string; image?: string; price?: number }
+  ): Promise<boolean> => {
     try {
-      if (session?.access_token) {
-        // API call for logged-in users
+      if (session?.access_token && !override) {
+        // API call for logged-in users with real DB service
         const res = await fetch(`${API_BASE}/api/cart/add`, {
           method: "POST",
           headers: getHeaders(),
@@ -103,7 +115,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
       } else {
-        // Local storage for guests
+        // Local storage path (guests OR override with hardcoded service)
         const existing = items.find((i) => i.service_id === serviceId);
         if (existing) {
           const updated = items.map((i) =>
@@ -111,17 +123,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           );
           await saveLocalCart(updated);
         } else {
-          // Fetch service details
-          const svcRes = await fetch(`${API_BASE}/api/admin/public/services`);
-          const services = svcRes.ok ? await svcRes.json() : [];
-          const service = services.find((s: any) => s.id === serviceId);
-          
+          let title = override?.title;
+          let image = override?.image;
+          let price = override?.price;
+          // If no override, try fetching service details
+          if (!override) {
+            try {
+              const svcRes = await fetch(`${API_BASE}/api/admin/public/services`);
+              const services = svcRes.ok ? await svcRes.json() : [];
+              const service = services.find((s: any) => s.id === serviceId);
+              title = title || service?.title;
+              image = image || service?.image;
+              price = price ?? service?.starting_price;
+            } catch { /* ignore */ }
+          }
           const newItem: CartItem = {
-            id: `local-${Date.now()}`,
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             service_id: serviceId,
-            service_title: service?.title || "Service",
-            service_image: service?.image || "",
-            service_price: service?.starting_price || 0,
+            service_title: title || "Service",
+            service_image: image || "",
+            service_price: price ?? 0,
             quantity,
           };
           await saveLocalCart([...items, newItem]);
@@ -193,6 +214,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Replace all local cart items (used by category screens to sync inline state)
+  const replaceAllItems = async (
+    incoming: { service_id: string; quantity: number; title?: string; image?: string; price?: number }[]
+  ) => {
+    try {
+      // Build merged item list: keep ANY existing items whose service_id isn't in incoming list
+      // (so items from other categories aren't wiped when this category re-syncs).
+      // Identify the set of service_ids passed in.
+      const incomingIds = new Set(incoming.map((x) => x.service_id));
+      const preserved = items.filter((it) => !incomingIds.has(it.service_id));
+      const merged: CartItem[] = [
+        ...preserved,
+        ...incoming
+          .filter((x) => x.quantity > 0)
+          .map((x) => {
+            // Preserve existing CartItem id if same service_id existed before
+            const existing = items.find((i) => i.service_id === x.service_id);
+            return {
+              id: existing?.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${x.service_id}`,
+              service_id: x.service_id,
+              service_title: x.title || existing?.service_title || "Service",
+              service_image: x.image || existing?.service_image || "",
+              service_price: x.price ?? existing?.service_price ?? 0,
+              quantity: x.quantity,
+            } as CartItem;
+          }),
+      ];
+      await saveLocalCart(merged);
+    } catch (e) {
+      console.error("replaceAllItems error:", e);
+    }
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -205,6 +259,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         removeFromCart,
         clearCart,
         refreshCart,
+        replaceAllItems,
       }}
     >
       {children}

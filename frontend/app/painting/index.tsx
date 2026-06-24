@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Star, Clock, Menu, Tag } from "lucide-react-native";
+import { useCart } from "@/src/context/CartContext";
 import { colors } from "@/src/theme";
 
 
@@ -115,6 +116,20 @@ export default function PaintingFullPageScreen() {
   const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
+  const { replaceAllItems: __syncGlobalCart } = useCart();
+  useEffect(() => {
+    const list = Object.entries(cart).map(([id, qty]) => {
+      let svc: any = null;
+      Object.values(ALL_SERVICES).forEach((cat: any) => {
+        const s = cat.services?.find((x: any) => x.id === id);
+        if (s) svc = s;
+      });
+      return { service_id: id, quantity: qty, title: svc?.name, image: svc?.image, price: svc?.price };
+    });
+    __syncGlobalCart(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart]);
+
   const [activeCategory, setActiveCategory] = useState("1bhk");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
