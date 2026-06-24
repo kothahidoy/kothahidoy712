@@ -71,6 +71,10 @@ app.include_router(cart_router)
 from seed_routes import router as seed_router  # noqa: E402
 app.include_router(seed_router)
 
+# Booking flow API endpoints (Urban Company-style)
+from booking_routes import router as booking_router  # noqa: E402
+app.include_router(booking_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

@@ -102,7 +102,109 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix Admin Panel - Make Settings fully functional with Services, Slots, Bookings, and Offers CRUD management via Supabase"
+user_problem_statement: "Build Urban Company-style booking flow: redesigned cart with Plus membership / coupons / 'people also take' / tip / payment summary / cancellation policy, plus a slot picker screen and final checkout"
+
+frontend:
+  - task: "UC-style Cart redesign"
+    implemented: true
+    working: "NA"
+    file: "app/cart.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Built Urban Company-style cart with: Saving banner, item cards with quantity steppers, Plus membership card (Add button), 'People also take' horizontal scroll with real services, Coupons & offers row (opens picker modal), phone change row, Payment summary (item total / discount / taxes / total / amount to pay), Tip selector (50/75 POPULAR/100/Custom), Cancellation policy, sticky bottom address + Select slot CTA."
+
+  - task: "Slot Picker screen"
+    implemented: true
+    working: "NA"
+    file: "app/booking/slot.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created /booking/slot screen exactly matching UC style: dark header with X button, 'When should the professional arrive?' headline, Schedule-for-later card with date pills (next 7 days), info banner, time slot grid (3 col), sticky 'Proceed to checkout' button. Falls back to local time slots if DB tables not populated."
+
+  - task: "Checkout screen"
+    implemented: true
+    working: "NA"
+    file: "app/booking/checkout.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Final review/checkout: shows selected slot, address picker, payment method (Razorpay/Cash), items review, total, calls POST /api/booking/create. Handles Razorpay flow when 'Pay online' chosen."
+
+backend:
+  - task: "Booking flow API (slots/plus/coupons/recommendations/create)"
+    implemented: true
+    working: "NA"
+    file: "backend/booking_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Created /api/booking/* endpoints:
+            GET  /slots?date=YYYY-MM-DD
+            GET  /slots/dates?days=7
+            GET  /plus-plans
+            GET  /plus/status
+            POST /plus/subscribe
+            GET  /coupons?cart_total=X
+            POST /coupons/apply
+            GET  /recommendations
+            POST /create
+          Tested locally: plus-plans returns {plans: []} (until SQL migration is run), slots return empty + frontend falls back to local slot list.
+          User MUST apply /app/uc-booking-migration.sql via Supabase Dashboard → SQL Editor for full functionality (slots seeded, plans, coupons).
+
+metadata:
+  created_by: "main_agent"
+  version: "2.0"
+  test_sequence: 3
+  run_ui: true
+  last_updated: "2026-06-24"
+
+test_plan:
+  current_focus:
+    - "Booking flow API (slots/plus/coupons/recommendations/create)"
+    - "UC-style Cart redesign"
+    - "Slot Picker screen"
+    - "Checkout screen"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      UC-STYLE BOOKING FLOW IMPLEMENTED
+
+      Backend: /app/backend/booking_routes.py
+        - 9 endpoints for slots/plus/coupons/recommendations/create
+        - Registered in server.py, hot-reloaded
+
+      Frontend:
+        - app/cart.tsx - fully redesigned (Saving banner, items w/ qty, Plus card, recommendations carousel, coupons modal, tip selector, payment summary, cancellation policy, sticky address+select-slot)
+        - app/booking/slot.tsx - NEW (UC-style date pills + time grid)
+        - app/booking/checkout.tsx - NEW (address + payment method + confirm)
+        - src/data/bookingFlow.ts - typed API client
+
+      Database migration: /app/uc-booking-migration.sql
+        Creates: slots, plus_plans, plus_subscriptions, coupons tables
+        Extends bookings table with tip_amount, coupon_code, etc.
+        Seeds: 14 days of 15-min time slots, 3 plus plans, 4 coupons
+        ACTION REQUIRED: User must apply this SQL in Supabase Dashboard → SQL Editor
+
+      Visual verification done on web preview: slot picker matches UC style.
 
 frontend:
   - task: "Provider System with Supabase - Production Mode"
