@@ -44,7 +44,12 @@ import { colors, radius, shadow } from "@/src/theme";
 import { useSession } from "@/src/context/SessionContext";
 import { notify, confirmAsync } from "@/src/utils/dialogs";
 
-const API = (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
+const API = (() => {
+  // In a browser, ALWAYS use the current origin via a relative URL so the
+  // request goes through the same nginx ingress (avoids stale env URLs).
+  if (typeof window !== "undefined") return "/api/admin/cms";
+  return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
+})();
 
 type TabKey = "categories" | "subcategories" | "banners" | "promos" | "services";
 
