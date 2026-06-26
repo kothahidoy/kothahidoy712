@@ -449,9 +449,11 @@ async def update_phone(payload: PhoneUpdate, authorization: Optional[str] = Head
     phone = payload.phone.strip()
     if len(phone.replace("+", "").replace("-", "").replace(" ", "")) < 8:
         raise HTTPException(400, "Please enter a valid phone number")
-    body = {"phone": phone}
+    body: dict = {"phone": phone}
+    # `public.users.full_name` is the actual column — earlier this code used
+    # the wrong column name "name" and the PATCH silently failed.
     if payload.name and payload.name.strip():
-        body["name"] = payload.name.strip()
+        body["full_name"] = payload.name.strip()
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.patch(
             f"{SUPABASE_URL}/rest/v1/users?id=eq.{uid}",

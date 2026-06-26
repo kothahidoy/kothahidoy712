@@ -364,7 +364,11 @@ export default function CartScreen() {
               style={[styles.phoneRow, styles.phoneRowMissing]}
               activeOpacity={0.7}
               onPress={() => {
-                setPhoneInput("");
+                // Auto-pre-fill from logged-in user's profile so they don't
+                // have to type their name/phone again. For WhatsApp login
+                // we already know the phone; for email login the name is
+                // usually known and only phone needs to be added.
+                setPhoneInput(profile?.phone || "");
                 setNameInput(profile?.name || "");
                 setPhoneModalOpen(true);
               }}
