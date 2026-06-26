@@ -406,6 +406,31 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
         if isinstance(booking, list):
             booking = booking[0]
 
+        # ── Insert into booking_items (child table). Best-effort — gracefully
+        # skip if the table doesn't exist yet (so the booking still completes).
+        try:
+            bi_rows = [
+                {
+                    "booking_id": booking["id"],
+                    "service_id": it.service_id,
+                    "title": it.title or "",
+                    "image": it.image,
+                    "price": it.price,
+                    "quantity": it.quantity,
+                }
+                for it in payload.items
+            ]
+            bi_res = await client.post(
+                f"{SUPABASE_URL}/rest/v1/booking_items",
+                headers=_sb_headers(),
+                json=bi_rows,
+            )
+            if bi_res.status_code not in (200, 201):
+                # Don't fail the booking — log and continue. JSON `items` column still has the data.
+                print(f"[booking_items] insert skipped: {bi_res.status_code} {bi_res.text[:200]}")
+        except Exception as e:
+            print(f"[booking_items] exception (non-fatal): {e}")
+
         # Mark slot as booked (best-effort)
         await client.patch(
             f"{SUPABASE_URL}/rest/v1/slots?date=eq.{payload.slot_date}&time=eq.{payload.slot_time}",
