@@ -60,6 +60,7 @@ export interface Service {
   topRated?: boolean;
   recommended?: boolean;
   inclusions?: string[];
+  sortOrder?: number; // home-screen section ordering
   // Urban Company style fields
   serviceType?: string; // "Service", "Repair & gas refill", "Installation"
   pricePerUnit?: string; // "₹549/AC"

@@ -129,6 +129,7 @@ export const dataService = {
           topRated: !!s.top_rated,
           recommended: !!s.recommended,
           inclusions: s.inclusions ?? undefined,
+          sortOrder: s.sort_order ?? undefined,
         }));
       }
     }
@@ -147,17 +148,26 @@ export const dataService = {
 
   getPopularServices: async (): Promise<Service[]> => {
     const all = await dataService.getServices();
-    return all.filter((s) => s.popular);
+    return all
+      .filter((s) => s.popular)
+      .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
   },
 
   getTopRatedServices: async (): Promise<Service[]> => {
     const all = await dataService.getServices();
+    const flagged = all.filter((s) => s.topRated);
+    if (flagged.length > 0) {
+      return flagged.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+    }
+    // Fallback: if admin hasn't flagged any, show top-6 by rating
     return [...all].sort((a, b) => b.rating - a.rating).slice(0, 6);
   },
 
   getRecommendedServices: async (): Promise<Service[]> => {
     const all = await dataService.getServices();
-    return all.filter((s) => s.recommended);
+    return all
+      .filter((s) => s.recommended)
+      .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
   },
 
   getTopProfessionals: async (): Promise<Professional[]> => PROFESSIONALS,

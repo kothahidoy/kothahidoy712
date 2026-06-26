@@ -51,7 +51,7 @@ const API = (() => {
   return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
 })();
 
-type TabKey = "categories" | "subcategories" | "banners" | "promos" | "services";
+type TabKey = "home" | "categories" | "subcategories" | "banners" | "promos" | "services";
 
 // ─────────────────────────────────────────────────────────────────────
 //  HTTP helpers
@@ -702,12 +702,179 @@ function EditModal({ visible, title, onClose, onSave, children }: any) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+//  HOME TAB  —  Manage home-screen sections (Popular / Top Rated / Recommended)
+// ─────────────────────────────────────────────────────────────────────
+type HomeSection = "popular" | "top_rated" | "recommended";
+const SECTION_META: Record<HomeSection, { title: string; sub: string }> = {
+  popular:     { title: "Popular services",      sub: "Most-booked, shown on home" },
+  top_rated:   { title: "Top rated services",    sub: "Hand-picked premium picks" },
+  recommended: { title: "Recommended for you",   sub: "Curated daily picks" },
+};
+
+function HomeTab() {
+  const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pickerSection, setPickerSection] = useState<HomeSection | null>(null);
+  const [search, setSearch] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<any[]>("GET", "/services");
+      setServices(data || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const inSection = (s: any, section: HomeSection) => {
+    if (section === "popular") return !!s.popular;
+    if (section === "top_rated") return !!s.top_rated;
+    return !!s.recommended;
+  };
+
+  const sortedFor = (section: HomeSection) =>
+    services
+      .filter((s) => inSection(s, section) && s.is_active !== false)
+      .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+
+  const toggleSection = async (svc: any, section: HomeSection, on: boolean) => {
+    const body: any = { category_id: svc.category_id, title: svc.title };
+    if (section === "popular") body.popular = on;
+    if (section === "top_rated") body.top_rated = on;
+    if (section === "recommended") body.recommended = on;
+    await http("PATCH", `/services/${svc.id}`, body);
+    await load();
+  };
+
+  const setSort = async (svc: any, sort: number) => {
+    await http("PATCH", `/services/${svc.id}`, {
+      category_id: svc.category_id, title: svc.title, sort_order: sort,
+    });
+    await load();
+  };
+
+  if (loading) return <ActivityIndicator style={{ marginTop: 32 }} />;
+
+  return (
+    <View style={{ gap: 18 }}>
+      <View style={{ padding: 12, backgroundColor: "#FEF9C3", borderRadius: 10 }}>
+        <Text style={{ fontSize: 13, color: "#854D0E", fontWeight: "600" }}>
+          Tip: Toggle Popular / Top Rated / Recommended below to control what shows on the home screen.
+          Lower sort order = appears first.
+        </Text>
+      </View>
+
+      {(["popular", "top_rated", "recommended"] as HomeSection[]).map((section) => {
+        const items = sortedFor(section);
+        return (
+          <View key={section} style={{ gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textMain }}>
+                  {SECTION_META[section].title}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+                  {SECTION_META[section].sub} · {items.length} {items.length === 1 ? "item" : "items"}
+                </Text>
+              </View>
+              <TouchableOpacity style={btn.add} onPress={() => { setPickerSection(section); setSearch(""); }}>
+                <Plus size={14} color="#fff" />
+                <Text style={[btn.addTxt, { fontSize: 12 }]}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {items.length === 0 ? (
+              <View style={{ padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", alignItems: "center" }}>
+                <Text style={{ fontSize: 12, color: colors.textSubtle }}>No services here yet. Tap “Add” to pick from your catalog.</Text>
+              </View>
+            ) : items.map((s) => (
+              <View key={s.id} style={row.card}>
+                {s.image ? <Image source={{ uri: s.image }} style={row.thumb} /> : <View style={[row.thumb, { backgroundColor: "#eee" }]} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={row.title} numberOfLines={1}>{s.title}</Text>
+                  <Text style={row.sub}>₹{s.starting_price} · ⭐ {s.rating}</Text>
+                </View>
+                <TextInput
+                  value={String(s.sort_order ?? 0)}
+                  onChangeText={(v) => setSort(s, Number(v) || 0)}
+                  keyboardType="number-pad"
+                  style={{
+                    width: 50, paddingHorizontal: 8, paddingVertical: 6,
+                    borderWidth: 1, borderColor: colors.border, borderRadius: 6, textAlign: "center", color: colors.textMain,
+                  }}
+                />
+                <TouchableOpacity onPress={() => toggleSection(s, section, false)} style={row.iconBtn}>
+                  <Trash2 size={16} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+
+      {/* Picker modal — pick services to add to a section */}
+      <Modal visible={pickerSection !== null} transparent animationType="slide" onRequestClose={() => setPickerSection(null)}>
+        <View style={modalStyles.backdrop}>
+          <View style={modalStyles.sheetLarge}>
+            <View style={modalStyles.sheetHeader}>
+              <Text style={modalStyles.sheetTitle}>
+                Add to {pickerSection ? SECTION_META[pickerSection].title : ""}
+              </Text>
+              <TouchableOpacity onPress={() => setPickerSection(null)} style={row.iconBtn}>
+                <X size={20} color={colors.textMain} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 12 }}>
+              <TextInput
+                style={fieldStyles.input}
+                placeholder="Search services…"
+                placeholderTextColor={colors.textSubtle}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 24 }}>
+              {services
+                .filter((s) => {
+                  if (!pickerSection) return false;
+                  if (inSection(s, pickerSection)) return false;
+                  if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
+                  return true;
+                })
+                .map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={row.card}
+                    onPress={async () => {
+                      if (pickerSection) await toggleSection(s, pickerSection, true);
+                      setPickerSection(null);
+                    }}
+                  >
+                    {s.image ? <Image source={{ uri: s.image }} style={row.thumb} /> : <View style={[row.thumb, { backgroundColor: "#eee" }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={row.title} numberOfLines={1}>{s.title}</Text>
+                      <Text style={row.sub}>₹{s.starting_price} · {s.category_id}</Text>
+                    </View>
+                    <Plus size={18} color={colors.primary} />
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 //  ROOT
 // ─────────────────────────────────────────────────────────────────────
 export default function AdminCMS() {
   const router = useRouter();
   const { isAdmin, isLoading } = useSession();
-  const [tab, setTab] = useState<TabKey>("categories");
+  const [tab, setTab] = useState<TabKey>("home");
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -740,11 +907,12 @@ export default function AdminCMS() {
   }
 
   const TABS: { key: TabKey; label: string; icon: any }[] = [
-    { key: "categories", label: "Categories", icon: Layers },
-    { key: "subcategories", label: "Sub-cats", icon: Layers },
-    { key: "banners", label: "Banners", icon: ImgIcon },
-    { key: "promos", label: "Promos", icon: Megaphone },
-    { key: "services", label: "Services", icon: Layers },
+    { key: "home",          label: "Home",       icon: Megaphone },
+    { key: "categories",    label: "Categories", icon: Layers },
+    { key: "subcategories", label: "Sub-cats",   icon: Layers },
+    { key: "banners",       label: "Banners",    icon: ImgIcon },
+    { key: "promos",        label: "Promos",     icon: Megaphone },
+    { key: "services",      label: "Services",   icon: Layers },
   ];
 
   return (
@@ -769,6 +937,7 @@ export default function AdminCMS() {
           <ActivityIndicator />
         ) : (
           <>
+            {tab === "home"           && <HomeTab />}
             {tab === "categories"    && <CategoriesTab categories={categories} reload={reload} />}
             {tab === "subcategories" && <SubCategoriesTab categories={categories} />}
             {tab === "banners"       && <BannersTab categories={categories} />}
