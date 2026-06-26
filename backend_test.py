@@ -16,7 +16,7 @@ import asyncio
 from typing import Optional
 
 # Configuration
-BACKEND_URL = "https://579464f9-9edd-405b-ac24-f62ad1120561.preview.emergentagent.com"
+BACKEND_URL = "https://code-import-hub-7.preview.emergentagent.com"
 SUPABASE_URL = "https://xuxetkeqxuwgphqrdzvy.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eGV0a2VxeHV3Z3BocXJkenZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDA1OTc1MiwiZXhwIjoyMDk1NjM1NzUyfQ.6oagP6W7bj7x-j6TxCouTa2Tmhw6U3R5oDwFcO8IJJw"
 
