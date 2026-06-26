@@ -24,10 +24,26 @@ export interface SendOtpResponse {
   demo?: boolean;
 }
 
+export interface AuthSession {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: {
+    id: string;
+    phone?: string | null;
+    email?: string | null;
+    user_metadata?: Record<string, unknown>;
+    app_metadata?: Record<string, unknown>;
+  };
+}
+
 export interface VerifyOtpResponse {
   ok: boolean;
   verified: boolean;
   phone: string;
+  is_new_user?: boolean;
+  session?: AuthSession | null;
 }
 
 export interface ResendOtpResponse {

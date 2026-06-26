@@ -27,6 +27,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 from pydantic import BaseModel, Field
 
+import supabase_auth
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
@@ -262,7 +264,26 @@ async def otp_verify(body: VerifyOtpIn):
             {"_id": doc["_id"]},
             {"$set": {"status": "verified", "verified_at": now}},
         )
-        return {"ok": True, "verified": True, "phone": phone}
+
+        # Upsert into Supabase profiles + mint a Supabase-compatible session
+        session: Optional[Dict[str, Any]] = None
+        is_new_user = False
+        if supabase_auth.is_configured():
+            try:
+                existing = await supabase_auth.get_profile_by_phone(phone)
+                is_new_user = existing is None
+                profile = await supabase_auth.upsert_profile_by_phone(phone)
+                session = supabase_auth.build_session(profile)
+            except Exception as e:  # noqa: BLE001
+                logger.exception("Supabase profile/session step failed: %s", e)
+
+        return {
+            "ok": True,
+            "verified": True,
+            "phone": phone,
+            "is_new_user": is_new_user,
+            "session": session,
+        }
 
     remaining = max(OTP_MAX_ATTEMPTS - (doc.get("attempts", 0) + 1), 0)
     raise HTTPException(

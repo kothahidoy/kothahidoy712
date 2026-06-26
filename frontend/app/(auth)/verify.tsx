@@ -17,6 +17,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
 import { verifyOtp, resendOtp, OtpError } from "@/src/lib/otpApi";
 import { dataService } from "@/src/data/service";
+import { supabase } from "@/src/lib/supabase";
 
 const SLOTS = 6;
 
@@ -97,7 +98,29 @@ export default function VerifyScreen() {
     setError(null);
     setLoading(true);
     try {
-      await verifyOtp(phone, code);
+      const res = await verifyOtp(phone, code);
+
+      // If the backend issued a Supabase session, hand it to supabase-js so
+      // RLS / realtime / storage all work going forward.
+      if (res.session && supabase) {
+        try {
+          await supabase.auth.setSession({
+            access_token: res.session.access_token,
+            refresh_token: res.session.refresh_token,
+          });
+        } catch (err) {
+          console.warn("[verify] setSession failed", err);
+        }
+      }
+
+      // Route new users to profile setup, returning users straight to home.
+      if (res.is_new_user) {
+        router.replace({
+          pathname: "/(auth)/profile-setup",
+          params: { phone, email },
+        });
+        return;
+      }
       await routeAfterAuth();
     } catch (e) {
       if (e instanceof OtpError) {

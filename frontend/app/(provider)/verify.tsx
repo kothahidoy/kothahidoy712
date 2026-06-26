@@ -18,6 +18,7 @@ import { colors, radius } from "@/src/theme";
 import { verifyOtp, resendOtp, OtpError } from "@/src/lib/otpApi";
 import { providerService } from "@/src/data/providerService";
 import { notify } from "@/src/utils/dialogs";
+import { supabase } from "@/src/lib/supabase";
 
 const SLOTS = 6;
 
@@ -79,7 +80,19 @@ export default function ProviderVerifyScreen() {
 
     try {
       // First verify the OTP via MSG91 backend
-      await verifyOtp(phone, code);
+      const res = await verifyOtp(phone, code);
+
+      // Hand any Supabase session to supabase-js so RLS works going forward.
+      if (res.session && supabase) {
+        try {
+          await supabase.auth.setSession({
+            access_token: res.session.access_token,
+            refresh_token: res.session.refresh_token,
+          });
+        } catch (err) {
+          console.warn("[provider verify] setSession failed", err);
+        }
+      }
 
       // OTP verified - now check if provider exists
       const normalizedPhone = phone.replace(/\D/g, "").trim();
