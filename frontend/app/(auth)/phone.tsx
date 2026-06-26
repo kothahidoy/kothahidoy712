@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -8,16 +8,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Phone, AlertCircle, Info } from "lucide-react-native";
+import { ArrowLeft, MessageCircle, AlertCircle } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
-import { sendOTP, formatPhoneE164, isDemoMode } from "@/src/lib/phoneAuth";
-import { isFirebaseConfigured, ensureFirebaseInitialized } from "@/src/lib/firebase";
+import { sendOtp, OtpError } from "@/src/lib/otpApi";
 
 export default function PhoneScreen() {
   const router = useRouter();
@@ -27,39 +25,32 @@ export default function PhoneScreen() {
 
   const isValid = phone.replace(/\D/g, "").length >= 10;
 
-  // Initialize Firebase on mount
-  useEffect(() => {
-    if (isFirebaseConfigured) {
-      ensureFirebaseInitialized();
-    }
-  }, []);
-
   const onContinue = async () => {
     if (!isValid) return;
     setError(null);
     setLoading(true);
-    
     try {
-      // For now, we skip reCAPTCHA and use demo mode
-      // Real SMS verification will work when @react-native-firebase is added
-      const result = await sendOTP(phone, null);
-      
-      if (!result.success) {
-        setError(result.error || "Failed to send code");
-        return;
-      }
-      
-      // Navigate to verify screen with phone and verification ID
+      const res = await sendOtp(phone);
       router.push({
         pathname: "/(auth)/verify",
         params: {
           phone,
-          verificationId: result.verificationId,
           authType: "user",
+          channel: res.channel,
+          expiresIn: String(res.expires_in_seconds),
+          resendAfter: String(res.resend_after_seconds),
         },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send code");
+      if (e instanceof OtpError) {
+        if (e.code === "RESEND_TOO_SOON" && e.retryAfter) {
+          setError(`Please wait ${e.retryAfter}s before requesting another code.`);
+        } else {
+          setError(e.message || "Could not send code. Try again.");
+        }
+      } else {
+        setError(e instanceof Error ? e.message : "Could not send code");
+      }
     } finally {
       setLoading(false);
     }
@@ -86,11 +77,11 @@ export default function PhoneScreen() {
           </TouchableOpacity>
 
           <View style={styles.iconWrap}>
-            <Phone size={28} color={colors.primary} />
+            <MessageCircle size={28} color="#25D366" />
           </View>
-          <Text style={styles.title}>Enter your mobile number</Text>
+          <Text style={styles.title}>Enter your WhatsApp number</Text>
           <Text style={styles.subtitle}>
-            We'll send a 6-digit code to verify your identity.
+            We'll send a 6-digit verification code to your WhatsApp.
           </Text>
 
           <View style={styles.inputRow}>
@@ -108,7 +99,7 @@ export default function PhoneScreen() {
               testID="phone-input"
             />
           </View>
-          
+
           {error ? (
             <View style={styles.errorBox}>
               <AlertCircle size={16} color={colors.error} />
@@ -116,40 +107,22 @@ export default function PhoneScreen() {
             </View>
           ) : null}
 
-          {/* Demo Mode Notice */}
-          {isDemoMode() ? (
-            <View style={styles.demoNote}>
-              <Text style={styles.demoNoteTitle}>🔧 Demo Mode Active</Text>
-              <Text style={styles.demoNoteText}>
-                Firebase Phone Auth is configured but reCAPTCHA is skipped in this preview.{"\n"}
-                Use code: <Text style={styles.demoCode}>123456</Text>
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.demoNote}>
-              <Text style={styles.demoNoteTitle}>📱 Testing Mode</Text>
-              <Text style={styles.demoNoteText}>
-                For real SMS, add @react-native-firebase to your production build.{"\n"}
-                Demo code: <Text style={styles.demoCode}>123456</Text>
-              </Text>
-            </View>
-          )}
+          <View style={styles.note}>
+            <MessageCircle size={16} color="#25D366" />
+            <Text style={styles.noteText}>
+              Make sure WhatsApp is installed and active on this number.
+            </Text>
+          </View>
 
           <View style={styles.spacer} />
 
           <PrimaryButton
-            label={loading ? "Sending code..." : "Send code"}
+            label={loading ? "Sending code..." : "Send WhatsApp code"}
             onPress={onContinue}
             disabled={!isValid || loading}
             loading={loading}
             testID="phone-continue-btn"
           />
-          
-          {loading && (
-            <Text style={styles.loadingHint}>
-              Processing...
-            </Text>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -172,7 +145,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: "#25D36620",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -228,50 +201,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   err: { color: colors.error, fontSize: 13, flex: 1 },
-  demoNote: {
+  note: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginTop: 16,
-    backgroundColor: colors.primaryLight,
-    padding: 14,
+    padding: 12,
+    backgroundColor: "#25D36610",
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.primary + "30",
+    borderColor: "#25D36630",
   },
-  demoNoteTitle: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  demoNoteText: {
-    color: colors.primary,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  demoCode: {
-    fontWeight: "800",
-    backgroundColor: colors.primary + "20",
-    paddingHorizontal: 4,
-  },
-  configNote: {
-    marginTop: 16,
-    backgroundColor: "#FEF3C7",
-    padding: 12,
-    borderRadius: radius.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  configNoteText: {
-    color: "#92400E",
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 18,
-  },
+  noteText: { color: "#1F8B4D", fontSize: 12, flex: 1, lineHeight: 18 },
   spacer: { flex: 1, minHeight: 40 },
-  loadingHint: {
-    textAlign: "center",
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 12,
-  },
 });

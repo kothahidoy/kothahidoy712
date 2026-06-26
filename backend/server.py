@@ -75,6 +75,10 @@ app.include_router(seed_router)
 from booking_routes import router as booking_router  # noqa: E402
 app.include_router(booking_router)
 
+# MSG91 WhatsApp OTP authentication
+from otp_routes import router as otp_router  # noqa: E402
+app.include_router(otp_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

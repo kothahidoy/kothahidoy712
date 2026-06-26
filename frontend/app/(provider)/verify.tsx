@@ -15,24 +15,25 @@ import { ArrowLeft, ShieldCheck, AlertCircle, RefreshCw, Wrench } from "lucide-r
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
-import { verifyOTP, sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
+import { verifyOtp, resendOtp, OtpError } from "@/src/lib/otpApi";
 import { providerService } from "@/src/data/providerService";
 import { notify } from "@/src/utils/dialogs";
 
 const SLOTS = 6;
-const RESEND_COOLDOWN = 30;
 
 export default function ProviderVerifyScreen() {
   const router = useRouter();
-  const { phone, verificationId } = useLocalSearchParams<{
+  const { phone, resendAfter } = useLocalSearchParams<{
     phone?: string;
-    verificationId?: string;
+    resendAfter?: string;
   }>();
-  
+
+  const initialCooldown = Number(resendAfter || "25");
   const [digits, setDigits] = useState<string[]>(Array(SLOTS).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(initialCooldown);
+  const [resending, setResending] = useState(false);
   const refs = useRef<(TextInput | null)[]>([]);
 
   const code = digits.join("");
@@ -41,18 +42,28 @@ export default function ProviderVerifyScreen() {
   // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
 
   const onChangeDigit = (idx: number, v: string) => {
-    const clean = v.replace(/\D/g, "").slice(-1);
+    const cleaned = v.replace(/\D/g, "");
+    if (cleaned.length > 1) {
+      const next = Array(SLOTS).fill("");
+      for (let i = 0; i < Math.min(cleaned.length, SLOTS); i++) next[i] = cleaned[i];
+      setDigits(next);
+      setError(null);
+      const focusIdx = Math.min(cleaned.length, SLOTS - 1);
+      refs.current[focusIdx]?.focus();
+      return;
+    }
+    const single = cleaned.slice(-1);
     const next = [...digits];
-    next[idx] = clean;
+    next[idx] = single;
     setDigits(next);
     setError(null);
-    if (clean && idx < SLOTS - 1) refs.current[idx + 1]?.focus();
+    if (single && idx < SLOTS - 1) refs.current[idx + 1]?.focus();
   };
 
   const onKeyPress = (idx: number, key: string) => {
@@ -65,27 +76,18 @@ export default function ProviderVerifyScreen() {
     if (!isComplete || !phone) return;
     setError(null);
     setLoading(true);
-    
+
     try {
-      // First verify the OTP
-      const otpResult = await verifyOTP(code, verificationId);
-      
-      if (!otpResult.success) {
-        setError(otpResult.error || "Invalid code");
-        setDigits(Array(SLOTS).fill(""));
-        refs.current[0]?.focus();
-        return;
-      }
-      
+      // First verify the OTP via MSG91 backend
+      await verifyOtp(phone, code);
+
       // OTP verified - now check if provider exists
       const normalizedPhone = phone.replace(/\D/g, "").trim();
       const provider = await providerService.login(normalizedPhone);
-      
+
       if (provider) {
-        // Provider found - navigate to jobs
         router.replace("/(provider)/jobs");
       } else {
-        // Phone verified but not a registered provider
         notify(
           "Not Registered",
           "Your phone is verified but you're not registered as a provider. Please contact admin."
@@ -93,35 +95,50 @@ export default function ProviderVerifyScreen() {
         router.replace("/(provider)/login");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verification failed");
+      if (e instanceof OtpError) {
+        let msg = e.message || "Verification failed";
+        if (e.code === "INVALID_OTP" && typeof e.attemptsLeft === "number") {
+          msg = `${msg} (${e.attemptsLeft} ${e.attemptsLeft === 1 ? "try" : "tries"} left)`;
+        }
+        setError(msg);
+      } else {
+        setError(e instanceof Error ? e.message : "Verification failed");
+      }
+      setDigits(Array(SLOTS).fill(""));
+      refs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
 
   const onResend = async () => {
-    if (resendCooldown > 0 || !phone) return;
-    
+    if (resendCooldown > 0 || resending || !phone) return;
     setError(null);
-    setResendCooldown(RESEND_COOLDOWN);
-    
+    setResending(true);
     try {
-      if (!isDemoMode()) {
-        const result = await sendOTP(phone);
-        if (!result.success) {
-          setError(result.error || "Failed to resend code");
-        }
-      }
+      const res = await resendOtp(phone);
+      setResendCooldown(res.resend_after_seconds || initialCooldown);
+      setDigits(Array(SLOTS).fill(""));
+      refs.current[0]?.focus();
     } catch (e) {
-      setError("Failed to resend code");
+      if (e instanceof OtpError) {
+        if (e.code === "RESEND_TOO_SOON" && e.retryAfter) {
+          setResendCooldown(e.retryAfter);
+        } else {
+          setError(e.message || "Failed to resend code");
+        }
+      } else {
+        setError("Failed to resend code");
+      }
+    } finally {
+      setResending(false);
     }
   };
 
   // Auto-submit when all digits entered
   useEffect(() => {
-    if (isComplete && !loading) {
-      onVerify();
-    }
+    if (isComplete && !loading) onVerify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComplete]);
 
   return (
@@ -184,18 +201,10 @@ export default function ProviderVerifyScreen() {
             </View>
           ) : null}
 
-          {isDemoMode() && (
-            <View style={styles.demoHint}>
-              <Text style={styles.demoHintText}>
-                Demo code: <Text style={styles.demoCode}>123456</Text>
-              </Text>
-            </View>
-          )}
-
           <TouchableOpacity
-            style={[styles.resend, resendCooldown > 0 && styles.resendDisabled]}
+            style={[styles.resend, (resendCooldown > 0 || resending) && styles.resendDisabled]}
             onPress={onResend}
-            disabled={resendCooldown > 0}
+            disabled={resendCooldown > 0 || resending}
             testID="provider-resend-btn"
           >
             <RefreshCw
@@ -205,12 +214,14 @@ export default function ProviderVerifyScreen() {
             <Text
               style={[
                 styles.resendText,
-                resendCooldown > 0 && styles.resendTextDisabled,
+                (resendCooldown > 0 || resending) && styles.resendTextDisabled,
               ]}
             >
-              {resendCooldown > 0
+              {resending
+                ? "Resending..."
+                : resendCooldown > 0
                 ? `Resend code in ${resendCooldown}s`
-                : "Resend code"}
+                : "Resend code via WhatsApp"}
             </Text>
           </TouchableOpacity>
 

@@ -23,8 +23,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { providerService } from "@/src/data/providerService";
 import { colors, radius } from "@/src/theme";
 import { notify } from "@/src/utils/dialogs";
-import { sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
-import { isFirebaseConfigured, ensureFirebaseInitialized } from "@/src/lib/firebase";
+import { sendOtp, OtpError } from "@/src/lib/otpApi";
 
 export default function ProviderLogin() {
   const router = useRouter();
@@ -56,13 +55,6 @@ export default function ProviderLogin() {
     providerService.initDemoBookings();
   }, []);
 
-  // Initialize Firebase on mount
-  useEffect(() => {
-    if (isFirebaseConfigured) {
-      ensureFirebaseInitialized();
-    }
-  }, []);
-
   const handleSendOTP = async () => {
     const normalizedPhone = phone.replace(/\D/g, "").trim();
     if (!normalizedPhone || normalizedPhone.length < 10) {
@@ -72,14 +64,14 @@ export default function ProviderLogin() {
 
     setError(null);
     setLoading(true);
-    
+
     try {
       // First check if provider exists in the system
       const providers = await providerService.listAllProviders();
       const providerExists = providers.some(
         (p) => p.phone.replace(/\D/g, "") === normalizedPhone
       );
-      
+
       if (!providerExists) {
         notify(
           "Not registered",
@@ -88,25 +80,29 @@ export default function ProviderLogin() {
         setLoading(false);
         return;
       }
-      
-      // Provider exists - send OTP (without reCAPTCHA for now)
-      const result = await sendOTP(phone, null);
-      
-      if (!result.success) {
-        setError(result.error || "Failed to send code");
-        return;
-      }
-      
+
+      // Provider exists - send WhatsApp OTP via MSG91
+      const res = await sendOtp(phone);
+
       // Navigate to provider verify screen
       router.push({
         pathname: "/(provider)/verify",
         params: {
           phone: normalizedPhone,
-          verificationId: result.verificationId,
+          channel: res.channel,
+          resendAfter: String(res.resend_after_seconds),
         },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      if (e instanceof OtpError) {
+        if (e.code === "RESEND_TOO_SOON" && e.retryAfter) {
+          setError(`Please wait ${e.retryAfter}s before requesting another code.`);
+        } else {
+          setError(e.message || "Failed to send code");
+        }
+      } else {
+        setError(e instanceof Error ? e.message : "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }

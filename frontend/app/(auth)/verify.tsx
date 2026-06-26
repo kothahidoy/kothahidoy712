@@ -11,49 +11,61 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react-native";
+import { ArrowLeft, ShieldCheck, AlertCircle, RefreshCw, MessageCircle } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { colors, radius } from "@/src/theme";
-import { verifyOTP, sendOTP, isDemoMode } from "@/src/lib/phoneAuth";
+import { verifyOtp, resendOtp, OtpError } from "@/src/lib/otpApi";
 import { dataService } from "@/src/data/service";
 
 const SLOTS = 6;
-const RESEND_COOLDOWN = 30; // seconds
 
 export default function VerifyScreen() {
   const router = useRouter();
-  const { phone, email, verificationId, authType } = useLocalSearchParams<{
+  const { phone, email, authType, resendAfter } = useLocalSearchParams<{
     phone?: string;
     email?: string;
-    verificationId?: string;
     authType?: string;
+    resendAfter?: string;
   }>();
-  
+
+  const initialCooldown = Number(resendAfter || "25");
   const [digits, setDigits] = useState<string[]>(Array(SLOTS).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(initialCooldown);
+  const [resending, setResending] = useState(false);
   const refs = useRef<(TextInput | null)[]>([]);
 
   const code = digits.join("");
   const isComplete = code.length === SLOTS;
 
-  // Resend cooldown timer
+  // Cooldown timer
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
 
   const onChangeDigit = (idx: number, v: string) => {
-    const clean = v.replace(/\D/g, "").slice(-1);
+    // Allow paste of full code
+    const cleaned = v.replace(/\D/g, "");
+    if (cleaned.length > 1) {
+      const next = Array(SLOTS).fill("");
+      for (let i = 0; i < Math.min(cleaned.length, SLOTS); i++) next[i] = cleaned[i];
+      setDigits(next);
+      setError(null);
+      const focusIdx = Math.min(cleaned.length, SLOTS - 1);
+      refs.current[focusIdx]?.focus();
+      return;
+    }
+    const single = cleaned.slice(-1);
     const next = [...digits];
-    next[idx] = clean;
+    next[idx] = single;
     setDigits(next);
-    setError(null); // Clear error on input
-    if (clean && idx < SLOTS - 1) refs.current[idx + 1]?.focus();
+    setError(null);
+    if (single && idx < SLOTS - 1) refs.current[idx + 1]?.focus();
   };
 
   const onKeyPress = (idx: number, key: string) => {
@@ -64,13 +76,10 @@ export default function VerifyScreen() {
 
   const routeAfterAuth = async () => {
     try {
-      // Check if this is provider auth
       if (authType === "provider") {
         router.replace("/(provider)/jobs");
         return;
       }
-      
-      // User auth - check if profile exists
       const fresh = await dataService.getProfile();
       if (fresh?.name) {
         router.replace("/(tabs)");
@@ -84,55 +93,57 @@ export default function VerifyScreen() {
   };
 
   const onVerify = async () => {
-    if (!isComplete) return;
+    if (!isComplete || !phone) return;
     setError(null);
     setLoading(true);
-    
     try {
-      const result = await verifyOTP(code, verificationId);
-      
-      if (!result.success) {
-        setError(result.error || "Invalid code");
-        // Clear the OTP input on error
-        setDigits(Array(SLOTS).fill(""));
-        refs.current[0]?.focus();
-        return;
-      }
-      
-      // Success - navigate based on auth type
+      await verifyOtp(phone, code);
       await routeAfterAuth();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verification failed");
+      if (e instanceof OtpError) {
+        let msg = e.message || "Verification failed";
+        if (e.code === "INVALID_OTP" && typeof e.attemptsLeft === "number") {
+          msg = `${msg} (${e.attemptsLeft} ${e.attemptsLeft === 1 ? "try" : "tries"} left)`;
+        }
+        setError(msg);
+      } else {
+        setError(e instanceof Error ? e.message : "Verification failed");
+      }
+      setDigits(Array(SLOTS).fill(""));
+      refs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
 
   const onResend = async () => {
-    if (resendCooldown > 0) return;
-    
+    if (resendCooldown > 0 || resending || !phone) return;
     setError(null);
-    setResendCooldown(RESEND_COOLDOWN);
-    
+    setResending(true);
     try {
-      // Note: On web, this would need reCAPTCHA again
-      // For now, we just restart the cooldown in demo mode
-      if (!isDemoMode() && phone) {
-        const result = await sendOTP(phone);
-        if (!result.success) {
-          setError(result.error || "Failed to resend code");
-        }
-      }
+      const res = await resendOtp(phone);
+      setResendCooldown(res.resend_after_seconds || initialCooldown);
+      setDigits(Array(SLOTS).fill(""));
+      refs.current[0]?.focus();
     } catch (e) {
-      setError("Failed to resend code");
+      if (e instanceof OtpError) {
+        if (e.code === "RESEND_TOO_SOON" && e.retryAfter) {
+          setResendCooldown(e.retryAfter);
+        } else {
+          setError(e.message || "Failed to resend code");
+        }
+      } else {
+        setError("Failed to resend code");
+      }
+    } finally {
+      setResending(false);
     }
   };
 
   // Auto-submit when all digits entered
   useEffect(() => {
-    if (isComplete && !loading) {
-      onVerify();
-    }
+    if (isComplete && !loading) onVerify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComplete]);
 
   return (
@@ -156,7 +167,8 @@ export default function VerifyScreen() {
           </View>
           <Text style={styles.title}>Enter verification code</Text>
           <Text style={styles.subtitle}>
-            We sent a 6-digit code to{" "}
+            <MessageCircle size={13} color="#25D366" />{" "}
+            We sent a 6-digit code via WhatsApp to{" "}
             <Text style={styles.phone}>
               {email ?? (phone ? `+91 ${phone}` : "your account")}
             </Text>
@@ -171,17 +183,17 @@ export default function VerifyScreen() {
                 }}
                 value={d}
                 onChangeText={(v) => onChangeDigit(i, v)}
-                onKeyPress={({ nativeEvent }) =>
-                  onKeyPress(i, nativeEvent.key)
-                }
+                onKeyPress={({ nativeEvent }) => onKeyPress(i, nativeEvent.key)}
                 keyboardType="number-pad"
-                maxLength={1}
+                maxLength={SLOTS}
                 style={[
                   styles.otpBox,
                   d ? styles.otpBoxFilled : null,
                   error ? styles.otpBoxError : null,
                 ]}
                 selectTextOnFocus
+                textContentType="oneTimeCode"
+                autoComplete={Platform.OS === "android" ? "sms-otp" : "one-time-code"}
                 testID={`otp-input-${i}`}
               />
             ))}
@@ -194,34 +206,24 @@ export default function VerifyScreen() {
             </View>
           ) : null}
 
-          {/* Demo mode hint */}
-          {isDemoMode() && (
-            <View style={styles.demoHint}>
-              <Text style={styles.demoHintText}>
-                Demo code: <Text style={styles.demoCode}>123456</Text>
-              </Text>
-            </View>
-          )}
-
           <TouchableOpacity
-            style={[styles.resend, resendCooldown > 0 && styles.resendDisabled]}
+            style={[styles.resend, (resendCooldown > 0 || resending) && styles.resendDisabled]}
             onPress={onResend}
-            disabled={resendCooldown > 0}
+            disabled={resendCooldown > 0 || resending}
             testID="resend-btn"
           >
-            <RefreshCw
-              size={14}
-              color={resendCooldown > 0 ? colors.textMuted : colors.primary}
-            />
+            <RefreshCw size={14} color={resendCooldown > 0 ? colors.textMuted : colors.primary} />
             <Text
               style={[
                 styles.resendText,
-                resendCooldown > 0 && styles.resendTextDisabled,
+                (resendCooldown > 0 || resending) && styles.resendTextDisabled,
               ]}
             >
-              {resendCooldown > 0
+              {resending
+                ? "Resending..."
+                : resendCooldown > 0
                 ? `Resend code in ${resendCooldown}s`
-                : "Resend code"}
+                : "Resend code via WhatsApp"}
             </Text>
           </TouchableOpacity>
 
@@ -310,18 +312,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   err: { color: colors.error, fontSize: 13, flex: 1 },
-  demoHint: {
-    marginTop: 12,
-    alignItems: "center",
-  },
-  demoHintText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  demoCode: {
-    fontWeight: "700",
-    color: colors.primary,
-  },
   resend: {
     flexDirection: "row",
     alignItems: "center",
@@ -330,16 +320,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 12,
   },
-  resendDisabled: {
-    opacity: 0.6,
-  },
-  resendText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  resendTextDisabled: {
-    color: colors.textMuted,
-  },
+  resendDisabled: { opacity: 0.6 },
+  resendText: { color: colors.primary, fontSize: 14, fontWeight: "600" },
+  resendTextDisabled: { color: colors.textMuted },
   spacer: { flex: 1, minHeight: 40 },
 });
