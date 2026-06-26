@@ -215,9 +215,6 @@ export default function MfixitCoverScreen() {
           <Text style={styles.headerTitle}>Mfixit Cover</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>

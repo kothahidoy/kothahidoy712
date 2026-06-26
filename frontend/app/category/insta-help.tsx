@@ -8,6 +8,7 @@ import {
   View,
   FlatList,
   Modal,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -327,8 +328,7 @@ export default function InstaHelpServiceScreen() {
             >
               <ArrowLeft size={20} color="#000000" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.heroIconBtn}>
-              <Share2 size={20} color="#000000" />
+            <TouchableOpacity style={styles.heroIconBtn} onPress={() => Share.share({ message: "Check out insta-help services on Mfixit", url: "/category/insta-help" })}><Share2 size={20} color="#000000" />
             </TouchableOpacity>
           </View>
         </View>

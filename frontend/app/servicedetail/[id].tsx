@@ -167,10 +167,7 @@ export default function ServiceDetailScreen() {
           <ArrowLeft size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconBtnOverlay}>
-            <Search size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtnOverlay}>
+          <TouchableOpacity style={styles.iconBtnOverlay} onPress={() => router.back()}>
             <X size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>

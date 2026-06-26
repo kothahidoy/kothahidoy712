@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -188,11 +189,9 @@ export default function PaintingServiceScreen() {
               <ArrowLeft size={20} color="#000000" />
             </TouchableOpacity>
             <View style={styles.heroHeaderRight}>
-              <TouchableOpacity style={styles.heroIconBtn}>
-                <Search size={18} color="#000000" />
+              <TouchableOpacity style={styles.heroIconBtn} onPress={() => require("expo-router").router.push("/search?category=painting")}><Search size={18} color="#000000" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.heroIconBtn}>
-                <Share2 size={18} color="#000000" />
+              <TouchableOpacity style={styles.heroIconBtn} onPress={() => Share.share({ message: "Check out painting services on Mfixit", url: "/category/painting" })}><Share2 size={18} color="#000000" />
               </TouchableOpacity>
             </View>
           </View>
