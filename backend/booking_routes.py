@@ -374,7 +374,7 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
         scheduled_at = f"{payload.slot_date}T00:00:00+00:00"
 
         booking_row = {
-            "user_id": uid,
+            "customer_id": uid,
             "service_id": primary.service_id,
             "scheduled_date": payload.slot_date,
             "time_slot": payload.slot_time,
