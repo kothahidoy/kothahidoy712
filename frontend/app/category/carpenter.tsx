@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   Image,
   ScrollView,
@@ -22,6 +22,7 @@ import {
 
 import { colors, radius } from "@/src/theme";
 import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+import { useCategoryCMS } from "@/src/hooks/useCategoryCMS";
 
 // Hero banner media — swipeable images + tap-to-play video.
 // Easy to swap with admin-managed list later.
@@ -117,14 +118,51 @@ const GridItem = ({ item, onPress }: { item: typeof CARPENTER_CATEGORIES[0]; onP
 export default function CarpenterServiceScreen() {
   const router = useRouter();
 
+
+  // ── Pull CMS-managed content from Supabase ──
+  const cms = useCategoryCMS("carpenter");
+
+  const heroMedia: HeroMediaItem[] = useMemo(() => {
+    if (cms.banners && cms.banners.length > 0) {
+      return cms.banners.map((b) => ({
+        type: (b.media_type === "video" ? "video" : "image") as "image" | "video",
+        uri: b.media_url,
+        caption: b.title,
+        ...(b.poster_url ? { poster: b.poster_url } : {}),
+      }));
+    }
+    return HERO_MEDIA;
+  }, [cms.banners]);
+
+  const dynSubCategories = useMemo(() => {
+    if (cms.sub_categories && cms.sub_categories.length > 0) {
+      return cms.sub_categories.map((s) => ({
+        id: s.slug || s.id,
+        name: s.name,
+        image: s.image_url || ((CARPENTER_CATEGORIES)[0] as any)?.image || "",
+        badge: s.badge || undefined,
+        badgeColor: s.badge_color || undefined,
+      }));
+    }
+    return CARPENTER_CATEGORIES;
+  }, [cms.sub_categories]);
+
+  const brandName = cms.category?.brand_name || cms.category?.name || "Carpenter";
+  const brandRating = cms.category?.brand_rating ?? 4.85;
+  const brandReviewsLabel = cms.category?.brand_reviews_label || "2.0 M bookings";
+  const promo = cms.promos?.[0];
+  const promoLabel = promo?.label || "Free quote";
+  const promoSubLabel = promo?.sub_label || "Same day visit";
+  const promoColor = promo?.badge_color || "#16A34A";
+
   const handleCategoryPress = (categoryId: string) => {
     router.push(`/carpenter?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3
   const rows: typeof CARPENTER_CATEGORIES[] = [];
-  for (let i = 0; i < CARPENTER_CATEGORIES.length; i += 3) {
-    rows.push(CARPENTER_CATEGORIES.slice(i, i + 3));
+  for (let i = 0; i < dynSubCategories.length; i += 3) {
+    rows.push(dynSubCategories.slice(i, i + 3));
   }
 
   return (
@@ -136,7 +174,7 @@ export default function CarpenterServiceScreen() {
       >
         {/* Hero Media Banner — swipeable images + tap-to-play video */}
         <View style={styles.heroWrapper}>
-          <HeroMediaBanner items={HERO_MEDIA} height={300} />
+          <HeroMediaBanner items={heroMedia} height={300} />
           <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.heroIconBtn}
@@ -161,10 +199,10 @@ export default function CarpenterServiceScreen() {
           {/* Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleLeft}>
-              <Text style={styles.categoryTitle}>Carpenter</Text>
+              <Text style={styles.categoryTitle}>{brandName}</Text>
               <View style={styles.ratingRow}>
                 <Star size={16} color="#000000" fill="#000000" />
-                <Text style={styles.ratingText}>4.77 (2.5 M bookings)</Text>
+                <Text style={styles.ratingText}>{brandRating} ({brandReviewsLabel})</Text>
               </View>
             </View>
             <View style={styles.instantBadge}>
@@ -185,10 +223,10 @@ export default function CarpenterServiceScreen() {
 
           {/* Promo Banner */}
           <View style={styles.promoBanner}>
-            <Tag size={18} color="#16A34A" />
+            <Tag size={18} color={promoColor} />
             <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>Get visitation fee off</Text>
-              <Text style={styles.promoSubtitle}>On orders above ₹499</Text>
+              <Text style={styles.promoTitle}>{promoLabel}</Text>
+              <Text style={styles.promoSubtitle}>{promoSubLabel}</Text>
             </View>
           </View>
 

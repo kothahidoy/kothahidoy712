@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Image,
   ScrollView,
@@ -28,6 +28,7 @@ import {
 
 import { colors, radius } from "@/src/theme";
 import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+import { useCategoryCMS } from "@/src/hooks/useCategoryCMS";
 
 // Hero banner media — swipeable images + tap-to-play video.
 const HERO_MEDIA: HeroMediaItem[] = [
@@ -249,6 +250,22 @@ const FAQS = [
 
 export default function InstaHelpServiceScreen() {
   const router = useRouter();
+
+  // ── Pull CMS-managed content from Supabase ──
+  const cms = useCategoryCMS("insta-help");
+  const heroMedia: HeroMediaItem[] = useMemo(() => {
+    if (cms.banners && cms.banners.length > 0) {
+      return cms.banners.map((b) => ({
+        type: (b.media_type === "video" ? "video" : "image") as "image" | "video",
+        uri: b.media_url,
+        caption: b.title,
+        ...(b.poster_url ? { poster: b.poster_url } : {}),
+      }));
+    }
+    return HERO_MEDIA;
+  }, [cms.banners]);
+  const brandRating = cms.category?.brand_rating ?? 4.72;
+  const brandReviewsLabel = cms.category?.brand_reviews_label || "7.9 M bookings";
   const [selectedTab, setSelectedTab] = useState<"instant" | "later">("later");
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
@@ -301,7 +318,7 @@ export default function InstaHelpServiceScreen() {
       >
         {/* Hero Media Banner — swipeable images + tap-to-play video */}
         <View style={styles.heroWrapper}>
-          <HeroMediaBanner items={HERO_MEDIA} height={260} />
+          <HeroMediaBanner items={heroMedia} height={260} />
           <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.heroIconBtn}
@@ -321,7 +338,7 @@ export default function InstaHelpServiceScreen() {
           <Text style={styles.title}>InstaHelp</Text>
           <View style={styles.ratingRow}>
             <Star size={16} color="#000000" fill="#000000" />
-            <Text style={styles.ratingText}>4.72 (7.9 M bookings)</Text>
+            <Text style={styles.ratingText}>{brandRating} ({brandReviewsLabel})</Text>
           </View>
         </View>
 

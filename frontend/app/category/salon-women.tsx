@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Image,
   ScrollView,
@@ -21,6 +21,7 @@ import {
 
 import { colors, radius } from "@/src/theme";
 import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+import { useCategoryCMS } from "@/src/hooks/useCategoryCMS";
 
 // Hero banner media — swipeable images + tap-to-play video.
 // Easy to swap with admin-managed list later.
@@ -120,8 +121,16 @@ const SALON_CATEGORIES = [
   },
 ];
 
+type SubCatTile = {
+  id: string;
+  name: string;
+  image: string;
+  badge?: string;
+  badgeColor?: string;
+};
+
 // Grid Item Component
-const GridItem = ({ item, onPress }: { item: typeof SALON_CATEGORIES[0]; onPress: () => void }) => (
+const GridItem = ({ item, onPress }: { item: SubCatTile; onPress: () => void }) => (
   <TouchableOpacity style={styles.gridItem} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.gridImageContainer}>
       {item.badge && (
@@ -142,14 +151,50 @@ const GridItem = ({ item, onPress }: { item: typeof SALON_CATEGORIES[0]; onPress
 export default function WomenSalonServiceScreen() {
   const router = useRouter();
 
+  // ── Pull CMS-managed content from Supabase ──
+  const cms = useCategoryCMS("salon-women");
+
+  const heroMedia: HeroMediaItem[] = useMemo(() => {
+    if (cms.banners && cms.banners.length > 0) {
+      return cms.banners.map((b) => ({
+        type: (b.media_type === "video" ? "video" : "image") as "image" | "video",
+        uri: b.media_url,
+        caption: b.title,
+        ...(b.poster_url ? { poster: b.poster_url } : {}),
+      }));
+    }
+    return HERO_MEDIA;
+  }, [cms.banners]);
+
+  const salonCategories = useMemo(() => {
+    if (cms.sub_categories && cms.sub_categories.length > 0) {
+      return cms.sub_categories.map((s) => ({
+        id: s.slug || s.id,
+        name: s.name,
+        image: s.image_url || "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=300&q=80",
+        badge: s.badge || undefined,
+        badgeColor: s.badge_color || colors.primary,
+      }));
+    }
+    return SALON_CATEGORIES;
+  }, [cms.sub_categories]);
+
+  const brandName = cms.category?.brand_name || "Salon Luxe";
+  const brandRating = cms.category?.brand_rating ?? 4.89;
+  const brandReviewsLabel = cms.category?.brand_reviews_label || "2.0 M bookings";
+  const promo = cms.promos?.[0];
+  const promoLabel = promo?.label || "Get 25% off upto 200";
+  const promoSubLabel = promo?.sub_label || "For new salon users";
+  const promoColor = promo?.badge_color || "#16A34A";
+
   const handleCategoryPress = (categoryId: string) => {
     router.push(`/salon-women?scrollTo=${categoryId}`);
   };
 
   // Split categories into rows of 3
-  const rows: typeof SALON_CATEGORIES[] = [];
-  for (let i = 0; i < SALON_CATEGORIES.length; i += 3) {
-    rows.push(SALON_CATEGORIES.slice(i, i + 3));
+  const rows: typeof salonCategories[] = [];
+  for (let i = 0; i < salonCategories.length; i += 3) {
+    rows.push(salonCategories.slice(i, i + 3));
   }
 
   return (
@@ -159,9 +204,9 @@ export default function WomenSalonServiceScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Hero Media Banner — swipeable images + tap-to-play video */}
+        {/* Hero Media Banner — swipeable images + tap-to-play video (from CMS) */}
         <View style={styles.heroWrapper}>
-          <HeroMediaBanner items={HERO_MEDIA} height={300} />
+          <HeroMediaBanner items={heroMedia} height={300} />
           <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.heroIconBtn}
@@ -186,10 +231,10 @@ export default function WomenSalonServiceScreen() {
           {/* Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleLeft}>
-              <Text style={styles.categoryTitle}>Salon Luxe</Text>
+              <Text style={styles.categoryTitle}>{brandName}</Text>
               <View style={styles.ratingRow}>
                 <Star size={16} color="#000000" fill="#000000" />
-                <Text style={styles.ratingText}>4.89 (2.0 M bookings)</Text>
+                <Text style={styles.ratingText}>{brandRating} ({brandReviewsLabel})</Text>
               </View>
             </View>
             <View style={styles.earliestBadge}>
@@ -199,12 +244,12 @@ export default function WomenSalonServiceScreen() {
             </View>
           </View>
 
-          {/* Promo Banner */}
+          {/* Promo Banner (from CMS) */}
           <View style={styles.promoBanner}>
-            <Tag size={18} color="#16A34A" />
+            <Tag size={18} color={promoColor} />
             <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>Get 25% off upto 200</Text>
-              <Text style={styles.promoSubtitle}>For new salon users</Text>
+              <Text style={styles.promoTitle}>{promoLabel}</Text>
+              <Text style={styles.promoSubtitle}>{promoSubLabel}</Text>
             </View>
           </View>
 

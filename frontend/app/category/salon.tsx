@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   Image,
   ScrollView,
@@ -23,6 +23,7 @@ import {
 
 import { colors, radius } from "@/src/theme";
 import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
+import { useCategoryCMS } from "@/src/hooks/useCategoryCMS";
 
 // Hero banner media — mix of video (with play overlay) and images
 const HERO_MEDIA: HeroMediaItem[] = [
@@ -133,13 +134,50 @@ const GridItem = ({ item, onPress }: { item: SalonSubCategory; onPress: () => vo
 export default function SalonCategoryScreen() {
   const router = useRouter();
 
+
+  // ── Pull CMS-managed content from Supabase ──
+  const cms = useCategoryCMS("salon-men");
+
+  const heroMedia: HeroMediaItem[] = useMemo(() => {
+    if (cms.banners && cms.banners.length > 0) {
+      return cms.banners.map((b) => ({
+        type: (b.media_type === "video" ? "video" : "image") as "image" | "video",
+        uri: b.media_url,
+        caption: b.title,
+        ...(b.poster_url ? { poster: b.poster_url } : {}),
+      }));
+    }
+    return HERO_MEDIA;
+  }, [cms.banners]);
+
+  const dynSubCategories = useMemo(() => {
+    if (cms.sub_categories && cms.sub_categories.length > 0) {
+      return cms.sub_categories.map((s) => ({
+        id: s.slug || s.id,
+        name: s.name,
+        image: s.image_url || ((SALON_SUBCATEGORIES)[0] as any)?.image || "",
+        badge: s.badge || undefined,
+        badgeColor: s.badge_color || undefined,
+      }));
+    }
+    return SALON_SUBCATEGORIES;
+  }, [cms.sub_categories]);
+
+  const brandName = cms.category?.brand_name || cms.category?.name || "Men's Salon";
+  const brandRating = cms.category?.brand_rating ?? 4.85;
+  const brandReviewsLabel = cms.category?.brand_reviews_label || "2.0 M bookings";
+  const promo = cms.promos?.[0];
+  const promoLabel = promo?.label || "Flat 20% off";
+  const promoSubLabel = promo?.sub_label || "For new users";
+  const promoColor = promo?.badge_color || "#16A34A";
+
   const handleSubCategoryPress = (subcategoryId: string) => {
     router.push(`/salon?scrollTo=${subcategoryId}`);
   };
 
   // Split into 2 rows of 4 items
-  const row1 = SALON_SUBCATEGORIES.slice(0, 4);
-  const row2 = SALON_SUBCATEGORIES.slice(4, 8);
+  const row1 = dynSubCategories.slice(0, 4);
+  const row2 = dynSubCategories.slice(4, 8);
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -150,7 +188,7 @@ export default function SalonCategoryScreen() {
       >
         {/* Hero Media Banner — swipeable images + tap-to-play video */}
         <View style={styles.heroWrapper}>
-          <HeroMediaBanner items={HERO_MEDIA} height={300} />
+          <HeroMediaBanner items={heroMedia} height={300} />
           {/* Floating header buttons over banner */}
           <View style={styles.heroHeaderOverlay} pointerEvents="box-none">
             <TouchableOpacity
@@ -176,10 +214,10 @@ export default function SalonCategoryScreen() {
           {/* Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleLeft}>
-              <Text style={styles.categoryTitle}>Men's Salon</Text>
+              <Text style={styles.categoryTitle}>{brandName}</Text>
               <View style={styles.ratingRow}>
                 <Star size={14} color="#000000" fill="#000000" />
-                <Text style={styles.ratingText}>4.85 (4.2 M bookings)</Text>
+                <Text style={styles.ratingText}>{brandRating} ({brandReviewsLabel})</Text>
               </View>
             </View>
             <View style={styles.earliestBadge}>
@@ -204,8 +242,8 @@ export default function SalonCategoryScreen() {
           <View style={styles.promoBanner}>
             <Tag size={16} color="#059669" />
             <View style={styles.promoTextContainer}>
-              <Text style={styles.promoTitle}>Flat 20% off</Text>
-              <Text style={styles.promoSubtitle}>On first salon booking</Text>
+              <Text style={styles.promoTitle}>{promoLabel}</Text>
+              <Text style={styles.promoSubtitle}>{promoSubLabel}</Text>
             </View>
           </View>
 
