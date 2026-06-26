@@ -7,7 +7,7 @@ import json
 from datetime import date, timedelta
 
 # Public URL from frontend/.env
-BASE_URL = "https://kothahidoy-public.preview.emergentagent.com"
+BASE_URL = "https://import-hub-89.preview.emergentagent.com"
 
 def print_test(name, passed, details=""):
     status = "✅ PASS" if passed else "❌ FAIL"
