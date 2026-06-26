@@ -166,6 +166,13 @@ export default function AdminDashboard() {
           />
           <MenuItem
             icon={Package}
+            label="Content (UC-style CMS)"
+            sub="Categories · Sub-cats · Banners · Promos · Services"
+            onPress={() => router.push("/admin/cms")}
+            testID="admin-cms-link"
+          />
+          <MenuItem
+            icon={Package}
             label="Services"
             sub="Add, edit, delete services"
             onPress={() => router.push("/admin/settings")}

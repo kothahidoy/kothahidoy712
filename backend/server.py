@@ -79,6 +79,10 @@ app.include_router(booking_router)
 from otp_routes import router as otp_router  # noqa: E402
 app.include_router(otp_router)
 
+# CMS admin routes (Urban Company-style content management)
+from cms_routes import router as cms_router  # noqa: E402
+app.include_router(cms_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

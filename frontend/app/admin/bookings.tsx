@@ -64,6 +64,29 @@ export default function AdminBookings() {
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
+  // Items breakdown modal state
+  const [itemsModalVisible, setItemsModalVisible] = useState(false);
+  const [itemsBookingTitle, setItemsBookingTitle] = useState("");
+  const [items, setItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const openItems = async (b: Booking) => {
+    setItemsBookingTitle(b.serviceTitle || "Booking items");
+    setItemsModalVisible(true);
+    setItems([]);
+    setLoadingItems(true);
+    try {
+      const base = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+      const r = await fetch(`${base}/api/admin/cms/bookings/${b.id}/items`);
+      const data = await r.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (_e) {
+      setItems([]);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
   // Initialize demo data if user is not authenticated (demo mode)
   // This ensures demo providers exist even when Supabase is configured
   // but the user hasn't logged in
@@ -307,6 +330,13 @@ export default function AdminBookings() {
                   </View>
                   <View style={styles.priceRow}>
                     <Text style={styles.price}>₹{item.price}</Text>
+                    <TouchableOpacity
+                      style={[styles.assignBtn, { backgroundColor: "#0F172A" }]}
+                      onPress={() => openItems(item)}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.assignBtnText}>Items</Text>
+                    </TouchableOpacity>
                     {canAssign && (
                       <TouchableOpacity
                         style={styles.assignBtn}
@@ -400,6 +430,63 @@ export default function AdminBookings() {
                     )}
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Items breakdown modal */}
+      <Modal
+        visible={itemsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setItemsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "70%" }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle} numberOfLines={1}>
+                Items · {itemsBookingTitle}
+              </Text>
+              <TouchableOpacity onPress={() => setItemsModalVisible(false)} style={styles.modalClose}>
+                <X size={20} color={colors.textMain} />
+              </TouchableOpacity>
+            </View>
+            {loadingItems ? (
+              <ActivityIndicator style={{ marginVertical: 32 }} color={colors.primary} />
+            ) : items.length === 0 ? (
+              <Text style={{ padding: 24, textAlign: "center", color: colors.textMuted }}>
+                No items linked to this booking yet.
+              </Text>
+            ) : (
+              <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+                {items.map((it: any) => (
+                  <View key={it.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 10, backgroundColor: colors.surface }}>
+                    {it.image ? (
+                      <Image source={{ uri: it.image }} style={{ width: 48, height: 48, borderRadius: 8 }} />
+                    ) : (
+                      <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: "#F3F4F6" }} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textMain }} numberOfLines={1}>
+                        {it.title}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                        ₹{Number(it.price).toFixed(0)} × {it.quantity}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textMain }}>
+                      ₹{Number(it.line_total ?? it.price * it.quantity).toFixed(0)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginTop: 8, flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textMain }}>Subtotal</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textMain }}>
+                    ₹{items.reduce((s, it) => s + Number(it.line_total ?? it.price * it.quantity), 0).toFixed(0)}
+                  </Text>
+                </View>
               </ScrollView>
             )}
           </View>
