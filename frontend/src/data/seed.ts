@@ -15,14 +15,14 @@ export const CATEGORIES: Category[] = [
     imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHw0fHxzcGElMjB0cmVhdG1lbnR8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
   },
   { 
-    id: "salon", 
+    id: "salon-men", 
     name: "Men's Salon", 
     icon: "Scissors", 
     color: "#FFEDD5",
     imageUrl: "https://images.unsplash.com/photo-1647140655214-e4a2d914971f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxiYXJiZXIlMjBoYWlyY3V0fGVufDB8fHx8MTc4MTQ3MTcwM3ww&ixlib=rb-4.1.0&q=85&w=200"
   },
   { 
-    id: "cleaning", 
+    id: "cleaning-pest", 
     name: "Cleaning & Pest Control", 
     icon: "Sparkles", 
     color: "#DCFCE7",
@@ -36,7 +36,7 @@ export const CATEGORIES: Category[] = [
     imageUrl: "https://images.unsplash.com/photo-1717281234297-3def5ae3eee1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHw0fHxwYWludGluZyUyMHdhbGx8ZW58MHx8fHwxNzgxNDcxNzAzfDA&ixlib=rb-4.1.0&q=85&w=200"
   },
   { 
-    id: "ac-repair", 
+    id: "ac-appliance", 
     name: "AC & Appliance Repair", 
     icon: "Wind", 
     color: "#CFFAFE",

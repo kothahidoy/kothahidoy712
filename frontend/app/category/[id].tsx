@@ -27,16 +27,16 @@ export default function CategoryScreen() {
   if (id === "electrician") {
     return <Redirect href="/category/electrician" />;
   }
-  if (id === "salon") {
+  if (id === "salon" || id === "salon-men") {
     return <Redirect href="/category/salon" />;
   }
-  if (id === "cleaning") {
+  if (id === "cleaning" || id === "cleaning-pest" || id === "pest-control") {
     return <Redirect href="/category/cleaning" />;
   }
   if (id === "insta-help") {
     return <Redirect href="/category/insta-help" />;
   }
-  if (id === "ac-repair") {
+  if (id === "ac-repair" || id === "appliance" || id === "ac-appliance") {
     return <Redirect href="/category/ac-appliance" />;
   }
   if (id === "plumber") {
@@ -45,7 +45,10 @@ export default function CategoryScreen() {
   if (id === "carpenter") {
     return <Redirect href="/category/carpenter" />;
   }
-  if (id === "women-salon" || id === "womens-salon") {
+  if (id === "painting") {
+    return <Redirect href="/category/painting" />;
+  }
+  if (id === "women-salon" || id === "womens-salon" || id === "salon-women") {
     return <Redirect href="/category/salon-women" />;
   }
   if (id === "painting" || id === "home-painting") {

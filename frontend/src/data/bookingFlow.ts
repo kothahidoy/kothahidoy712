@@ -134,15 +134,18 @@ export const bookingApi = {
       const params = new URLSearchParams({ limit: String(limit) });
       // Map route slugs (used in cart) to actual DB category_id values (multi-value supported via comma)
       const ROUTE_TO_DB: Record<string, string> = {
-        "ac-appliance":  "appliance,ac-repair",
-        "salon-women":   "salon",
-        "salon":         "salon",
+        "ac-appliance":  "ac-appliance",
+        "salon-women":   "salon-women",
+        "salon":         "salon-men",
+        "salon-men":     "salon-men",
         "plumber":       "plumber",
         "electrician":   "electrician",
-        "cleaning":      "cleaning",
+        "cleaning":      "cleaning-pest",
+        "cleaning-pest": "cleaning-pest",
         "carpenter":     "carpenter",
         "painting":      "painting",
-        "pest-control":  "pest-control",
+        "pest-control":  "cleaning-pest",
+        "insta-help":    "insta-help",
       };
       if (categoryId) {
         params.set("category_id", ROUTE_TO_DB[categoryId] || categoryId);
