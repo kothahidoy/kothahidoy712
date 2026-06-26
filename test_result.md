@@ -1000,3 +1000,127 @@ agent_communication:
       **RECOMMENDATION:**
       All tested booking API endpoints are production-ready. Main agent can summarize and finish.
 
+
+---
+
+## 2026-06-26 — Preview/Backend boot regression (post GitHub re-import)
+
+user_problem_statement: |
+  User reported: "i click previwe option but no previwe availalble fix it".
+  After importing code from public GitHub repo (kothahidoy/kothahidoy712), the
+  Emergent App Preview pane showed the "Deploy Your Application" walkthrough
+  instead of the running Mfixit app.
+
+backend:
+  - task: "Backend boots after restoring missing .env and installing razorpay"
+    implemented: true
+    working: true
+    file: "/app/backend/.env, /app/backend/server.py, /app/backend/payments.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: |
+          ROOT CAUSE: /app/backend/.env was missing because it is correctly
+          gitignored on GitHub, so the GitHub import did not include it. Backend
+          crashed on import-time `os.environ['MONGO_URL']` → KeyError. Secondary
+          issue: `razorpay` python package was missing from the venv (not auto-
+          installed after import) even though it is listed in
+          /app/backend/requirements.txt.
+      - working: true
+        agent: "main"
+        comment: |
+          FIX APPLIED:
+          1. Recreated /app/backend/.env with MONGO_URL=mongodb://localhost:27017,
+             DB_NAME=mfixit_db, CORS_ORIGINS=*
+          2. Recreated /app/frontend/.env with EXPO_PUBLIC_BACKEND_URL +
+             EXPO_PACKAGER_PROXY_URL + EXPO_PACKAGER_HOSTNAME pointing to
+             https://579464f9-9edd-405b-ac24-f62ad1120561.preview.emergentagent.com
+          3. `pip install razorpay==2.0.1`
+          4. `sudo supervisorctl restart backend expo`
+
+          VERIFIED:
+          - GET http://localhost:8001/api/  → 200 {"message":"Hello World"}
+          - GET http://localhost:3000/      → 200
+          - Public preview URL              → 200 (renders Mfixit welcome screen)
+          - Screenshot of /(auth)/welcome shows full UI rendering correctly.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ SMOKE TEST COMPLETE - ALL 5 CHECKS PASS
+          
+          **CHECK 1: Backend Health Endpoint** ✅ PASS
+          - GET https://579464f9-9edd-405b-ac24-f62ad1120561.preview.emergentagent.com/api/
+          - Response: 200 OK with {"message":"Hello World"}
+          
+          **CHECK 2: Backend Process Stability** ✅ PASS
+          - supervisorctl status backend: RUNNING pid 1361, uptime 0:02:01
+          - Process is stable, not crash-looping
+          - No rapid restarts detected
+          
+          **CHECK 3: Router Import Success** ✅ PASS
+          - Backend logs show "Application startup complete" for current process (1363)
+          - All routers imported successfully: payments, admin_routes, cart_routes, seed_routes, booking_routes
+          - NO ImportErrors in current boot cycle
+          - Previous crash-loops visible in logs (KeyError: MONGO_URL, then ModuleNotFoundError: razorpay) occurred BEFORE the fix was applied
+          - Current boot has zero import errors
+          
+          **CHECK 4: CORS Preflight** ✅ PASS
+          - OPTIONS https://579464f9-9edd-405b-ac24-f62ad1120561.preview.emergentagent.com/api/
+          - Response: 204 No Content (correct for preflight)
+          - Headers: access-control-allow-origin: *
+          - Methods: GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH
+          
+          **CHECK 5: MongoDB Connectivity** ✅ PASS
+          - GET https://579464f9-9edd-405b-ac24-f62ad1120561.preview.emergentagent.com/api/status
+          - Response: 200 OK with [] (empty array)
+          - Endpoint successfully queries MongoDB (db.status_checks.find())
+          - No database connection errors
+          
+          **VERDICT:**
+          The "preview not loading" regression is FIXED at the backend layer. Backend boots cleanly after .env restoration and razorpay installation. All core functionality verified working.
+
+frontend:
+  - task: "Expo preview renders Mfixit welcome on the public preview URL"
+    implemented: true
+    working: true
+    file: "/app/frontend/.env, /app/frontend/app/_layout.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Confirmed via screenshot: hero, headline, Continue with Google/Phone/Email,
+          Provider Login all visible. No console errors blocking render.
+
+metadata:
+  created_by: "main_agent"
+  version: "2.0"
+  test_sequence: 8
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Backend boots after restoring missing .env and installing razorpay"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      The preview was failing because both backend/.env and frontend/.env were
+      missing after the GitHub import (they are gitignored), plus the razorpay
+      python module was not installed. I have restored both .env files,
+      installed razorpay, and restarted supervisor. Backend `/api/` returns 200
+      and the public preview URL renders the Mfixit welcome screen.
+
+      PLEASE TEST: smoke-test the FastAPI backend health to confirm it boots
+      cleanly and at least the root /api/ endpoint responds 200. Also verify
+      that the existing booking / admin / cart / seed routers can be imported
+      without errors (i.e. no further missing modules). No new business logic
+      has been added — this is purely a config-restoration fix.
