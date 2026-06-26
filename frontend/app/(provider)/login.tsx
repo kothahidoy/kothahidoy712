@@ -201,33 +201,13 @@ export default function ProviderLogin() {
             </Text>
           </View>
 
-          {isDemoMode() && (
-            <View style={[styles.infoBox, { backgroundColor: colors.primaryLight }]}>
-              <Text style={[styles.infoText, { color: colors.primary }]}>
-                🔧 <Text style={{ fontWeight: "700" }}>Demo Mode</Text>{"\n"}
-                Use phone <Text style={{ fontWeight: "700" }}>9876543210</Text> (Rahul Sharma - Electrician){"\n"}
-                OTP code: <Text style={{ fontWeight: "700" }}>123456</Text>
-              </Text>
-            </View>
-          )}
-
           <PrimaryButton
             label={loading ? "Sending code..." : "Send Verification Code"}
             onPress={handleSendOTP}
-            disabled={loading || !phone.trim() || (!recaptchaReady && isFirebaseConfigured)}
+            disabled={loading || !phone.trim()}
             loading={loading}
             testID="provider-login-btn"
           />
-
-          {isDemoMode() && (
-            <TouchableOpacity
-              style={styles.resetBtn}
-              onPress={handleResetDemoData}
-              disabled={loading}
-            >
-              <Text style={styles.resetBtnText}>Reset Demo Data</Text>
-            </TouchableOpacity>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
