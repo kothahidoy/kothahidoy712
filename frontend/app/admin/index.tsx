@@ -174,8 +174,8 @@ export default function AdminDashboard() {
           <MenuItem
             icon={Package}
             label="Services"
-            sub="Add, edit, delete services"
-            onPress={() => router.push("/admin/settings")}
+            sub="Edit each service page · tiers · reviews · FAQs"
+            onPress={() => router.push("/admin/services-list" as any)}
             testID="admin-services-link"
           />
           <MenuItem

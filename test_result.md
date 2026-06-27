@@ -2671,3 +2671,112 @@ agent_communication:
       
       NEXT: Phase 3 — Admin Service Editor screen so user can edit every section
       from admin panel.
+
+#====================================================================================================
+# Phase 3 — Admin Service Editor (NEW SCREENS)
+#====================================================================================================
+
+frontend:
+  - task: "Admin Services List + per-service Editor screens"
+    implemented: true
+    working: "NA"
+    file: |
+      /app/frontend/app/admin/services-list.tsx (NEW — grouped list w/ search)
+      /app/frontend/app/admin/service-editor/[id].tsx (NEW — full editor)
+      /app/frontend/app/admin/index.tsx (Services MenuItem now routes to services-list)
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          PHASE 3 COMPLETE.
+          
+          NEW SCREEN: /admin/services-list
+          - Fetches GET /api/admin/services
+          - Groups by category_id with section headers
+          - Search box filters by title/id/category
+          - Each row: thumbnail, title, price, review_count, edit/chevron icons
+          - Tapping a row navigates to /admin/service-editor/[id]
+          
+          NEW SCREEN: /admin/service-editor/[id]
+          - Fetches GET /api/admin/services/{id}/detail
+          - Section: Basic Info
+            * Title, subtitle, short_description, description
+            * starting_price, duration_mins, rating, review_count
+            * image URL, warranty, is_active toggle
+          - Section: Service Tiers (variants)
+            * Lists each variant with edit/delete
+            * "Add Tier" button opens modal (POST)
+            * Edit opens modal (PUT). Auto-generated tiers convert to real ones on save.
+            * Delete confirms then DELETE
+            * Custom name supported (user requested 1b — any name)
+          - Section: Safety Tips
+            * Inline list editor: text + color hex + icon name per row
+            * Add/remove rows
+          - Section: Our Process
+            * Inline list with step number auto-numbered
+            * Title + description per step
+            * ADD STEP button — no 4-step limit (user requested)
+            * Re-numbers after delete
+          - Section: What's Included / Excluded / Brands / Cover Promise
+            * Simple string array editor (one input per item)
+            * Add/remove buttons
+          - Section: FAQ
+            * Question + answer per row, add/remove
+          - Section: Reviews
+            * Shows all (admin view — including unpublished)
+            * Star rating, HIDDEN badge for unpublished
+            * Add/Edit modal: name, avatar URL, 5-star tap-to-set rating,
+              text, is_published toggle
+            * Backend auto-handles only-5★ for public listing
+          - Single "Save" button persists all core+JSONB fields in one PUT
+          - Variants and Reviews are CRUD'd individually via separate endpoints
+          
+          NAVIGATION:
+          - /admin (dashboard) → Services menu item now goes to /admin/services-list
+          - /admin/services-list → tap row → /admin/service-editor/[id]
+          
+          BACKEND ENDPOINTS USED (all confirmed working in Phase 1 testing):
+          - GET    /api/admin/services
+          - GET    /api/admin/services/{id}/detail
+          - PUT    /api/admin/services/{id}/detail
+          - GET    /api/admin/services/{id}/variants
+          - POST   /api/admin/services/{id}/variants
+          - PUT    /api/admin/services/{id}/variants/{vid}
+          - DELETE /api/admin/services/{id}/variants/{vid}
+          - GET    /api/admin/services/{id}/reviews
+          - POST   /api/admin/services/{id}/reviews
+          - PUT    /api/admin/services/{id}/reviews/{rid}
+          - DELETE /api/admin/services/{id}/reviews/{rid}
+          
+          MANUAL SCREENSHOT VERIFIED:
+          - /admin/services-list shows all 57 services grouped by category
+          - /admin/service-editor/svc-elec-3 loads with all populated fields
+            (title, subtitle, price, rating, image URL, warranty, safety tips with
+            color codes and icon names visible and editable)
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Phase 3 complete. Full admin editor delivered.
+      
+      User now has a 3-screen flow:
+        Admin Dashboard → Services → tap service → full editor
+      
+      All sections the user originally circled in the screenshot are now editable:
+      - Title, subtitle (badge)
+      - Tiers — add/edit/delete with custom names (Standard/Premium/Pro/anything)
+      - Safety tips (color-coded rows)
+      - Our process — unlimited steps (no 4-step limit anymore)
+      - What's included / excluded
+      - Brands
+      - Cover promise features
+      - FAQ
+      - Reviews (multiple, admin can add real customer reviews, only 5★ shown to public)
+      
+      Customer review submission endpoint is also live:
+        POST /api/services/{id}/reviews  (rating 5 auto-published, <5 auto-moderated)
+      
+      Ready for end-to-end user testing.
