@@ -1,309 +1,489 @@
 #!/usr/bin/env python3
 """
-Backend test for POST /api/booking/profile/phone column name fix.
-
-This test verifies:
-1. The Supabase public.users table uses `full_name` (not `name`)
-2. The FastAPI endpoint correctly uses `full_name` in the PATCH body
-3. Auth validation works correctly (401 for missing/invalid tokens)
-4. Regression checks for other endpoints
+Backend Test Suite for Admin CMS Services & Sub-categories
+Tests the bug fix verification for Services and Sub-cats tabs showing all items
 """
+import requests
+import json
+from typing import Dict, List, Optional
 
-import os
-import sys
-import httpx
-import asyncio
-from typing import Optional
+# Backend URL from frontend/.env
+BASE_URL = "https://e4c35254-e028-4511-bfb7-afe989ad3bd9.preview.emergentagent.com"
+API_BASE = f"{BASE_URL}/api/admin/cms"
 
-# Configuration
-BACKEND_URL = "https://code-import-hub-8.preview.emergentagent.com"
-SUPABASE_URL = "https://xuxetkeqxuwgphqrdzvy.supabase.co"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eGV0a2VxeHV3Z3BocXJkenZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDA1OTc1MiwiZXhwIjoyMDk1NjM1NzUyfQ.6oagP6W7bj7x-j6TxCouTa2Tmhw6U3R5oDwFcO8IJJw"
+# Test results tracking
+test_results = {
+    "passed": 0,
+    "failed": 0,
+    "tests": []
+}
 
-# Test user ID from Supabase users table
-TEST_USER_ID = "96c44535-a044-414b-8681-7be2725c01cd"
-
-# Colors for output
-GREEN = "\033[92m"
-RED = "\033[91m"
-YELLOW = "\033[93m"
-BLUE = "\033[94m"
-RESET = "\033[0m"
-
-
-def log_test(test_name: str):
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}TEST: {test_name}{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}")
-
-
-def log_pass(message: str):
-    print(f"{GREEN}✅ PASS: {message}{RESET}")
-
-
-def log_fail(message: str):
-    print(f"{RED}❌ FAIL: {message}{RESET}")
-
-
-def log_info(message: str):
-    print(f"{YELLOW}ℹ️  INFO: {message}{RESET}")
-
-
-def supabase_headers():
-    return {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "Content-Type": "application/json",
-    }
-
-
-async def test_1_prove_column_name():
-    """
-    TEST 1: PROVE THE COLUMN NAME IS `full_name` (not `name`)
-    
-    Step 1a: GET user by auth_user_id
-    Step 1b: PATCH with full_name (should succeed)
-    Step 1c: PATCH with name (should fail with 400)
-    Step 1d: RESTORE original values
-    """
-    log_test("TEST 1: Prove Supabase public.users uses 'full_name' column")
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Step 1a: GET user to capture original values
-        log_info("Step 1a: GET user by id to capture original values")
-        r = await client.get(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{TEST_USER_ID}&select=id,phone,full_name",
-            headers=supabase_headers(),
-        )
-        
-        if r.status_code != 200:
-            log_fail(f"Step 1a: GET user failed with {r.status_code}: {r.text}")
-            return False
-        
-        users = r.json()
-        if not users or len(users) == 0:
-            log_fail(f"Step 1a: No user found with id={TEST_USER_ID}")
-            return False
-        
-        user = users[0]
-        user_row_id = user.get("id")
-        original_phone = user.get("phone")
-        original_full_name = user.get("full_name")
-        
-        log_pass(f"Step 1a: Found user with id={user_row_id}")
-        log_info(f"  Original phone: {original_phone}")
-        log_info(f"  Original full_name: {original_full_name}")
-        
-        # Step 1b: PATCH with full_name (should succeed)
-        log_info("Step 1b: PATCH with full_name='QA Smoke', phone='+919876500000'")
-        r = await client.patch(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_row_id}",
-            headers=supabase_headers(),
-            json={"full_name": "QA Smoke", "phone": "+919876500000"},
-        )
-        
-        if r.status_code not in (200, 204):
-            log_fail(f"Step 1b: PATCH with full_name failed with {r.status_code}: {r.text}")
-            return False
-        
-        log_pass(f"Step 1b: PATCH with full_name succeeded ({r.status_code})")
-        if r.status_code == 200 and r.text:
-            log_info(f"  Response: {r.text[:200]}")
-        
-        # Step 1c: PATCH with name (should fail with 400)
-        log_info("Step 1c: PATCH with name='QA Smoke' (should fail)")
-        r = await client.patch(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_row_id}",
-            headers=supabase_headers(),
-            json={"name": "QA Smoke"},
-        )
-        
-        if r.status_code == 400:
-            log_pass(f"Step 1c: PATCH with 'name' correctly failed with 400")
-            log_info(f"  PostgREST error: {r.text}")
-        else:
-            log_fail(f"Step 1c: Expected 400 but got {r.status_code}: {r.text}")
-            # Still continue to restore
-        
-        # Step 1d: RESTORE original values
-        log_info("Step 1d: RESTORE original full_name and phone")
-        restore_body = {}
-        if original_full_name is not None:
-            restore_body["full_name"] = original_full_name
-        if original_phone is not None:
-            restore_body["phone"] = original_phone
-        
-        r = await client.patch(
-            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_row_id}",
-            headers=supabase_headers(),
-            json=restore_body,
-        )
-        
-        if r.status_code not in (200, 204):
-            log_fail(f"Step 1d: RESTORE failed with {r.status_code}: {r.text}")
-            log_fail("⚠️  CRITICAL: User data may be corrupted!")
-            return False
-        
-        log_pass(f"Step 1d: RESTORE succeeded - user data restored to original values")
-        
-        return True
-
-
-async def test_2_endpoint_behavior():
-    """
-    TEST 2: ENDPOINT BEHAVIOUR via the FastAPI route
-    
-    2a. POST without Authorization header
-    2b. POST with invalid Authorization token
-    2c. POST with invalid phone and no auth
-    """
-    log_test("TEST 2: Endpoint Behavior - POST /api/booking/profile/phone")
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Test 2a: No Authorization header
-        log_info("Test 2a: POST without Authorization header")
-        r = await client.post(
-            f"{BACKEND_URL}/api/booking/profile/phone",
-            json={"phone": "+919876543210", "name": "Test"},
-        )
-        
-        if r.status_code == 401:
-            response_data = r.json()
-            if response_data.get("detail") == "Please sign in":
-                log_pass(f"Test 2a: Correctly returned 401 with 'Please sign in'")
-            else:
-                log_pass(f"Test 2a: Returned 401 (detail: {response_data.get('detail')})")
-        else:
-            log_fail(f"Test 2a: Expected 401 but got {r.status_code}: {r.text}")
-        
-        # Test 2b: Invalid Authorization token
-        log_info("Test 2b: POST with invalid Authorization token")
-        r = await client.post(
-            f"{BACKEND_URL}/api/booking/profile/phone",
-            headers={"Authorization": "Bearer notarealtoken"},
-            json={"phone": "+919876543210"},
-        )
-        
-        if r.status_code == 401:
-            log_pass(f"Test 2b: Correctly returned 401 for invalid token")
-        else:
-            log_fail(f"Test 2b: Expected 401 but got {r.status_code}: {r.text}")
-        
-        # Test 2c: Invalid phone with no auth
-        log_info("Test 2c: POST with invalid phone (no auth)")
-        r = await client.post(
-            f"{BACKEND_URL}/api/booking/profile/phone",
-            json={"phone": "12"},
-        )
-        
-        if r.status_code == 401:
-            log_pass(f"Test 2c: Auth checked before validation (401)")
-        elif r.status_code == 400:
-            response_data = r.json()
-            if "valid phone" in response_data.get("detail", "").lower():
-                log_pass(f"Test 2c: Validation error (400) - {response_data.get('detail')}")
-            else:
-                log_pass(f"Test 2c: Returned 400 - {response_data.get('detail')}")
-        else:
-            log_fail(f"Test 2c: Expected 401 or 400 but got {r.status_code}: {r.text}")
-        
-        return True
-
-
-async def test_3_regression_checks():
-    """
-    TEST 3: REGRESSION CHECK - confirm nothing else broke
-    """
-    log_test("TEST 3: Regression Checks")
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Check 1: Root endpoint
-        log_info("Check 1: GET /api/")
-        r = await client.get(f"{BACKEND_URL}/api/")
-        
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("message") == "Hello World":
-                log_pass("Check 1: GET /api/ returned 200 with correct message")
-            else:
-                log_pass(f"Check 1: GET /api/ returned 200 (message: {data.get('message')})")
-        else:
-            log_fail(f"Check 1: GET /api/ failed with {r.status_code}: {r.text}")
-        
-        # Check 2: OTP health endpoint
-        log_info("Check 2: GET /api/auth/otp/health")
-        r = await client.get(f"{BACKEND_URL}/api/auth/otp/health")
-        
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("configured") == True:
-                log_pass("Check 2: GET /api/auth/otp/health returned 200 with configured=true")
-            else:
-                log_pass(f"Check 2: GET /api/auth/otp/health returned 200 (configured: {data.get('configured')})")
-        else:
-            log_fail(f"Check 2: GET /api/auth/otp/health failed with {r.status_code}: {r.text}")
-        
-        return True
-
-
-async def main():
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}BACKEND TEST: POST /api/booking/profile/phone Column Name Fix{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}")
-    print(f"\nBackend URL: {BACKEND_URL}")
-    print(f"Supabase URL: {SUPABASE_URL}")
-    print(f"Test User ID: {TEST_USER_ID}")
-    
-    results = []
-    
-    # Run all tests
-    try:
-        result_1 = await test_1_prove_column_name()
-        results.append(("TEST 1: Prove column name", result_1))
-    except Exception as e:
-        log_fail(f"TEST 1 crashed: {e}")
-        results.append(("TEST 1: Prove column name", False))
-    
-    try:
-        result_2 = await test_2_endpoint_behavior()
-        results.append(("TEST 2: Endpoint behavior", result_2))
-    except Exception as e:
-        log_fail(f"TEST 2 crashed: {e}")
-        results.append(("TEST 2: Endpoint behavior", False))
-    
-    try:
-        result_3 = await test_3_regression_checks()
-        results.append(("TEST 3: Regression checks", result_3))
-    except Exception as e:
-        log_fail(f"TEST 3 crashed: {e}")
-        results.append(("TEST 3: Regression checks", False))
-    
-    # Summary
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}TEST SUMMARY{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}")
-    
-    passed = sum(1 for _, result in results if result)
-    total = len(results)
-    
-    for test_name, result in results:
-        status = f"{GREEN}✅ PASS{RESET}" if result else f"{RED}❌ FAIL{RESET}"
-        print(f"{status} - {test_name}")
-    
-    print(f"\n{BLUE}Total: {passed}/{total} tests passed{RESET}")
-    
-    if passed == total:
-        print(f"\n{GREEN}{'='*80}{RESET}")
-        print(f"{GREEN}ALL TESTS PASSED - BUG FIX VERIFIED{RESET}")
-        print(f"{GREEN}{'='*80}{RESET}")
-        return 0
+def log_test(name: str, passed: bool, details: str = ""):
+    """Log test result"""
+    status = "✅ PASS" if passed else "❌ FAIL"
+    test_results["tests"].append({
+        "name": name,
+        "passed": passed,
+        "details": details
+    })
+    if passed:
+        test_results["passed"] += 1
     else:
-        print(f"\n{RED}{'='*80}{RESET}")
-        print(f"{RED}SOME TESTS FAILED - REVIEW REQUIRED{RESET}")
-        print(f"{RED}{'='*80}{RESET}")
-        return 1
+        test_results["failed"] += 1
+    print(f"{status}: {name}")
+    if details:
+        print(f"  Details: {details}")
 
+def test_get_services_all_salon_women():
+    """Test 1: GET /api/admin/cms/services?category_id=salon-women should return 7 services"""
+    print("\n" + "="*80)
+    print("TEST 1: Get all services for salon-women category")
+    print("="*80)
+    
+    try:
+        response = requests.get(f"{API_BASE}/services?category_id=salon-women", timeout=15)
+        
+        if response.status_code != 200:
+            log_test("GET services salon-women", False, f"Status {response.status_code}: {response.text[:200]}")
+            return None
+        
+        services = response.json()
+        
+        # Check if we got 7 services
+        if len(services) != 7:
+            log_test("GET services salon-women count", False, f"Expected 7 services, got {len(services)}")
+        else:
+            log_test("GET services salon-women count", True, f"Got 7 services as expected")
+        
+        # Check if all services have sub_category_id populated
+        services_without_subcat = [s for s in services if not s.get("sub_category_id")]
+        if services_without_subcat:
+            log_test("Services have sub_category_id", False, f"{len(services_without_subcat)} services missing sub_category_id")
+        else:
+            log_test("Services have sub_category_id", True, "All services have sub_category_id populated")
+        
+        # Print service details
+        print("\nServices found:")
+        for svc in services:
+            print(f"  - {svc.get('title')} (₹{svc.get('starting_price')}) - sub_cat: {svc.get('sub_category_id')}")
+        
+        return services
+        
+    except Exception as e:
+        log_test("GET services salon-women", False, f"Exception: {str(e)}")
+        return None
+
+def test_get_sub_categories_salon_women():
+    """Test 2: GET /api/admin/cms/sub-categories?category_id=salon-women should return 6 sub-categories"""
+    print("\n" + "="*80)
+    print("TEST 2: Get all sub-categories for salon-women category")
+    print("="*80)
+    
+    try:
+        response = requests.get(f"{API_BASE}/sub-categories?category_id=salon-women", timeout=15)
+        
+        if response.status_code != 200:
+            log_test("GET sub-categories salon-women", False, f"Status {response.status_code}: {response.text[:200]}")
+            return None
+        
+        sub_cats = response.json()
+        
+        # Check if we got 6 sub-categories
+        if len(sub_cats) != 6:
+            log_test("GET sub-categories salon-women count", False, f"Expected 6 sub-categories, got {len(sub_cats)}")
+        else:
+            log_test("GET sub-categories salon-women count", True, f"Got 6 sub-categories as expected")
+        
+        # Print sub-category details
+        print("\nSub-categories found:")
+        for sc in sub_cats:
+            print(f"  - {sc.get('name')} (id: {sc.get('id')})")
+        
+        return sub_cats
+        
+    except Exception as e:
+        log_test("GET sub-categories salon-women", False, f"Exception: {str(e)}")
+        return None
+
+def test_get_services_filtered_by_subcat(sub_category_id: str):
+    """Test 3: GET /api/admin/cms/services?category_id=salon-women&sub_category_id=<id>"""
+    print("\n" + "="*80)
+    print(f"TEST 3: Get services filtered by sub-category {sub_category_id}")
+    print("="*80)
+    
+    try:
+        response = requests.get(
+            f"{API_BASE}/services?category_id=salon-women&sub_category_id={sub_category_id}",
+            timeout=15
+        )
+        
+        if response.status_code != 200:
+            log_test(f"GET services filtered by sub-cat {sub_category_id}", False, 
+                    f"Status {response.status_code}: {response.text[:200]}")
+            return None
+        
+        services = response.json()
+        
+        # Check that all returned services have the correct sub_category_id
+        wrong_subcat = [s for s in services if s.get("sub_category_id") != sub_category_id]
+        if wrong_subcat:
+            log_test(f"Services filtered by sub-cat {sub_category_id}", False, 
+                    f"{len(wrong_subcat)} services have wrong sub_category_id")
+        else:
+            log_test(f"Services filtered by sub-cat {sub_category_id}", True, 
+                    f"All {len(services)} services have correct sub_category_id")
+        
+        print(f"\nServices in sub-category {sub_category_id}:")
+        for svc in services:
+            print(f"  - {svc.get('title')} (₹{svc.get('starting_price')})")
+        
+        return services
+        
+    except Exception as e:
+        log_test(f"GET services filtered by sub-cat {sub_category_id}", False, f"Exception: {str(e)}")
+        return None
+
+def test_patch_service(service_id: str, original_title: str):
+    """Test 4: PATCH /api/admin/cms/services/<id> - Update and revert"""
+    print("\n" + "="*80)
+    print(f"TEST 4: PATCH service {service_id}")
+    print("="*80)
+    
+    try:
+        # Update the service title
+        new_title = f"{original_title} Updated"
+        response = requests.patch(
+            f"{API_BASE}/services/{service_id}",
+            json={"title": new_title},
+            timeout=15
+        )
+        
+        if response.status_code not in (200, 204):
+            log_test(f"PATCH service {service_id} (update)", False, 
+                    f"Status {response.status_code}: {response.text[:200]}")
+            return False
+        
+        log_test(f"PATCH service {service_id} (update)", True, f"Updated title to '{new_title}'")
+        
+        # Verify the update
+        verify_response = requests.get(f"{API_BASE}/services?category_id=salon-women", timeout=15)
+        if verify_response.status_code == 200:
+            services = verify_response.json()
+            updated_service = next((s for s in services if s.get("id") == service_id), None)
+            if updated_service and updated_service.get("title") == new_title:
+                log_test(f"PATCH service {service_id} (verify update)", True, "Title updated correctly")
+            else:
+                log_test(f"PATCH service {service_id} (verify update)", False, "Title not updated in database")
+        
+        # Revert the change
+        revert_response = requests.patch(
+            f"{API_BASE}/services/{service_id}",
+            json={"title": original_title},
+            timeout=15
+        )
+        
+        if revert_response.status_code not in (200, 204):
+            log_test(f"PATCH service {service_id} (revert)", False, 
+                    f"Status {revert_response.status_code}: {revert_response.text[:200]}")
+            return False
+        
+        log_test(f"PATCH service {service_id} (revert)", True, f"Reverted title to '{original_title}'")
+        return True
+        
+    except Exception as e:
+        log_test(f"PATCH service {service_id}", False, f"Exception: {str(e)}")
+        return False
+
+def test_create_and_delete_service(sub_category_id: str = None):
+    """Test 5: POST and DELETE /api/admin/cms/services/<id>"""
+    print("\n" + "="*80)
+    print("TEST 5: POST (create) and DELETE service")
+    print("="*80)
+    
+    temp_service_id = None
+    
+    try:
+        # Create a temporary service
+        temp_service = {
+            "category_id": "salon-women",
+            "sub_category_id": sub_category_id or "ffd723b0-72cb-43b5-b55b-86d08f279415",  # Waxing UUID
+            "title": "TEST SERVICE - DELETE ME",
+            "description": "Temporary test service",
+            "starting_price": 99,
+            "duration_mins": 15,
+            "is_active": False  # Make it inactive so it doesn't show in frontend
+        }
+        
+        create_response = requests.post(
+            f"{API_BASE}/services",
+            json=temp_service,
+            timeout=15
+        )
+        
+        if create_response.status_code not in (200, 201):
+            log_test("POST service (create temp)", False, 
+                    f"Status {create_response.status_code}: {create_response.text[:200]}")
+            return False
+        
+        created_service = create_response.json()
+        temp_service_id = created_service.get("id")
+        
+        log_test("POST service (create temp)", True, f"Created service with id: {temp_service_id}")
+        
+        # Delete the temporary service
+        delete_response = requests.delete(
+            f"{API_BASE}/services/{temp_service_id}",
+            timeout=15
+        )
+        
+        if delete_response.status_code not in (200, 204):
+            log_test("DELETE service", False, 
+                    f"Status {delete_response.status_code}: {delete_response.text[:200]}")
+            return False
+        
+        log_test("DELETE service", True, f"Deleted service {temp_service_id}")
+        
+        # Verify deletion
+        verify_response = requests.get(f"{API_BASE}/services?category_id=salon-women", timeout=15)
+        if verify_response.status_code == 200:
+            services = verify_response.json()
+            deleted_service = next((s for s in services if s.get("id") == temp_service_id), None)
+            if deleted_service:
+                log_test("DELETE service (verify)", False, "Service still exists after deletion")
+            else:
+                log_test("DELETE service (verify)", True, "Service successfully deleted")
+        
+        return True
+        
+    except Exception as e:
+        log_test("POST/DELETE service", False, f"Exception: {str(e)}")
+        # Try to clean up if we created a service
+        if temp_service_id:
+            try:
+                requests.delete(f"{API_BASE}/services/{temp_service_id}", timeout=15)
+            except:
+                pass
+        return False
+
+def test_patch_sub_category(sub_cat_id: str, original_name: str, category_id: str = "salon-women"):
+    """Test 6: PATCH /api/admin/cms/sub-categories/<id> - Update and revert"""
+    print("\n" + "="*80)
+    print(f"TEST 6: PATCH sub-category {sub_cat_id}")
+    print("="*80)
+    
+    try:
+        # Update the sub-category name
+        new_name = f"{original_name} Updated"
+        response = requests.patch(
+            f"{API_BASE}/sub-categories/{sub_cat_id}",
+            json={"name": new_name, "category_id": category_id},
+            timeout=15
+        )
+        
+        if response.status_code not in (200, 204):
+            log_test(f"PATCH sub-category {sub_cat_id} (update)", False, 
+                    f"Status {response.status_code}: {response.text[:200]}")
+            return False
+        
+        log_test(f"PATCH sub-category {sub_cat_id} (update)", True, f"Updated name to '{new_name}'")
+        
+        # Revert the change
+        revert_response = requests.patch(
+            f"{API_BASE}/sub-categories/{sub_cat_id}",
+            json={"name": original_name, "category_id": category_id},
+            timeout=15
+        )
+        
+        if revert_response.status_code not in (200, 204):
+            log_test(f"PATCH sub-category {sub_cat_id} (revert)", False, 
+                    f"Status {revert_response.status_code}: {revert_response.text[:200]}")
+            return False
+        
+        log_test(f"PATCH sub-category {sub_cat_id} (revert)", True, f"Reverted name to '{original_name}'")
+        return True
+        
+    except Exception as e:
+        log_test(f"PATCH sub-category {sub_cat_id}", False, f"Exception: {str(e)}")
+        return False
+
+def test_create_and_delete_sub_category():
+    """Test 7: POST and DELETE /api/admin/cms/sub-categories/<id>"""
+    print("\n" + "="*80)
+    print("TEST 7: POST (create) and DELETE sub-category")
+    print("="*80)
+    
+    temp_subcat_id = None
+    
+    try:
+        # Create a temporary sub-category
+        temp_subcat = {
+            "category_id": "salon-women",
+            "name": "TEST SUBCAT - DELETE ME",
+            "slug": "test-subcat-delete-me",
+            "is_active": False  # Make it inactive so it doesn't show in frontend
+        }
+        
+        create_response = requests.post(
+            f"{API_BASE}/sub-categories",
+            json=temp_subcat,
+            timeout=15
+        )
+        
+        if create_response.status_code not in (200, 201):
+            log_test("POST sub-category (create temp)", False, 
+                    f"Status {create_response.status_code}: {create_response.text[:200]}")
+            return False
+        
+        created_subcat = create_response.json()
+        temp_subcat_id = created_subcat.get("id")
+        
+        log_test("POST sub-category (create temp)", True, f"Created sub-category with id: {temp_subcat_id}")
+        
+        # Delete the temporary sub-category
+        delete_response = requests.delete(
+            f"{API_BASE}/sub-categories/{temp_subcat_id}",
+            timeout=15
+        )
+        
+        if delete_response.status_code not in (200, 204):
+            log_test("DELETE sub-category", False, 
+                    f"Status {delete_response.status_code}: {delete_response.text[:200]}")
+            return False
+        
+        log_test("DELETE sub-category", True, f"Deleted sub-category {temp_subcat_id}")
+        
+        # Verify deletion
+        verify_response = requests.get(f"{API_BASE}/sub-categories?category_id=salon-women", timeout=15)
+        if verify_response.status_code == 200:
+            subcats = verify_response.json()
+            deleted_subcat = next((s for s in subcats if s.get("id") == temp_subcat_id), None)
+            if deleted_subcat:
+                log_test("DELETE sub-category (verify)", False, "Sub-category still exists after deletion")
+            else:
+                log_test("DELETE sub-category (verify)", True, "Sub-category successfully deleted")
+        
+        return True
+        
+    except Exception as e:
+        log_test("POST/DELETE sub-category", False, f"Exception: {str(e)}")
+        # Try to clean up if we created a sub-category
+        if temp_subcat_id:
+            try:
+                requests.delete(f"{API_BASE}/sub-categories/{temp_subcat_id}", timeout=15)
+            except:
+                pass
+        return False
+
+def test_all_categories():
+    """Test 8: Verify all 9 categories return data without 500 errors"""
+    print("\n" + "="*80)
+    print("TEST 8: Test all 9 categories for 500 errors")
+    print("="*80)
+    
+    categories = [
+        "ac-appliance",
+        "carpenter",
+        "cleaning-pest",
+        "electrician",
+        "painting",
+        "plumber",
+        "salon-men",
+        "salon-women",
+        "insta-help"
+    ]
+    
+    for cat_id in categories:
+        try:
+            # Test sub-categories endpoint
+            subcat_response = requests.get(f"{API_BASE}/sub-categories?category_id={cat_id}", timeout=15)
+            
+            if subcat_response.status_code == 500:
+                log_test(f"GET sub-categories {cat_id}", False, "500 Internal Server Error")
+            elif subcat_response.status_code == 200:
+                subcats = subcat_response.json()
+                log_test(f"GET sub-categories {cat_id}", True, f"Returned {len(subcats)} sub-categories")
+            else:
+                log_test(f"GET sub-categories {cat_id}", False, f"Status {subcat_response.status_code}")
+            
+            # Test services endpoint
+            services_response = requests.get(f"{API_BASE}/services?category_id={cat_id}", timeout=15)
+            
+            if services_response.status_code == 500:
+                log_test(f"GET services {cat_id}", False, "500 Internal Server Error")
+            elif services_response.status_code == 200:
+                services = services_response.json()
+                log_test(f"GET services {cat_id}", True, f"Returned {len(services)} services")
+            else:
+                log_test(f"GET services {cat_id}", False, f"Status {services_response.status_code}")
+                
+        except Exception as e:
+            log_test(f"GET endpoints {cat_id}", False, f"Exception: {str(e)}")
+
+def print_summary():
+    """Print test summary"""
+    print("\n" + "="*80)
+    print("TEST SUMMARY")
+    print("="*80)
+    print(f"Total Tests: {test_results['passed'] + test_results['failed']}")
+    print(f"✅ Passed: {test_results['passed']}")
+    print(f"❌ Failed: {test_results['failed']}")
+    print(f"Success Rate: {test_results['passed'] / (test_results['passed'] + test_results['failed']) * 100:.1f}%")
+    
+    if test_results['failed'] > 0:
+        print("\n" + "="*80)
+        print("FAILED TESTS:")
+        print("="*80)
+        for test in test_results['tests']:
+            if not test['passed']:
+                print(f"❌ {test['name']}")
+                if test['details']:
+                    print(f"   {test['details']}")
+
+def main():
+    """Run all tests"""
+    print("="*80)
+    print("ADMIN CMS SERVICES & SUB-CATEGORIES BACKEND TEST SUITE")
+    print("="*80)
+    print(f"Backend URL: {BASE_URL}")
+    print(f"API Base: {API_BASE}")
+    
+    # Test 1: Get all services for salon-women
+    services = test_get_services_all_salon_women()
+    
+    # Test 2: Get all sub-categories for salon-women
+    sub_cats = test_get_sub_categories_salon_women()
+    
+    # Test 3: Get services filtered by sub-category (use first sub-cat if available)
+    if sub_cats and len(sub_cats) > 0:
+        test_get_services_filtered_by_subcat(sub_cats[0].get("id"))
+    
+    # Test 4: PATCH service (use "Cleanup" service if available)
+    if services:
+        cleanup_service = next((s for s in services if "Cleanup" in s.get("title", "")), None)
+        if cleanup_service:
+            test_patch_service(cleanup_service.get("id"), cleanup_service.get("title"))
+        else:
+            # Use first service if Cleanup not found
+            test_patch_service(services[0].get("id"), services[0].get("title"))
+    
+    # Test 5: POST and DELETE service
+    test_create_and_delete_service()
+    
+    # Test 6: PATCH sub-category (use first sub-cat if available)
+    if sub_cats and len(sub_cats) > 0:
+        test_patch_sub_category(sub_cats[0].get("id"), sub_cats[0].get("name"))
+    
+    # Test 7: POST and DELETE sub-category
+    test_create_and_delete_sub_category()
+    
+    # Test 8: Test all categories
+    test_all_categories()
+    
+    # Print summary
+    print_summary()
+    
+    # Return exit code based on test results
+    return 0 if test_results['failed'] == 0 else 1
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    sys.exit(exit_code)
+    exit(main())

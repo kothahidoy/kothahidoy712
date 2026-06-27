@@ -388,9 +388,22 @@ function SubCategoriesTab({ categories }: any) {
   return (
     <View style={{ gap: 12 }}>
       <CategoryDropdown categories={categories} value={catId} onChange={setCatId} />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: 13, color: colors.textMuted, fontWeight: "600" }}>
+          {rows.length} sub-categor{rows.length === 1 ? "y" : "ies"} in this category
+        </Text>
+        <TouchableOpacity onPress={load}>
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700" }}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
         <Plus size={16} color="#fff" /><Text style={btn.addTxt}>Add sub-category</Text>
       </TouchableOpacity>
+      {rows.length === 0 && (
+        <View style={{ padding: 24, alignItems: "center", backgroundColor: "#F9FAFB", borderRadius: 12 }}>
+          <Text style={{ color: colors.textMuted }}>No sub-categories yet — tap “Add sub-category” above.</Text>
+        </View>
+      )}
       {rows.map((s) => (
         <View key={s.id} style={row.card}>
           {s.image_url ? <Image source={{ uri: s.image_url }} style={row.thumb} /> : <View style={[row.thumb, { backgroundColor: "#eee" }]} />}
@@ -635,7 +648,7 @@ function ServicesTab({ categories }: any) {
       {/* sub-category filter chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         <TouchableOpacity onPress={() => setSubId("")} style={[chipStyles.chip, !subId && chipStyles.chipActive]}>
-          <Text style={[chipStyles.chipTxt, !subId && { color: "#fff" }]}>All</Text>
+          <Text style={[chipStyles.chipTxt, !subId && { color: "#fff" }]}>All ({rows.length})</Text>
         </TouchableOpacity>
         {subs.map((s) => (
           <TouchableOpacity key={s.id} onPress={() => setSubId(s.id)} style={[chipStyles.chip, subId === s.id && chipStyles.chipActive]}>
@@ -643,10 +656,62 @@ function ServicesTab({ categories }: any) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: 13, color: colors.textMuted, fontWeight: "600" }}>
+          {rows.length} service{rows.length === 1 ? "" : "s"}
+          {subId ? ` in ${subs.find((s) => s.id === subId)?.name || "selected"}` : " in this category"}
+        </Text>
+        <TouchableOpacity onPress={loadServices}>
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700" }}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
         <Plus size={16} color="#fff" /><Text style={btn.addTxt}>Add service</Text>
       </TouchableOpacity>
-      {rows.map((s) => (
+      {rows.length === 0 && (
+        <View style={{ padding: 24, alignItems: "center", backgroundColor: "#F9FAFB", borderRadius: 12 }}>
+          <Text style={{ color: colors.textMuted }}>
+            No services {subId ? "in this sub-category" : "yet"} — tap “Add service” above.
+          </Text>
+        </View>
+      )}
+      {/* When "All" is selected, group services by sub-category with section headers */}
+      {!subId && rows.length > 0
+        ? (() => {
+            const subMap = new Map(subs.map((s: any) => [s.id, s.name]));
+            const grouped: Record<string, any[]> = {};
+            rows.forEach((s: any) => {
+              const key = s.sub_category_id || "_none";
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(s);
+            });
+            // Render in sub-cat sort order first, then "_none" last
+            const orderedKeys = [
+              ...subs.map((s: any) => s.id).filter((k: string) => grouped[k]),
+              ...(grouped._none ? ["_none"] : []),
+            ];
+            return orderedKeys.map((key) => (
+              <View key={key} style={{ gap: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: colors.textMain, marginTop: 8 }}>
+                  {key === "_none" ? "Uncategorized" : subMap.get(key) || "Sub-category"}{" "}
+                  <Text style={{ color: colors.textMuted, fontWeight: "600" }}>({grouped[key].length})</Text>
+                </Text>
+                {grouped[key].map((s: any) => (
+                  <View key={s.id} style={row.card}>
+                    {s.image ? <Image source={{ uri: s.image }} style={row.thumb} /> : <View style={[row.thumb, { backgroundColor: "#eee" }]} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={row.title}>{s.title}</Text>
+                      <Text style={row.sub}>₹{s.starting_price} · {s.duration_mins}m · ⭐ {s.rating}</Text>
+                    </View>
+                    <Switch value={!!s.is_active} onValueChange={async (v) => { await http("PATCH", `/services/${s.id}`, { category_id: catId, title: s.title, is_active: v }); loadServices(); }} />
+                    <TouchableOpacity onPress={() => setEditing({ ...s, sub_category_id: s.sub_category_id || subId || null })} style={row.iconBtn}><Edit3 size={16} color={colors.primary} /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => onDelete(s.id)} style={row.iconBtn}><Trash2 size={16} color={colors.error} /></TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ));
+          })()
+        : rows.map((s) => (
         <View key={s.id} style={row.card}>
           {s.image ? <Image source={{ uri: s.image }} style={row.thumb} /> : <View style={[row.thumb, { backgroundColor: "#eee" }]} />}
           <View style={{ flex: 1 }}>
