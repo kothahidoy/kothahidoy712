@@ -250,44 +250,14 @@ export default function MfixitCoverScreen() {
           <Text style={styles.brandTagline}>End-to-end service protection</Text>
         </View>
 
-        {/* ── CMS-managed sections (override / extend the hard-coded ones) ── */}
-        {cmsSections.length > 0 && cmsSections.map((sec: any) => (
-          <View key={sec.id} style={[styles.section, { backgroundColor: "#F0FDF4" }]}>
-            <Text style={styles.sectionTitle}>{sec.title}</Text>
-            {(sec.bullets || []).map((b: string, i: number) => (
-              <View key={i} style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: "#DCFCE7" }]}>
-                  <Check size={18} color="#059669" />
-                </View>
-                <View style={styles.featureContent}>
-                  <Text style={styles.featureText}>{b}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
-
-        {/* ── CMS-managed rate card (replaces the embedded one if items exist) ── */}
-        {cmsRateCard.length > 0 && (
-          <View style={[styles.section, { backgroundColor: "#FAFAFA" }]}>
-            <Text style={styles.sectionTitle}>Rate card</Text>
-            {cmsRateCard.map((row: any) => (
-              <View key={row.id} style={[styles.featureItem, { borderBottomWidth: 1, borderBottomColor: "#F3F4F6", paddingVertical: 10 }]}>
-                <View style={styles.featureContent}>
-                  <Text style={[styles.featureText, { fontWeight: "600" }]}>{row.service_name}</Text>
-                  {row.sub_label ? <Text style={{ fontSize: 12, color: "#6B7280" }}>{row.sub_label}</Text> : null}
-                </View>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: config.accentColor }}>
-                  ₹{Number(row.price).toFixed(0)} {row.price_suffix || ""}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {/* Helper to find CMS override for a section_key */}
+        {/* (rendered inline below by reading cmsSections lookup) */}
 
         {/* Section 1: Warranty on Repairs (Green themed) */}
         <View style={[styles.section, { backgroundColor: "#F0FDF4" }]}>
-          <Text style={styles.sectionTitle}>{config.warrantyDays}-day warranty on repairs</Text>
+          <Text style={styles.sectionTitle}>
+            {cmsSections.find((s: any) => s.section_key === "warranty")?.title || `${config.warrantyDays}-day warranty on repairs`}
+          </Text>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#DCFCE7" }]}>
@@ -333,7 +303,9 @@ export default function MfixitCoverScreen() {
 
         {/* Section 2: Expert Verified Repair Quotes (Purple themed) */}
         <View style={[styles.section, { backgroundColor: "#F5F3FF" }]}>
-          <Text style={styles.sectionTitle}>Expert verified repair quotes</Text>
+          <Text style={styles.sectionTitle}>
+            {cmsSections.find((s: any) => s.section_key === "expert")?.title || "Expert verified repair quotes"}
+          </Text>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#EDE9FE" }]}>
@@ -369,7 +341,9 @@ export default function MfixitCoverScreen() {
 
         {/* Section 3: Fixed Rate Card (Blue themed) */}
         <View style={[styles.section, { backgroundColor: "#F0F9FF" }]}>
-          <Text style={styles.sectionTitle}>Fixed rate card</Text>
+          <Text style={styles.sectionTitle}>
+            {cmsSections.find((s: any) => s.section_key === "rate")?.title || "Fixed rate card"}
+          </Text>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#DBEAFE" }]}>
@@ -406,7 +380,9 @@ export default function MfixitCoverScreen() {
         {/* Section 4: Rate Card Items - Editable from Admin */}
         <View style={[styles.section, { backgroundColor: "#FFF" }]}>
           <View style={styles.rateCardHeader}>
-            <Text style={styles.sectionTitle}>Rate card</Text>
+            <Text style={styles.sectionTitle}>
+              {cmsSections.find((s: any) => s.section_key === "rate")?.title || "Rate card"}
+            </Text>
             <Text style={styles.rateCardSubtitle}>Standard prices for {config.name.toLowerCase()} services</Text>
           </View>
 
@@ -414,12 +390,20 @@ export default function MfixitCoverScreen() {
           <View style={styles.rateCardTable}>
             {/* Table Header */}
             <View style={styles.rateCardRow}>
-              <Text style={styles.rateCardHeaderCell}>Service</Text>
+              <Text style={styles.rateCardHeaderCell}>Item</Text>
               <Text style={[styles.rateCardHeaderCell, styles.rateCardPriceHeader]}>Price</Text>
             </View>
 
-            {/* Rate Card Items - These can be edited from admin panel */}
-            {getRateCardItems(category || "electrician").map((item, index) => (
+            {/* Prefer CMS rate-card rows; fall back to hardcoded defaults */}
+            {(cmsRateCard.length > 0
+              ? cmsRateCard.map((r: any) => ({
+                  service: r.service_name,
+                  description: r.sub_label,
+                  price: Number(r.price).toFixed(0),
+                  unit: r.price_suffix || "",
+                }))
+              : getRateCardItems(category || "electrician")
+            ).map((item: any, index: number) => (
               <View key={index} style={[styles.rateCardRow, index % 2 === 0 && styles.rateCardRowAlt]}>
                 <View style={styles.rateCardServiceCell}>
                   <Text style={styles.rateCardServiceName}>{item.service}</Text>
@@ -447,7 +431,9 @@ export default function MfixitCoverScreen() {
 
         {/* Section 4: Category-specific features */}
         <View style={[styles.section, { backgroundColor: config.bgColor }]}>
-          <Text style={styles.sectionTitle}>{config.name} specific benefits</Text>
+          <Text style={styles.sectionTitle}>
+            {cmsSections.find((s: any) => s.section_key === "benefits")?.title || `${config.name} specific benefits`}
+          </Text>
           
           {config.specialFeatures.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
@@ -463,7 +449,9 @@ export default function MfixitCoverScreen() {
 
         {/* Section 5: 24/7 Support */}
         <View style={[styles.section, { backgroundColor: "#FFF" }]}>
-          <Text style={styles.sectionTitle}>24/7 Customer support</Text>
+          <Text style={styles.sectionTitle}>
+            {cmsSections.find((s: any) => s.section_key === "support")?.title || "24/7 Customer support"}
+          </Text>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#FEE2E2" }]}>
