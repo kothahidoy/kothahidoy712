@@ -8,6 +8,7 @@ export interface ServiceVariant {
   originalPrice?: number;
   duration?: number;
   image: string;
+  features?: string[];
 }
 
 export interface ProcessStep {
@@ -32,9 +33,16 @@ export interface FAQ {
   answer: string;
 }
 
+export interface SafetyTip {
+  text: string;
+  color?: string;
+  icon?: string;
+}
+
 export interface ServiceDetailData {
   id: string;
   title: string;
+  subtitle?: string;
   description?: string;
   rating: number;
   reviewCount: string;
@@ -51,6 +59,7 @@ export interface ServiceDetailData {
   faqs: FAQ[];
   warranty?: string;
   coverFeatures?: string[];
+  safetyTips?: SafetyTip[];
 }
 
 export interface CartItem {

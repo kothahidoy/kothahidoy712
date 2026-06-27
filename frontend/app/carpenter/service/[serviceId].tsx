@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   Hammer,
@@ -116,9 +115,6 @@ export default function CarpenterServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -139,7 +135,7 @@ export default function CarpenterServiceDetailScreen() {
           <View style={styles.craftsmanBadge}>
             <Hammer size={16} color="#B45309" />
             <Text style={styles.craftsmanBadgeText}>
-              Expert Craftsmen • Quality Materials
+              {serviceData.subtitle || `Expert Craftsmen • Quality Materials`}
             </Text>
           </View>
         </View>

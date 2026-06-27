@@ -18,10 +18,12 @@ import {
   Clock,
   FileText,
   Headphones,
+  AlertTriangle,
+  Info,
   X as XIcon,
 } from "lucide-react-native";
 import { colors, radius } from "@/src/theme";
-import { ServiceVariant, ProcessStep, Review, FAQ } from "./types";
+import { ServiceVariant, ProcessStep, Review, FAQ, SafetyTip } from "./types";
 
 // ==================== VARIANT CARD ====================
 interface VariantCardProps {
@@ -328,6 +330,43 @@ export const BrandsSection: React.FC<BrandsSectionProps> = ({ brands }) => (
 
 // ==================== SECTION DIVIDER ====================
 export const SectionDivider = () => <View style={styles.sectionDivider} />;
+
+// ==================== SAFETY TIPS SECTION ====================
+interface SafetyTipsSectionProps {
+  tips: SafetyTip[];
+  title?: string;
+}
+
+export const SafetyTipsSection: React.FC<SafetyTipsSectionProps> = ({
+  tips,
+  title = "Safety Tips",
+}) => {
+  if (!tips || tips.length === 0) return null;
+  return (
+    <View style={styles.safetySection}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {tips.map((tip, idx) => {
+        const color = tip.color || "#F59E0B";
+        const Icon =
+          tip.icon === "check"
+            ? CheckCircle2
+            : tip.icon === "info"
+            ? Info
+            : tip.icon === "alert"
+            ? AlertTriangle
+            : Shield;
+        return (
+          <View key={idx} style={styles.safetyRow}>
+            <View style={[styles.safetyDot, { backgroundColor: `${color}1A` }]}>
+              <Icon size={16} color={color} />
+            </View>
+            <Text style={styles.safetyText}>{tip.text}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
 
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
@@ -678,5 +717,31 @@ const styles = StyleSheet.create({
   sectionDivider: {
     height: 8,
     backgroundColor: "#F3F4F6",
+  },
+
+  // Safety Tips
+  safetySection: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    backgroundColor: "#FFF",
+  },
+  safetyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  safetyDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  safetyText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
   },
 });

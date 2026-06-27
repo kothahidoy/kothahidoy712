@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   Sparkles,
@@ -115,9 +114,6 @@ export default function CleaningServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -138,7 +134,7 @@ export default function CleaningServiceDetailScreen() {
           <View style={styles.ecoBadge}>
             <Leaf size={16} color="#16A34A" />
             <Text style={styles.ecoBadgeText}>
-              Eco-Friendly • All Supplies Included
+              {serviceData.subtitle || `Eco-Friendly • All Supplies Included`}
             </Text>
           </View>
         </View>

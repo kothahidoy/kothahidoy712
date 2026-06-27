@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   PaintBucket,
@@ -126,9 +125,6 @@ export default function PaintingServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -149,7 +145,7 @@ export default function PaintingServiceDetailScreen() {
           <View style={styles.premiumBadge}>
             <Palette size={16} color="#D97706" />
             <Text style={styles.premiumBadgeText}>
-              Premium Paints • Color Consultation Free
+              {serviceData.subtitle || `Premium Paints • Color Consultation Free`}
             </Text>
           </View>
         </View>

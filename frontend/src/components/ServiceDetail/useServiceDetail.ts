@@ -1,22 +1,33 @@
-import { useState, useEffect } from "react";
-import { supabase, isSupabaseConfigured } from "@/src/lib/supabase";
-import { ServiceDetailData, ServiceVariant, Review, FAQ, ProcessStep } from "./types";
+import { useState, useEffect, useCallback } from "react";
+import {
+  ServiceDetailData,
+  ServiceVariant,
+  Review,
+  FAQ,
+  ProcessStep,
+  SafetyTip,
+} from "./types";
 
 // Category color configurations
-export const CATEGORY_CONFIGS: Record<string, { color: string; bgColor: string; name: string }> = {
+export const CATEGORY_CONFIGS: Record<
+  string,
+  { color: string; bgColor: string; name: string }
+> = {
   electrician: { color: "#059669", bgColor: "#F0FDF4", name: "Electrician" },
   salon: { color: "#BE185D", bgColor: "#FDF2F8", name: "Salon for Men" },
   "salon-women": { color: "#DB2777", bgColor: "#FDF2F8", name: "Salon for Women" },
   plumber: { color: "#0284C7", bgColor: "#F0F9FF", name: "Plumber" },
   cleaning: { color: "#16A34A", bgColor: "#F0FDF4", name: "Cleaning" },
+  "cleaning-pest": { color: "#16A34A", bgColor: "#F0FDF4", name: "Cleaning & Pest" },
   "pest-control": { color: "#7C3AED", bgColor: "#F5F3FF", name: "Pest Control" },
   "ac-appliance": { color: "#0891B2", bgColor: "#ECFEFF", name: "AC & Appliance" },
   "ac-repair": { color: "#0891B2", bgColor: "#ECFEFF", name: "AC & Appliance" },
   painting: { color: "#D97706", bgColor: "#FFFBEB", name: "Painting" },
   carpenter: { color: "#B45309", bgColor: "#FEF3C7", name: "Carpenter" },
+  "insta-help": { color: "#2563EB", bgColor: "#EFF6FF", name: "Insta Help" },
 };
 
-// Default process steps by category
+// Default process steps by category (fallback when admin has not configured)
 export const DEFAULT_PROCESS_STEPS: Record<string, ProcessStep[]> = {
   electrician: [
     { step: 1, title: "Inspection", description: "Technician inspects the electrical issue" },
@@ -60,12 +71,6 @@ export const DEFAULT_PROCESS_STEPS: Record<string, ProcessStep[]> = {
     { step: 3, title: "Repair/Service", description: "Fix or service with genuine parts" },
     { step: 4, title: "Testing", description: "Thorough testing and warranty" },
   ],
-  "ac-repair": [
-    { step: 1, title: "Diagnosis", description: "Check appliance for issues" },
-    { step: 2, title: "Quote approval", description: "Transparent pricing before repair" },
-    { step: 3, title: "Repair/Service", description: "Fix or service with genuine parts" },
-    { step: 4, title: "Testing", description: "Thorough testing and warranty" },
-  ],
   painting: [
     { step: 1, title: "Consultation", description: "Discuss color preferences and scope" },
     { step: 2, title: "Surface prep", description: "Prepare walls, fill cracks, apply primer" },
@@ -80,7 +85,6 @@ export const DEFAULT_PROCESS_STEPS: Record<string, ProcessStep[]> = {
   ],
 };
 
-// Default FAQs by category
 export const DEFAULT_FAQS: Record<string, FAQ[]> = {
   electrician: [
     { id: "faq1", question: "Does the cost include spare parts?", answer: "No, the service cost covers labor only. Spare parts will be charged separately after approval." },
@@ -110,10 +114,6 @@ export const DEFAULT_FAQS: Record<string, FAQ[]> = {
     { id: "faq1", question: "Do you service all brands?", answer: "Yes, our technicians are trained on all major brands." },
     { id: "faq2", question: "What's covered in AC service?", answer: "Filter cleaning, gas check, foam cleaning, and performance testing." },
   ],
-  "ac-repair": [
-    { id: "faq1", question: "Do you service all brands?", answer: "Yes, our technicians are trained on all major brands." },
-    { id: "faq2", question: "What's covered in AC service?", answer: "Filter cleaning, gas check, foam cleaning, and performance testing." },
-  ],
   painting: [
     { id: "faq1", question: "What paint brands do you use?", answer: "We use Asian Paints, Berger, Dulux, and other premium brands." },
     { id: "faq2", question: "Do you move furniture?", answer: "Yes, we carefully move and cover furniture. It'll be restored after completion." },
@@ -124,185 +124,9 @@ export const DEFAULT_FAQS: Record<string, FAQ[]> = {
   ],
 };
 
-// Default reviews (fallback)
-const DEFAULT_REVIEWS: Review[] = [
-  {
-    id: "1",
-    name: "Satisfied Customer",
-    rating: 5,
-    date: "Recently",
-    comment: "Excellent service! Very professional and completed on time. Highly recommended!",
-    helpful: 25,
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-  },
-];
+const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
 
-export function useServiceDetail(serviceId: string, categoryId: string) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [serviceData, setServiceData] = useState<ServiceDetailData | null>(null);
-
-  const fetchServiceData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const categoryConfig = CATEGORY_CONFIGS[categoryId] || {
-        color: "#2563EB",
-        bgColor: "#EFF6FF",
-        name: "Service",
-      };
-
-      if (isSupabaseConfigured && supabase) {
-        // Fetch service from Supabase
-        const { data: service, error: serviceError } = await supabase
-          .from("services")
-          .select("*")
-          .eq("id", serviceId)
-          .single();
-
-        if (serviceError || !service) {
-          // Try fetching by title match or similar
-          const { data: services } = await supabase
-            .from("services")
-            .select("*")
-            .eq("category_id", categoryId)
-            .limit(1);
-
-          if (services && services.length > 0) {
-            const svc = services[0];
-            const serviceDetail = buildServiceDetail(svc, categoryConfig, categoryId);
-            setServiceData(serviceDetail);
-          } else {
-            // Use fallback data
-            setServiceData(buildFallbackService(serviceId, categoryConfig, categoryId));
-          }
-        } else {
-          const serviceDetail = buildServiceDetail(service, categoryConfig, categoryId);
-          setServiceData(serviceDetail);
-        }
-      } else {
-        // Fallback for when Supabase is not configured
-        setServiceData(buildFallbackService(serviceId, categoryConfig, categoryId));
-      }
-    } catch (err) {
-      console.error("Error fetching service:", err);
-      setError("Failed to load service details");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const buildServiceDetail = (
-    service: any,
-    categoryConfig: { color: string; bgColor: string; name: string },
-    catId: string
-  ): ServiceDetailData => {
-    // Build variants from the service
-    const variants: ServiceVariant[] = [
-      {
-        id: "standard",
-        name: "Standard",
-        rating: Number(service.rating) || 4.7,
-        reviews: service.review_count ? `${service.review_count}` : "1K",
-        price: Number(service.starting_price) || 199,
-        duration: service.duration_mins,
-        image: service.image || getDefaultImage(catId),
-      },
-    ];
-
-    // Add premium variant if applicable
-    if (Number(service.starting_price) > 100) {
-      variants.push({
-        id: "premium",
-        name: "Premium",
-        rating: (Number(service.rating) || 4.7) + 0.1,
-        reviews: Math.floor((service.review_count || 1000) * 0.3) + "K",
-        price: Math.round((Number(service.starting_price) || 199) * 1.5),
-        originalPrice: Math.round((Number(service.starting_price) || 199) * 1.8),
-        duration: (service.duration_mins || 60) + 30,
-        image: service.image || getDefaultImage(catId),
-      });
-    }
-
-    return {
-      id: service.id,
-      title: service.title,
-      description: service.description,
-      rating: Number(service.rating) || 4.7,
-      reviewCount: service.review_count ? `${service.review_count}` : "1K",
-      categoryName: categoryConfig.name,
-      categoryColor: categoryConfig.color,
-      categoryBgColor: categoryConfig.bgColor,
-      heroImage: service.image,
-      variants,
-      process: DEFAULT_PROCESS_STEPS[catId] || DEFAULT_PROCESS_STEPS.electrician,
-      inclusions: service.inclusions || getDefaultInclusions(catId),
-      exclusions: getDefaultExclusions(catId),
-      brands: getDefaultBrands(catId),
-      reviews: DEFAULT_REVIEWS,
-      faqs: DEFAULT_FAQS[catId] || DEFAULT_FAQS.electrician,
-      warranty: "30 days",
-      coverFeatures: getDefaultCoverFeatures(catId),
-    };
-  };
-
-  const buildFallbackService = (
-    svcId: string,
-    categoryConfig: { color: string; bgColor: string; name: string },
-    catId: string
-  ): ServiceDetailData => {
-    return {
-      id: svcId,
-      title: `${categoryConfig.name} Service`,
-      description: `Professional ${categoryConfig.name.toLowerCase()} service at your doorstep.`,
-      rating: 4.75,
-      reviewCount: "10K",
-      categoryName: categoryConfig.name,
-      categoryColor: categoryConfig.color,
-      categoryBgColor: categoryConfig.bgColor,
-      heroImage: getDefaultImage(catId),
-      variants: [
-        {
-          id: "standard",
-          name: "Standard Service",
-          rating: 4.75,
-          reviews: "8K",
-          price: 199,
-          duration: 60,
-          image: getDefaultImage(catId),
-        },
-        {
-          id: "premium",
-          name: "Premium Service",
-          rating: 4.85,
-          reviews: "2K",
-          price: 349,
-          originalPrice: 449,
-          duration: 90,
-          image: getDefaultImage(catId),
-        },
-      ],
-      process: DEFAULT_PROCESS_STEPS[catId] || DEFAULT_PROCESS_STEPS.electrician,
-      inclusions: getDefaultInclusions(catId),
-      exclusions: getDefaultExclusions(catId),
-      brands: getDefaultBrands(catId),
-      reviews: DEFAULT_REVIEWS,
-      faqs: DEFAULT_FAQS[catId] || DEFAULT_FAQS.electrician,
-      warranty: "30 days",
-      coverFeatures: getDefaultCoverFeatures(catId),
-    };
-  };
-
-  useEffect(() => {
-    fetchServiceData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId, categoryId]);
-
-  return { loading, error, serviceData, refetch: fetchServiceData };
-}
-
-// Helper functions for default data
+// Helper functions for fallback defaults
 function getDefaultImage(categoryId: string): string {
   const images: Record<string, string> = {
     electrician: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=400&q=80",
@@ -312,7 +136,6 @@ function getDefaultImage(categoryId: string): string {
     cleaning: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80",
     "pest-control": "https://images.unsplash.com/photo-1632935190508-bef6c4c2fcd9?auto=format&fit=crop&w=400&q=80",
     "ac-appliance": "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=400&q=80",
-    "ac-repair": "https://images.unsplash.com/photo-1631545806609-fe50f0e51eea?auto=format&fit=crop&w=400&q=80",
     painting: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=400&q=80",
     carpenter: "https://images.unsplash.com/photo-1601058268499-e52658b8bb88?auto=format&fit=crop&w=400&q=80",
   };
@@ -320,7 +143,7 @@ function getDefaultImage(categoryId: string): string {
 }
 
 function getDefaultInclusions(categoryId: string): string[] {
-  const inclusions: Record<string, string[]> = {
+  const map: Record<string, string[]> = {
     electrician: ["Free safety inspection", "30-day service warranty", "Genuine spare parts", "Verified professionals"],
     salon: ["Sealed premium products", "Trained stylists", "Sanitized equipment", "Hygiene kit included"],
     "salon-women": ["Premium beauty products", "Certified beauticians", "Single-use products", "Post-service care tips"],
@@ -328,15 +151,14 @@ function getDefaultInclusions(categoryId: string): string[] {
     cleaning: ["All cleaning supplies", "Trained crew", "Eco-friendly chemicals", "Thorough sanitization"],
     "pest-control": ["Safe chemicals", "Pet-friendly options", "90-day warranty", "Follow-up visit"],
     "ac-appliance": ["Gas check", "Filter cleaning", "Performance testing", "30-day warranty"],
-    "ac-repair": ["Gas check", "Filter cleaning", "Performance testing", "30-day warranty"],
     painting: ["Premium paints", "Primer included", "Furniture protection", "Cleanup included"],
     carpenter: ["Quality materials", "Precise measurements", "Installation included", "30-day warranty"],
   };
-  return inclusions[categoryId] || inclusions.electrician;
+  return map[categoryId] || map.electrician;
 }
 
 function getDefaultExclusions(categoryId: string): string[] {
-  const exclusions: Record<string, string[]> = {
+  const map: Record<string, string[]> = {
     electrician: ["Major rewiring work", "Electrical panel replacement", "New connection installation"],
     salon: ["Hair coloring products not included", "Specialized treatments need advance booking"],
     "salon-women": ["Bridal packages not included", "Hair coloring extra"],
@@ -344,31 +166,29 @@ function getDefaultExclusions(categoryId: string): string[] {
     cleaning: ["Exterior cleaning", "Carpet shampooing", "Ceiling cleaning"],
     "pest-control": ["Termite treatment", "Fumigation", "Bird control"],
     "ac-appliance": ["Compressor replacement", "Gas refill charged separately"],
-    "ac-repair": ["Compressor replacement", "Gas refill charged separately"],
     painting: ["Exterior painting", "Waterproofing", "Texture work"],
     carpenter: ["Full furniture manufacturing", "Heavy structural work"],
   };
-  return exclusions[categoryId] || exclusions.electrician;
+  return map[categoryId] || map.electrician;
 }
 
 function getDefaultBrands(categoryId: string): string[] {
-  const brands: Record<string, string[]> = {
-    electrician: ["Havells", "Anchor", "Philips", "Crompton", "Syska", "Legrand", "& more"],
-    salon: ["TIGI", "L'Oreal", "Wella", "Schwarzkopf", "Matrix", "& more"],
-    "salon-women": ["VLCC", "O3+", "Lotus", "Biotique", "L'Oreal", "& more"],
-    plumber: ["Jaquar", "Kohler", "Hindware", "Parryware", "Cera", "& more"],
-    cleaning: ["Dettol", "Harpic", "Lizol", "Colin", "& more"],
-    "pest-control": ["Bayer", "BASF", "Godrej", "& more"],
-    "ac-appliance": ["Voltas", "LG", "Samsung", "Daikin", "Blue Star", "Carrier", "& more"],
-    "ac-repair": ["Voltas", "LG", "Samsung", "Daikin", "Blue Star", "Carrier", "& more"],
-    painting: ["Asian Paints", "Berger", "Dulux", "Nerolac", "& more"],
-    carpenter: ["Century Ply", "Greenply", "Merino", "Kitply", "& more"],
+  const map: Record<string, string[]> = {
+    electrician: ["Havells", "Anchor", "Philips", "Crompton", "Syska", "Legrand"],
+    salon: ["TIGI", "L'Oreal", "Wella", "Schwarzkopf", "Matrix"],
+    "salon-women": ["VLCC", "O3+", "Lotus", "Biotique", "L'Oreal"],
+    plumber: ["Jaquar", "Kohler", "Hindware", "Parryware", "Cera"],
+    cleaning: ["Dettol", "Harpic", "Lizol", "Colin"],
+    "pest-control": ["Bayer", "BASF", "Godrej"],
+    "ac-appliance": ["Voltas", "LG", "Samsung", "Daikin", "Blue Star", "Carrier"],
+    painting: ["Asian Paints", "Berger", "Dulux", "Nerolac"],
+    carpenter: ["Century Ply", "Greenply", "Merino", "Kitply"],
   };
-  return brands[categoryId] || brands.electrician;
+  return map[categoryId] || map.electrician;
 }
 
 function getDefaultCoverFeatures(categoryId: string): string[] {
-  const features: Record<string, string[]> = {
+  const map: Record<string, string[]> = {
     electrician: ["Up to 30 days warranty", "Verified electricians", "Quality spare parts", "Safety inspection included"],
     salon: ["Sealed products only", "Trained professionals", "Hygiene guaranteed", "Quality service"],
     "salon-women": ["Premium products", "Certified beauticians", "Skin-safe products", "Post-care tips"],
@@ -376,9 +196,299 @@ function getDefaultCoverFeatures(categoryId: string): string[] {
     cleaning: ["Eco-friendly products", "Trained crew", "Thorough sanitization", "Satisfaction guaranteed"],
     "pest-control": ["Safe for family", "Pet-friendly options", "90-day warranty", "Follow-up included"],
     "ac-appliance": ["Trained technicians", "Genuine parts", "30-day warranty", "All brands serviced"],
-    "ac-repair": ["Trained technicians", "Genuine parts", "30-day warranty", "All brands serviced"],
     painting: ["Premium paints", "Color consultation", "Neat finish", "Cleanup included"],
     carpenter: ["Quality materials", "Expert craftsmen", "Perfect finish", "30-day warranty"],
   };
-  return features[categoryId] || features.electrician;
+  return map[categoryId] || map.electrician;
+}
+
+function getDefaultSafetyTips(categoryId: string): SafetyTip[] {
+  const map: Record<string, SafetyTip[]> = {
+    electrician: [
+      { text: "Always turn off main switch before inspection", color: "#F59E0B", icon: "shield" },
+      { text: "Our technicians carry voltage testers", color: "#10B981", icon: "check" },
+      { text: "Earthing check included in all services", color: "#3B82F6", icon: "info" },
+    ],
+    plumber: [
+      { text: "Shut off main water supply when needed", color: "#F59E0B", icon: "shield" },
+      { text: "We bring leak-detection equipment", color: "#10B981", icon: "check" },
+      { text: "All fittings tested before handover", color: "#3B82F6", icon: "info" },
+    ],
+    "ac-appliance": [
+      { text: "AC unplugged before service for safety", color: "#F59E0B", icon: "shield" },
+      { text: "Refrigerant handling certified", color: "#10B981", icon: "check" },
+      { text: "Performance test after every job", color: "#3B82F6", icon: "info" },
+    ],
+    cleaning: [
+      { text: "Eco-friendly, non-toxic chemicals", color: "#10B981", icon: "check" },
+      { text: "Skilled & background-verified crew", color: "#3B82F6", icon: "info" },
+      { text: "Cover heavy furniture before cleaning", color: "#F59E0B", icon: "shield" },
+    ],
+    "pest-control": [
+      { text: "Keep food & utensils covered", color: "#F59E0B", icon: "shield" },
+      { text: "Pet & child-safe chemicals", color: "#10B981", icon: "check" },
+      { text: "Open windows 2 hrs after treatment", color: "#3B82F6", icon: "info" },
+    ],
+    painting: [
+      { text: "Cover floors & furniture properly", color: "#F59E0B", icon: "shield" },
+      { text: "Low-VOC premium paints used", color: "#10B981", icon: "check" },
+      { text: "Ventilate rooms during work", color: "#3B82F6", icon: "info" },
+    ],
+    carpenter: [
+      { text: "Eye-protection during cutting work", color: "#F59E0B", icon: "shield" },
+      { text: "Quality hardware & marine ply", color: "#10B981", icon: "check" },
+      { text: "Clean-up included after every job", color: "#3B82F6", icon: "info" },
+    ],
+    salon: [
+      { text: "Sealed products opened in front of you", color: "#10B981", icon: "check" },
+      { text: "Sanitised tools every visit", color: "#3B82F6", icon: "info" },
+      { text: "Hygiene kit always carried", color: "#F59E0B", icon: "shield" },
+    ],
+    "salon-women": [
+      { text: "Hypoallergenic premium products", color: "#10B981", icon: "check" },
+      { text: "Female beauticians for safety", color: "#3B82F6", icon: "info" },
+      { text: "Single-use disposables", color: "#F59E0B", icon: "shield" },
+    ],
+  };
+  return map[categoryId] || map.electrician;
+}
+
+// ============================================================================
+// MAIN HOOK
+// ============================================================================
+export function useServiceDetail(serviceId: string, categoryId: string) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [serviceData, setServiceData] = useState<ServiceDetailData | null>(null);
+
+  const buildFromBackend = useCallback(
+    (payload: any): ServiceDetailData => {
+      const svc = payload.service || {};
+      const categoryConfig =
+        CATEGORY_CONFIGS[categoryId] || {
+          color: "#2563EB",
+          bgColor: "#EFF6FF",
+          name: "Service",
+        };
+      const catId = svc.category_id || categoryId;
+      const defImg = getDefaultImage(catId);
+
+      // Variants from server (may include auto-generated)
+      const rawVariants: any[] = Array.isArray(payload.variants) ? payload.variants : [];
+      const variants: ServiceVariant[] = rawVariants.map((v: any) => ({
+        id: String(v.id),
+        name: v.name || "Standard",
+        rating: Math.round((Number(v.rating) || 4.7) * 10) / 10,
+        reviews:
+          typeof v.review_count === "number"
+            ? (v.review_count >= 1000
+                ? `${(v.review_count / 1000).toFixed(1)}K`
+                : `${v.review_count}`)
+            : String(v.reviews || "0"),
+        price: Number(v.price) || 0,
+        originalPrice: v.original_price ? Number(v.original_price) : undefined,
+        duration: v.duration_mins || svc.duration_mins || undefined,
+        image: v.image || svc.image || defImg,
+        features: Array.isArray(v.features) ? v.features : [],
+      }));
+
+      // Reviews from server (already filtered to 5★ by backend)
+      const rawReviews: any[] = Array.isArray(payload.reviews) ? payload.reviews : [];
+      const reviews: Review[] = rawReviews.map((r: any) => ({
+        id: String(r.id),
+        name: r.customer_name || "Customer",
+        rating: Number(r.rating) || 5,
+        date: formatReviewDate(r.created_at),
+        comment: r.review_text || "",
+        helpful: 0,
+        avatar:
+          r.customer_avatar ||
+          `https://i.pravatar.cc/100?u=${encodeURIComponent(r.id || r.customer_name || "x")}`,
+      }));
+
+      const safetyTipsRaw: any[] = Array.isArray(svc.safety_tips) ? svc.safety_tips : [];
+      const safetyTips: SafetyTip[] =
+        safetyTipsRaw.length > 0
+          ? safetyTipsRaw.map((t: any) => ({
+              text: t.text,
+              color: t.color,
+              icon: t.icon,
+            }))
+          : getDefaultSafetyTips(catId);
+
+      const processRaw: any[] = Array.isArray(svc.process_steps) ? svc.process_steps : [];
+      const process: ProcessStep[] =
+        processRaw.length > 0
+          ? processRaw.map((p: any, idx: number) => ({
+              step: p.step || idx + 1,
+              title: p.title || "",
+              description: p.description || "",
+            }))
+          : DEFAULT_PROCESS_STEPS[catId] || DEFAULT_PROCESS_STEPS.electrician;
+
+      const faqsRaw: any[] = Array.isArray(svc.faqs) ? svc.faqs : [];
+      const faqs: FAQ[] =
+        faqsRaw.length > 0
+          ? faqsRaw.map((f: any, idx: number) => ({
+              id: f.id || `faq${idx}`,
+              question: f.question || "",
+              answer: f.answer || "",
+            }))
+          : DEFAULT_FAQS[catId] || DEFAULT_FAQS.electrician;
+
+      const inclusionsRaw: any = svc.inclusions;
+      const inclusions: string[] =
+        Array.isArray(inclusionsRaw) && inclusionsRaw.length > 0
+          ? inclusionsRaw
+          : getDefaultInclusions(catId);
+
+      const exclusionsRaw: any = svc.exclusions;
+      const exclusions: string[] =
+        Array.isArray(exclusionsRaw) && exclusionsRaw.length > 0
+          ? exclusionsRaw
+          : getDefaultExclusions(catId);
+
+      const brandsRaw: any = svc.brands;
+      const brands: string[] =
+        Array.isArray(brandsRaw) && brandsRaw.length > 0
+          ? brandsRaw
+          : getDefaultBrands(catId);
+
+      const coverRaw: any = svc.cover_features;
+      const coverFeatures: string[] =
+        Array.isArray(coverRaw) && coverRaw.length > 0
+          ? coverRaw
+          : getDefaultCoverFeatures(catId);
+
+      return {
+        id: String(svc.id || serviceId),
+        title: svc.title || "Service",
+        subtitle: svc.subtitle || "",
+        description: svc.description || svc.short_description || "",
+        rating: Number(svc.rating) || 4.7,
+        reviewCount: formatReviewCount(svc.review_count),
+        categoryName: categoryConfig.name,
+        categoryColor: categoryConfig.color,
+        categoryBgColor: categoryConfig.bgColor,
+        heroImage: svc.hero_image || svc.image,
+        variants,
+        process,
+        inclusions,
+        exclusions,
+        brands,
+        reviews,
+        faqs,
+        warranty: svc.warranty || "30 days",
+        coverFeatures,
+        safetyTips,
+      };
+    },
+    [categoryId, serviceId]
+  );
+
+  const buildFallback = useCallback((): ServiceDetailData => {
+    const cfg =
+      CATEGORY_CONFIGS[categoryId] || {
+        color: "#2563EB",
+        bgColor: "#EFF6FF",
+        name: "Service",
+      };
+    return {
+      id: serviceId,
+      title: `${cfg.name} Service`,
+      subtitle: "",
+      description: `Professional ${cfg.name.toLowerCase()} service at your doorstep.`,
+      rating: 4.75,
+      reviewCount: "10K",
+      categoryName: cfg.name,
+      categoryColor: cfg.color,
+      categoryBgColor: cfg.bgColor,
+      heroImage: getDefaultImage(categoryId),
+      variants: [
+        {
+          id: "standard",
+          name: "Standard",
+          rating: 4.75,
+          reviews: "8K",
+          price: 199,
+          duration: 60,
+          image: getDefaultImage(categoryId),
+        },
+      ],
+      process: DEFAULT_PROCESS_STEPS[categoryId] || DEFAULT_PROCESS_STEPS.electrician,
+      inclusions: getDefaultInclusions(categoryId),
+      exclusions: getDefaultExclusions(categoryId),
+      brands: getDefaultBrands(categoryId),
+      reviews: [],
+      faqs: DEFAULT_FAQS[categoryId] || DEFAULT_FAQS.electrician,
+      warranty: "30 days",
+      coverFeatures: getDefaultCoverFeatures(categoryId),
+      safetyTips: getDefaultSafetyTips(categoryId),
+    };
+  }, [categoryId, serviceId]);
+
+  const fetchServiceData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!serviceId) {
+      setServiceData(buildFallback());
+      setLoading(false);
+      return;
+    }
+    try {
+      if (BACKEND_URL) {
+        const url = `${BACKEND_URL}/api/services/${encodeURIComponent(serviceId)}/detail`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const payload = await res.json();
+          setServiceData(buildFromBackend(payload));
+          setLoading(false);
+          return;
+        } else if (res.status === 404) {
+          // Service not found — show fallback rather than break the page
+          setServiceData(buildFallback());
+          setLoading(false);
+          return;
+        }
+      }
+      setServiceData(buildFallback());
+    } catch (err) {
+      console.warn("[useServiceDetail] fetch failed:", err);
+      setServiceData(buildFallback());
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceId, buildFromBackend, buildFallback]);
+
+  useEffect(() => {
+    fetchServiceData();
+  }, [fetchServiceData]);
+
+  return { loading, error, serviceData, refetch: fetchServiceData };
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+function formatReviewCount(count: any): string {
+  const n = Number(count) || 0;
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
+  return `${n}`;
+}
+
+function formatReviewDate(iso?: string): string {
+  if (!iso) return "Recently";
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 1) return "Today";
+    if (diff < 2) return "Yesterday";
+    if (diff < 7) return `${diff} days ago`;
+    if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
+    if (diff < 365) return `${Math.floor(diff / 30)} months ago`;
+    return `${Math.floor(diff / 365)} years ago`;
+  } catch {
+    return "Recently";
+  }
 }

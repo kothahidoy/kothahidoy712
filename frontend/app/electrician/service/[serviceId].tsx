@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   ChevronDown,
@@ -131,9 +130,6 @@ export default function ElectricianServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -154,7 +150,7 @@ export default function ElectricianServiceDetailScreen() {
           <View style={styles.safetyBadge}>
             <Shield size={16} color="#059669" />
             <Text style={styles.safetyBadgeText}>
-              ISI Certified • Safety Verified Electricians
+              {serviceData.subtitle || `ISI Certified • Safety Verified Electricians`}
             </Text>
           </View>
         </View>

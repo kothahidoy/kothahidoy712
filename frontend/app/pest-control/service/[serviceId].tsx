@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   Bug,
@@ -124,9 +123,6 @@ export default function PestControlServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -147,7 +143,7 @@ export default function PestControlServiceDetailScreen() {
           <View style={styles.safetyBadge}>
             <Shield size={16} color="#7C3AED" />
             <Text style={styles.safetyBadgeText}>
-              Child & Pet Safe • Certified Chemicals
+              {serviceData.subtitle || `Child & Pet Safe • Certified Chemicals`}
             </Text>
           </View>
         </View>

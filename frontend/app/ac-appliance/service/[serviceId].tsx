@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   Wind,
@@ -116,9 +115,6 @@ export default function ACApplianceServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -139,7 +135,7 @@ export default function ACApplianceServiceDetailScreen() {
           <View style={styles.warrantyBadge}>
             <Settings size={16} color="#0891B2" />
             <Text style={styles.warrantyBadgeText}>
-              30-Day Warranty • All Brands Serviced
+              {serviceData.subtitle || `30-Day Warranty • All Brands Serviced`}
             </Text>
           </View>
         </View>

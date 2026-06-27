@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   X,
-  Search,
   Star,
   Clock,
   Sparkles,
@@ -113,9 +112,6 @@ export default function SalonWomenServiceDetailScreen() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Search size={20} color="#000" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
             <X size={20} color="#000" />
           </TouchableOpacity>
@@ -136,7 +132,7 @@ export default function SalonWomenServiceDetailScreen() {
           <View style={styles.beauticianBadge}>
             <Award size={16} color="#DB2777" />
             <Text style={styles.beauticianBadgeText}>
-              Certified Beauticians • Premium Skincare
+              {serviceData.subtitle || `Certified Beauticians • Premium Skincare`}
             </Text>
           </View>
         </View>

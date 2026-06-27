@@ -2591,3 +2591,83 @@ agent_communication:
       
       **RECOMMENDATION:**
       All Phase 1 backend endpoints are production-ready. Main agent can proceed to Phase 2 (frontend integration).
+
+#====================================================================================================
+# Phase 2 — Frontend Detail Page Integration (per-service real data + UI cleanup)
+#====================================================================================================
+
+frontend:
+  - task: "Service Detail Page — fetch real per-service data + UI cleanup"
+    implemented: true
+    working: "NA"
+    file: |
+      /app/frontend/src/components/ServiceDetail/types.ts (added subtitle + safetyTips fields)
+      /app/frontend/src/components/ServiceDetail/useServiceDetail.ts (rewritten to fetch from /api/services/{id}/detail with rich fallback defaults per category)
+      /app/frontend/src/components/ServiceDetail/SharedComponents.tsx (added SafetyTipsSection + AlertTriangle/Info imports + styles)
+      /app/frontend/app/electrician/service/[serviceId].tsx
+      /app/frontend/app/plumber/service/[serviceId].tsx
+      /app/frontend/app/ac-appliance/service/[serviceId].tsx
+      /app/frontend/app/cleaning/service/[serviceId].tsx
+      /app/frontend/app/painting/service/[serviceId].tsx
+      /app/frontend/app/carpenter/service/[serviceId].tsx
+      /app/frontend/app/pest-control/service/[serviceId].tsx
+      /app/frontend/app/salon/service/[serviceId].tsx
+      /app/frontend/app/salon-women/service/[serviceId].tsx
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          PHASE 2 COMPLETE.
+          
+          DELIVERED:
+          1. Search button (top-right icon) REMOVED from all 9 category service-detail
+             headers via regex-based codemod. Only back arrow + X close button remain.
+          2. useServiceDetail hook now calls GET /api/services/{id}/detail and parses
+             the new payload shape {service, variants, reviews}.
+          3. Variants now render as many as backend returns (auto Standard+Premium
+             when none, or any custom set when admin defines them).
+          4. Variant rating rounded to 1 decimal (was showing 4.69999...).
+          5. Reviews are already 5★ only (backend filters before sending). Multiple
+             reviewers supported. Avatar fallback uses pravatar UID-stable URL.
+          6. Subtitle dynamic per-service:
+             {serviceData.subtitle || `<category-default text>`}
+             So when admin sets a service.subtitle, it shows for THAT service only.
+             Otherwise the original category default remains.
+          7. Per-category fallbacks preserved: safetyTips, process_steps, faqs,
+             inclusions, exclusions, brands, cover_features all default if backend
+             field is empty/null, so OLD services don't lose UI on day one.
+          
+          VERIFIED MANUALLY VIA SCREENSHOTS:
+          - /electrician/service/svc-elec-3 → "Light / LED Installation" with
+            admin-saved subtitle, 4 admin-defined process steps, single Standard tier.
+          - /electrician/service/svc-elec-5 → "MCB / Fuse Repair" with default
+            subtitle, default process steps, BOTH Standard + Premium variants
+            (auto-generated because base price > 100).
+          - Both pages NO LONGER show the search button.
+          
+          NOT YET DONE (intentional, for Phase 3):
+          - Admin UI to edit these fields (will add admin/service-editor screen).
+          - Frontend rendering of new "safety_tips" jsonb field as a separate section
+            (currently using the per-page hardcoded section as visual fallback).
+          
+          BACKEND CONTRACT FOR TESTING AGENT:
+          - GET /api/services/{id}/detail returns {service, variants, reviews}.
+          - variants[] always has at least 1 entry (auto-fallback Standard if empty).
+          - reviews[] filtered to rating=5 AND is_published=true.
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Phase 2 (frontend) complete. Search button removed from all 9 category service
+      detail pages. The hook now fetches per-service data from /api/services/{id}/detail
+      so each individual service has unique content. Variants render dynamically
+      (>2 tiers supported). Reviews are only 5★. Subtitle is now editable per service.
+      
+      Manual screenshots confirm: Light/LED (svc-elec-3) and MCB/Fuse (svc-elec-5)
+      now display DIFFERENT data on the same /electrician/service/[serviceId] route.
+      
+      NEXT: Phase 3 — Admin Service Editor screen so user can edit every section
+      from admin panel.
