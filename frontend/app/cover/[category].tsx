@@ -219,6 +219,31 @@ export default function MfixitCoverScreen() {
       .catch(() => { /* silent fallback */ });
   }, [category]);
 
+  // Helper to get CMS bullets for a section_key
+  const cmsBulletsFor = (key: string): string[] => {
+    const sec = cmsSections.find((s: any) => s.section_key === key);
+    return Array.isArray(sec?.bullets) ? sec.bullets : [];
+  };
+
+  // Render a row of bullets (used to override hardcoded bullet groups)
+  const renderBullets = (key: string, bg: string, color: string) => (
+    <>
+      {cmsBulletsFor(key).map((b: string, i: number) => (
+        <View key={i} style={styles.featureItem}>
+          <View style={[styles.featureIcon, { backgroundColor: bg }]}>
+            <Check size={18} color={color} />
+          </View>
+          <View style={styles.featureContent}>
+            <Text style={styles.featureText}>{b}</Text>
+          </View>
+        </View>
+      ))}
+    </>
+  );
+
+  const hasCMSFor = (key: string) => cmsBulletsFor(key).length > 0;
+
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       {/* Header */}
@@ -258,7 +283,9 @@ export default function MfixitCoverScreen() {
           <Text style={styles.sectionTitle}>
             {cmsSections.find((s: any) => s.section_key === "warranty")?.title || `${config.warrantyDays}-day warranty on repairs`}
           </Text>
-          
+          {hasCMSFor("warranty") && renderBullets("warranty", "#DCFCE7", "#059669")}
+          {!hasCMSFor("warranty") && (<>
+
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#DCFCE7" }]}>
               <RefreshCw size={20} color="#059669" />
@@ -287,6 +314,7 @@ export default function MfixitCoverScreen() {
               </Text>
             </View>
           </View>
+          </>)}
 
           {/* Shield Illustration */}
           <View style={styles.illustrationContainer}>
@@ -306,6 +334,8 @@ export default function MfixitCoverScreen() {
           <Text style={styles.sectionTitle}>
             {cmsSections.find((s: any) => s.section_key === "expert")?.title || "Expert verified repair quotes"}
           </Text>
+          {hasCMSFor("expert") && renderBullets("expert", "#EDE9FE", "#7C3AED")}
+          {!hasCMSFor("expert") && (<>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#EDE9FE" }]}>
@@ -328,6 +358,7 @@ export default function MfixitCoverScreen() {
               </Text>
             </View>
           </View>
+          </>)}
 
           {/* Badge Illustration */}
           <View style={styles.illustrationContainer}>
@@ -434,6 +465,8 @@ export default function MfixitCoverScreen() {
           <Text style={styles.sectionTitle}>
             {cmsSections.find((s: any) => s.section_key === "benefits")?.title || `${config.name} specific benefits`}
           </Text>
+          {hasCMSFor("benefits") && renderBullets("benefits", `${config.accentColor}20`, config.accentColor)}
+          {!hasCMSFor("benefits") && (<>
           
           {config.specialFeatures.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
@@ -445,6 +478,7 @@ export default function MfixitCoverScreen() {
               </View>
             </View>
           ))}
+          </>)}
         </View>
 
         {/* Section 5: 24/7 Support */}
@@ -452,6 +486,8 @@ export default function MfixitCoverScreen() {
           <Text style={styles.sectionTitle}>
             {cmsSections.find((s: any) => s.section_key === "support")?.title || "24/7 Customer support"}
           </Text>
+          {hasCMSFor("support") && renderBullets("support", "#FEE2E2", "#DC2626")}
+          {!hasCMSFor("support") && (<>
           
           <View style={styles.featureItem}>
             <View style={[styles.featureIcon, { backgroundColor: "#FEE2E2" }]}>
@@ -474,6 +510,7 @@ export default function MfixitCoverScreen() {
               </Text>
             </View>
           </View>
+          </>)}
         </View>
 
         {/* Trust Badge */}
