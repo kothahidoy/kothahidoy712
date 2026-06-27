@@ -4,18 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Share2, Star, Clock, Menu, Tag, Shield } from "lucide-react-native";
 import { useCart } from "@/src/context/CartContext";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
-const CATEGORIES = [
-  { id: "cockroach", name: "Cockroach\ncontrol", image: "https://images.unsplash.com/photo-1632935190508-bef6c4c2fcd9?auto=format&fit=crop&w=200&q=80" },
-  { id: "ant", name: "Ant\ncontrol", image: "https://images.unsplash.com/photo-1597662942557-4087864a1e76?auto=format&fit=crop&w=200&q=80" },
-  { id: "termite", name: "Termite\ncontrol", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80" },
-  { id: "mosquito", name: "Mosquito\ncontrol", image: "https://images.unsplash.com/photo-1584483766114-2cea6facdf57?auto=format&fit=crop&w=200&q=80" },
-  { id: "bed-bug", name: "Bed bug\ncontrol", image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=200&q=80" },
-  { id: "rodent", name: "Rodent\ncontrol", image: "https://images.unsplash.com/photo-1632935190508-bef6c4c2fcd9?auto=format&fit=crop&w=200&q=80" },
-  { id: "general", name: "General pest\ncontrol", image: "https://images.unsplash.com/photo-1632935190508-bef6c4c2fcd9?auto=format&fit=crop&w=200&q=80" },
-];
-
-const ALL_SERVICES = {
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "cockroach": {
     title: "Cockroach control",
     services: [
@@ -111,6 +102,17 @@ export default function PestControlFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services)
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+  } = useCategoryContent("cleaning-pest");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -124,7 +126,13 @@ export default function PestControlFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("cockroach");
+  const [activeCategory, setActiveCategory] = useState("");
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
 

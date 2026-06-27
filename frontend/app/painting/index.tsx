@@ -5,20 +5,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronRight, Search, Star, Clock, Menu, Tag } from "lucide-react-native";
 import { useCart } from "@/src/context/CartContext";
 import { colors } from "@/src/theme";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
 
-const CATEGORIES = [
-  { id: "1bhk", name: "1 BHK\npainting", image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=200&q=80" },
-  { id: "2bhk", name: "2 BHK\npainting", image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=200&q=80" },
-  { id: "3bhk", name: "3 BHK\npainting", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80" },
-  { id: "4bhk", name: "4 BHK\npainting", image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=200&q=80" },
-  { id: "room-combos", name: "Room\ncombos", image: "https://images.unsplash.com/photo-1615529328331-f8917597711f?auto=format&fit=crop&w=200&q=80" },
-  { id: "exterior", name: "Exterior full\nhome", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80" },
-  { id: "waterproofing", name: "Waterproofing", image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=200&q=80" },
-  { id: "wood-polish", name: "Wood polish\n& painting", image: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&w=200&q=80" },
-];
-
-const ALL_SERVICES = {
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "1bhk": {
     title: "1 BHK painting",
     services: [
@@ -117,6 +107,17 @@ export default function PaintingFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services)
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+  } = useCategoryContent("painting");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -130,7 +131,13 @@ export default function PaintingFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("1bhk");
+  const [activeCategory, setActiveCategory] = useState("");
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
 

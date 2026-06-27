@@ -20,24 +20,14 @@ import {
   Tag,
 } from "lucide-react-native";
 import { useCart } from "@/src/context/CartContext";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
 import { colors } from "@/src/theme";
 
 
 // Category tabs data
-const CATEGORIES = [
-  { id: "switch-socket", name: "Switch &\nsocket", image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=200&q=80" },
-  { id: "fan", name: "Fan", image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80" },
-  { id: "light", name: "Light", image: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?auto=format&fit=crop&w=200&q=80" },
-  { id: "wiring", name: "Wiring", image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=200&q=80" },
-  { id: "doorbell-security", name: "Doorbell &\nsecurity", image: "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=200&q=80" },
-  { id: "mcb-fuse", name: "MCB/fuse", image: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?auto=format&fit=crop&w=200&q=80" },
-  { id: "appliances", name: "Appliances", image: "https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=200&q=80" },
-  { id: "consultation", name: "Book a\nconsultation", image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=200&q=80" },
-];
-
 // All services organized by category
-const ALL_SERVICES = {
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "switch-socket": {
     title: "Switch & socket",
     services: [
@@ -161,6 +151,17 @@ export default function ElectricianFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services)
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+  } = useCategoryContent("electrician");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -174,7 +175,13 @@ export default function ElectricianFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("switch-socket");
+  const [activeCategory, setActiveCategory] = useState("");
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
 

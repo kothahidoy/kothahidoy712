@@ -20,24 +20,14 @@ import {
   Tag,
 } from "lucide-react-native";
 import { useCart } from "@/src/context/CartContext";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
 import { colors } from "@/src/theme";
 
 
 // Category tabs data
-const CATEGORIES = [
-  { id: "cupboard-drawer", name: "Cupboard &\ndrawer", image: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?auto=format&fit=crop&w=200&q=80" },
-  { id: "kitchen-fittings", name: "Kitchen\nfittings", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80" },
-  { id: "shelves-decor", name: "Shelves &\ndecor", image: "https://images.unsplash.com/photo-1594620302200-9a762244a156?auto=format&fit=crop&w=200&q=80" },
-  { id: "bath-fittings", name: "Bath fittings\n& mirrors", image: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=200&q=80" },
-  { id: "wooden-door", name: "Wooden door", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80" },
-  { id: "window-curtain", name: "Window &\ncurtain", image: "https://images.unsplash.com/photo-1604147706283-d7119b5b822c?auto=format&fit=crop&w=200&q=80" },
-  { id: "bed", name: "Bed", image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=200&q=80" },
-  { id: "furniture", name: "Furniture\nassembly", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=200&q=80" },
-];
-
 // All services organized by category
-const ALL_SERVICES = {
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "cupboard-drawer": {
     title: "Cupboard & drawer",
     services: [
@@ -162,6 +152,17 @@ export default function CarpenterFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services)
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+  } = useCategoryContent("carpenter");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -175,7 +176,13 @@ export default function CarpenterFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("cupboard-drawer");
+  const [activeCategory, setActiveCategory] = useState("");
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
 

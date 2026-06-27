@@ -1788,7 +1788,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "POST /api/booking/profile/phone - fix wrong column name"
+    - "Customer category screens now read sub-categories + services from admin CMS (Supabase) instead of hardcoded constants"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -1814,30 +1814,223 @@ agent_communication:
       **Ready for Testing:** The endpoint should now successfully update user's phone
       and full_name in Supabase without 400 errors.
   
+  - agent: "main"
+    message: |
+      🛠️ BUG FIX (2026-06-27): Customer category screens disconnected from Admin CMS
+      
+      **User-reported bug:** When an admin added a service (e.g. "Sand facial") in the
+      admin panel, it appeared in the admin Services list but NOT in the customer
+      app. Likewise, the customer "Salon for Women" screen showed 8 hard-coded
+      sub-categories (incl. Makeup, Bleach & detan) but the admin only had 6 in DB.
+      The admin Sub-cats and Services tabs were already DB-driven (Supabase), but
+      every customer category index screen had `const CATEGORIES = [...]` and
+      `const ALL_SERVICES = {...}` hard-coded — so admin edits were invisible.
+      
+      **Root cause:** Frontend customer screens (`/app/frontend/app/<category>/index.tsx`)
+      did not call the existing /api/admin/cms/* endpoints to load sub-cats/services.
+      
+      **Fix:**
+      1. Created new hook `src/hooks/useCategoryContent.ts` that fetches
+         `/api/admin/cms/sub-categories?category_id=<id>` +
+         `/api/admin/cms/services?category_id=<id>` and shapes the response into
+         the exact `{ CATEGORIES, ALL_SERVICES, initialActiveId }` structure each
+         screen previously used.
+      2. Refactored all 9 customer category screens to use the hook:
+         - /app/frontend/app/salon-women/index.tsx    → "salon-women"
+         - /app/frontend/app/salon/index.tsx          → "salon-men"
+         - /app/frontend/app/ac-appliance/index.tsx   → "ac-appliance"
+         - /app/frontend/app/carpenter/index.tsx      → "carpenter"
+         - /app/frontend/app/cleaning/index.tsx       → "cleaning-pest"
+         - /app/frontend/app/electrician/index.tsx    → "electrician"
+         - /app/frontend/app/painting/index.tsx       → "painting"
+         - /app/frontend/app/pest-control/index.tsx   → "cleaning-pest"
+         - /app/frontend/app/plumber/index.tsx        → "plumber"
+         Each screen now:
+         a) imports `useCategoryContent`
+         b) renames the old `const ALL_SERVICES = {...}` to `FALLBACK_ALL_SERVICES`
+            (kept only as offline fallback; live CMS overrides it)
+         c) removes the hard-coded `const CATEGORIES = [...]`
+         d) calls the hook and binds local `CATEGORIES` / `ALL_SERVICES`
+         e) starts `activeCategory` empty and sets it to the first CMS sub-cat id
+            when data arrives
+      3. Also ran the missing Supabase SQL migrations earlier (booking-items,
+         admin-policies) via the session pooler with the user's DB password.
+      
+      **Ready for verification:** Customer should now see exactly the sub-categories
+      and services the admin manages. Adding/editing/deactivating any sub-cat or
+      service via /admin/cms must be reflected in /salon-women, /salon, /plumber,
+      etc. immediately. Sub-cats the user wants (e.g. Makeup, Bleach & Detan) can
+      now be added through the admin Sub-cats tab and will appear in the customer
+      app.
+
+---
+
+## 2026-06-27 — Category Screens CMS Integration Bug Fix Verification
+
+user_problem_statement: |
+  Customer category screens must now reflect admin CMS (Supabase) data instead of hardcoded constants.
+  User reported:
+  1. Customer "Salon for Women" screen showed hardcoded sub-categories that didn't match admin Sub-cats list
+  2. A service "Sand facial" (₹199) added via admin panel under Waxing sub-cat did NOT appear in customer app
+  3. Same issue exists for all 9 categories
+
+frontend:
+  - task: "Category Screens CMS Integration - All 9 Categories"
+    implemented: true
+    working: true
+    file: "app/salon-women/index.tsx, app/salon/index.tsx, app/ac-appliance/index.tsx, app/plumber/index.tsx, app/carpenter/index.tsx, app/electrician/index.tsx, app/painting/index.tsx, app/cleaning/index.tsx, app/pest-control/index.tsx, src/hooks/useCategoryContent.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Created /app/frontend/src/hooks/useCategoryContent.ts that fetches:
+          - GET /api/admin/cms/sub-categories?category_id=<id>
+          - GET /api/admin/cms/services?category_id=<id>
+          
+          All 9 customer category index screens now use this hook (previously had hardcoded 
+          `const CATEGORIES = [...]` and `const ALL_SERVICES = {...}`).
+          
+          Hook returns CATEGORIES (sub-category tiles) and ALL_SERVICES (services grouped by 
+          sub-category). Fallback data is kept for offline scenarios but CMS data takes precedence.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ BUG FIX VERIFIED - COMPREHENSIVE END-TO-END TEST COMPLETE
+          
+          **TEST RESULTS: 9/9 CATEGORIES PASS**
+          
+          **1. /salon-women (Salon for Women)** ✅ PASS
+          - CMS API calls: ✅ sub-categories endpoint called, ✅ services endpoint called
+          - Sub-categories visible: Waxing, Facials, Cleanup, Pedicure & Manicure, Hair Care, Threading
+          - **CRITICAL FIX VERIFIED:** "Sand facial" service (₹199) ✅ FOUND in Waxing section
+          - "Waxing (Full Body)" service also ✅ FOUND
+          - No console errors
+          
+          **2. /salon (Men's Salon)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Haircut, Shave & Beard, Facial, Massage, Hair Colour
+          - No console errors
+          
+          **3. /ac-appliance (AC & Appliance)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: AC, Washing Machine, Refrigerator, Geyser, Television, Water Purifier
+          - No console errors
+          
+          **4. /plumber (Plumber)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Tap & Basin, Toilet, Shower, Drainage, Water Tank
+          - No console errors
+          
+          **5. /carpenter (Carpenter)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Cupboard, Kitchen Fittings, Door, Bed, Shelf, More services
+          - No console errors
+          
+          **6. /electrician (Electrician)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Switch & Socket, Fan, Lights, Wiring, MCB
+          - No console errors
+          
+          **7. /painting (Painting)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: 1 BHK, 2 BHK, 3 BHK, Single Room, Waterproofing, Wood Polish
+          - No console errors
+          
+          **8. /cleaning (Cleaning)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Full Home, Bathroom, Kitchen, Sofa & Carpet, Pest Control
+          - No console errors
+          
+          **9. /pest-control (Pest Control)** ✅ PASS
+          - CMS API calls: ✅ Both endpoints called
+          - Sub-categories visible: Full Home, Bathroom, Kitchen, Sofa & Carpet, Pest Control
+          - No console errors
+          
+          **DETAILED VERIFICATION - "Sand facial" Service:**
+          - Service name: ✅ "Sand facial" found in page content
+          - Price: ✅ ₹199 displayed correctly
+          - Location: ✅ Appears in Waxing section as expected
+          - Context: Service shows with rating "4.7 (0 reviews)", price "₹199", duration "30 mins"
+          
+          **TECHNICAL VERIFICATION:**
+          - All 9 pages make correct API calls to /api/admin/cms/sub-categories and /api/admin/cms/services
+          - Sub-categories load from Supabase database (NOT hardcoded)
+          - Services are correctly grouped by sub_category_id
+          - Fallback data is present but NOT used (CMS data takes precedence)
+          - No JavaScript errors related to useCategoryContent, fetch, or CMS
+          - Mobile viewport (390x844) renders correctly
+          
+          **SCREENSHOTS CAPTURED:**
+          - test-1-salon-women.png: Salon for Women with sub-category tabs
+          - test-2-salon.png: Men's Salon
+          - test-3-ac-appliance.png: AC & Appliance
+          - test-4-plumber.png: Plumber
+          - test-5-carpenter.png: Carpenter
+          - test-6-electrician.png: Electrician
+          - test-7-painting.png: Painting
+          - test-8-cleaning.png: Cleaning
+          - test-9-pest-control.png: Pest Control
+          - waxing-section-top.png: Waxing section showing "Sand facial"
+          - waxing-section-scrolled.png: Scrolled view of Waxing services
+          
+          **USER-REPORTED BUG STATUS:**
+          ✅ FIXED: Hardcoded sub-categories replaced with CMS data
+          ✅ FIXED: "Sand facial" service now appears in customer app
+          ✅ FIXED: All 9 categories now reflect admin CMS data
+          
+          **NO CRITICAL ISSUES FOUND**
+          
+          **RECOMMENDATION:**
+          The bug fix is production-ready. All category screens now correctly display 
+          sub-categories and services from the admin CMS. The user can now add/edit/deactivate 
+          sub-categories and services via /admin/cms and they will immediately appear in the 
+          customer app.
+
+metadata:
+  created_by: "testing_agent"
+  version: "3.0"
+  test_sequence: 9
+  run_ui: true
+  last_updated: "2026-06-27"
+
+test_plan:
+  current_focus:
+    - "Category Screens CMS Integration - All 9 Categories"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
   - agent: "testing"
     message: |
-      ✅ BUG FIX VERIFICATION COMPLETE - ALL TESTS PASS
+      🎉 CATEGORY SCREENS CMS BUG FIX - FULLY VERIFIED 🎉
       
-      **CRITICAL FINDINGS:**
+      **COMPREHENSIVE TEST COMPLETE - ALL 9 CATEGORIES PASS**
       
-      1. **SMOKING GUN EVIDENCE:** Direct Supabase REST API test confirms:
-         - PATCH with `full_name` → 204 SUCCESS ✅
-         - PATCH with `name` → 400 ERROR with PostgREST message: "Could not find the 'name' column of 'users' in the schema cache"
-         - This is the EXACT error that was causing the "Failed to fetch" bug
+      **PRIMARY BUG FIX VERIFIED:**
+      ✅ All 9 category screens now load sub-categories from Supabase CMS (NOT hardcoded)
+      ✅ "Sand facial" service (₹199) is now visible in /salon-women under Waxing section
+      ✅ All CMS API endpoints (/api/admin/cms/sub-categories and /api/admin/cms/services) are called correctly
+      ✅ No console errors or JavaScript issues
       
-      2. **FIX VERIFICATION:** The code now uses `body["full_name"]` at line 456 in booking_routes.py
-         - This matches the actual Supabase schema
-         - The fix is correct and will resolve the user's reported issue
+      **TESTED PAGES:**
+      1. /salon-women - 6 sub-cats (Waxing, Facials, Cleanup, Pedicure & Manicure, Hair Care, Threading)
+      2. /salon - 5 sub-cats (Haircut, Shave & Beard, Facial, Massage, Hair Colour)
+      3. /ac-appliance - 6 sub-cats (AC, Washing Machine, Refrigerator, Geyser, Television, Water Purifier)
+      4. /plumber - 5 sub-cats (Tap & Basin, Toilet, Shower, Drainage, Water Tank)
+      5. /carpenter - 5 sub-cats (Cupboard, Kitchen Fittings, Door, Bed, Shelf)
+      6. /electrician - 5 sub-cats (Switch & Socket, Fan, Lights, Wiring, MCB)
+      7. /painting - 6 sub-cats (1 BHK, 2 BHK, 3 BHK, Single Room, Waterproofing, Wood Polish)
+      8. /cleaning - 5 sub-cats (Full Home, Bathroom, Kitchen, Sofa & Carpet, Pest Control)
+      9. /pest-control - 5 sub-cats (same as cleaning, uses category_id "cleaning-pest")
       
-      3. **AUTH VALIDATION:** All auth checks working correctly:
-         - Missing token → 401 "Please sign in"
-         - Invalid token → 401
-         - Auth is checked before phone validation
+      **SPECIAL VERIFICATION:**
+      The user's exact reported issue - "Sand facial" service added via admin panel not appearing - 
+      is now FIXED. The service is visible with correct price (₹199), rating (4.7), and duration (30 mins).
       
-      4. **NO REGRESSIONS:** Other endpoints still working:
-         - GET /api/ → 200 OK
-         - GET /api/auth/otp/health → 200 OK
+      **NO ISSUES FOUND - READY FOR PRODUCTION**
       
-      **RECOMMENDATION:**
-      The bug fix is production-ready. The "Failed to fetch" error on cart screen when
-      updating phone number is RESOLVED. Main agent can summarize and finish.
+      Main agent can summarize and finish.

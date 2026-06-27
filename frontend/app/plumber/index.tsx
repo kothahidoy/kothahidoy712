@@ -21,6 +21,7 @@ import {
   Tag,
 } from "lucide-react-native";
 import { useCart } from "@/src/context/CartContext";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
 import { colors, radius } from "@/src/theme";
 import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
@@ -29,20 +30,8 @@ import { PackageCustomizerModal } from "@/src/components/PackageCustomizerModal"
 const THEME_COLOR = "#2563EB";
 
 // Category tabs data
-const CATEGORIES = [
-  { id: "tap-mixer", name: "Tap & mixer", image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=200&q=80" },
-  { id: "toilet", name: "Toilet", image: "https://images.unsplash.com/photo-1564540586988-aa4e53c3d799?auto=format&fit=crop&w=200&q=80" },
-  { id: "bath-shower", name: "Bath & shower", image: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=200&q=80" },
-  { id: "bath-accessories", name: "Bath\naccessories", image: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=200&q=80" },
-  { id: "basin-sink", name: "Basin & sink", image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=200&q=80" },
-  { id: "drainage", name: "Drainage &\nblockage", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?auto=format&fit=crop&w=200&q=80" },
-  { id: "leakage", name: "Leakage &\nconnections", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80" },
-  { id: "water-tank", name: "Water tank &\nmotor", image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=200&q=80" },
-  { id: "consultation", name: "Book a\nconsultation", image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80" },
-];
-
 // All services organized by category
-const ALL_SERVICES = {
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "tap-mixer": {
     title: "Tap & mixer",
     services: [
@@ -261,6 +250,17 @@ export default function PlumberFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services)
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+  } = useCategoryContent("plumber");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -274,7 +274,13 @@ export default function PlumberFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("tap-mixer");
+  const [activeCategory, setActiveCategory] = useState("");
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [showMenu, setShowMenu] = useState(false);
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
