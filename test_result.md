@@ -1037,7 +1037,7 @@ backend:
              DB_NAME=mfixit_db, CORS_ORIGINS=*
           2. Recreated /app/frontend/.env with EXPO_PUBLIC_BACKEND_URL +
              EXPO_PACKAGER_PROXY_URL + EXPO_PACKAGER_HOSTNAME pointing to
-             https://code-import-hub-7.preview.emergentagent.com
+             https://code-import-hub-8.preview.emergentagent.com
           3. `pip install razorpay==2.0.1`
           4. `sudo supervisorctl restart backend expo`
 
@@ -1052,7 +1052,7 @@ backend:
           ✅ SMOKE TEST COMPLETE - ALL 5 CHECKS PASS
           
           **CHECK 1: Backend Health Endpoint** ✅ PASS
-          - GET https://code-import-hub-7.preview.emergentagent.com/api/
+          - GET https://code-import-hub-8.preview.emergentagent.com/api/
           - Response: 200 OK with {"message":"Hello World"}
           
           **CHECK 2: Backend Process Stability** ✅ PASS
@@ -1068,13 +1068,13 @@ backend:
           - Current boot has zero import errors
           
           **CHECK 4: CORS Preflight** ✅ PASS
-          - OPTIONS https://code-import-hub-7.preview.emergentagent.com/api/
+          - OPTIONS https://code-import-hub-8.preview.emergentagent.com/api/
           - Response: 204 No Content (correct for preflight)
           - Headers: access-control-allow-origin: *
           - Methods: GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH
           
           **CHECK 5: MongoDB Connectivity** ✅ PASS
-          - GET https://code-import-hub-7.preview.emergentagent.com/api/status
+          - GET https://code-import-hub-8.preview.emergentagent.com/api/status
           - Response: 200 OK with [] (empty array)
           - Endpoint successfully queries MongoDB (db.status_checks.find())
           - No database connection errors
@@ -1337,7 +1337,7 @@ agent_communication:
   - agent: "main"
     message: |
       MSG91 WhatsApp OTP backend is implemented. Please run an end-to-end test
-      on these endpoints under https://code-import-hub-7.preview.emergentagent.com:
+      on these endpoints under https://code-import-hub-8.preview.emergentagent.com:
 
       1. GET  /api/auth/otp/health
          expect 200 + {"configured": true, "channel": "whatsapp",
@@ -1690,7 +1690,7 @@ agent_communication:
          dummy value or read the original first).
 
       2. Endpoint smoke test through FastAPI:
-         POST https://code-import-hub-7.preview.emergentagent.com/api/booking/profile/phone
+         POST https://code-import-hub-8.preview.emergentagent.com/api/booking/profile/phone
          WITHOUT Authorization header → expect 401 "Please sign in".
 
       3. Endpoint validation:
