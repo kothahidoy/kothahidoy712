@@ -322,6 +322,30 @@ function CategoriesTab({ categories, reload }: any) {
             <Field label="Brand rating" value={editing.brand_rating} onChange={(v: string) => setEditing({ ...editing, brand_rating: Number(v) || 0 })} keyboardType="decimal-pad" />
             <Field label="Reviews label (e.g. 2.0 M bookings)" value={editing.brand_reviews_label} onChange={(v: string) => setEditing({ ...editing, brand_reviews_label: v })} />
             <ToggleRow label="Active / visible" value={!!editing.is_active} onChange={(v) => setEditing({ ...editing, is_active: v })} />
+
+            {/* ── Visitation fee strip (shown at bottom of category page) ── */}
+            <View style={{ paddingTop: 12, marginTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={[fieldStyles.label, { color: colors.primary, marginBottom: 6 }]}>
+                Visitation fee strip (bottom of category page)
+              </Text>
+              <Field
+                label="Strip text"
+                value={editing.visitation_fee_label}
+                onChange={(v: string) => setEditing({ ...editing, visitation_fee_label: v })}
+                placeholder="Get visitation fee off on orders above ₹499"
+              />
+              <Field
+                label="Threshold ₹"
+                value={editing.visitation_fee_threshold}
+                onChange={(v: string) => setEditing({ ...editing, visitation_fee_threshold: Number(v) || 0 })}
+                keyboardType="decimal-pad"
+              />
+              <ToggleRow
+                label="Show visitation fee strip"
+                value={editing.visitation_fee_active !== false}
+                onChange={(v) => setEditing({ ...editing, visitation_fee_active: v })}
+              />
+            </View>
           </>
         )}
       </EditModal>

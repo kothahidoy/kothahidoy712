@@ -251,11 +251,13 @@ export default function CarpenterServiceScreen() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Bottom Promo Bar */}
-      <View style={styles.bottomPromo}>
-        <Tag size={16} color="#16A34A" />
-        <Text style={styles.bottomPromoText}>Get visitation fee off on orders above ₹499</Text>
-      </View>
+      {/* Bottom Promo Bar (CMS-controlled) */}
+      {(cms.category?.visitation_fee_active ?? true) && (
+        <View style={styles.bottomPromo}>
+          <Tag size={14} color="#059669" />
+          <Text style={styles.bottomPromoText}>{cms.category?.visitation_fee_label || 'Get visitation fee off on orders above ₹499'}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

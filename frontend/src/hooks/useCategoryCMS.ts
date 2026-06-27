@@ -74,6 +74,9 @@ export type CMSCategory = {
   brand_rating?: number | null;
   brand_reviews_label?: string | null;
   is_active?: boolean;
+  visitation_fee_label?: string | null;
+  visitation_fee_threshold?: number | null;
+  visitation_fee_active?: boolean | null;
 };
 
 export type CMSData = {

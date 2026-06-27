@@ -78,6 +78,9 @@ class CategoryUpsert(BaseModel):
     brand_name: Optional[str] = None
     brand_rating: Optional[float] = None
     brand_reviews_label: Optional[str] = None
+    visitation_fee_label: Optional[str] = None
+    visitation_fee_threshold: Optional[float] = None
+    visitation_fee_active: Optional[bool] = None
 
 
 @router.get("/categories")
