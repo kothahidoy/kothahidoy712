@@ -14,21 +14,13 @@ import { useCart } from "@/src/context/CartContext";
 import { colors } from "@/src/theme";
 import { SuperSaverPackages, PackageData } from "@/src/components/SuperSaverPackages";
 import { PackageCustomizerModal } from "@/src/components/PackageCustomizerModal";
+import { useCategoryContent } from "@/src/hooks/useCategoryContent";
 
 const THEME_COLOR = "#EC4899";
 
-const CATEGORIES = [
-  { id: "waxing", name: "Waxing", image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=200&q=80" },
-  { id: "facial", name: "Facials", image: "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=200&q=80" },
-  { id: "cleanup", name: "Cleanup", image: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=200&q=80" },
-  { id: "pedicure", name: "Pedicure &\nmanicure", image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=200&q=80" },
-  { id: "threading", name: "Threading", image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=200&q=80" },
-  { id: "hair-care", name: "Hair care", image: "https://images.unsplash.com/photo-1560869713-da86a9ec0744?auto=format&fit=crop&w=200&q=80" },
-  { id: "makeup", name: "Makeup", image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=200&q=80" },
-  { id: "bleach", name: "Bleach &\ndetan", image: "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=200&q=80" },
-];
-
-const ALL_SERVICES = {
+// Fallback content used only if Supabase / CMS fetch returns nothing — keeps the screen
+// usable when the backend is unreachable. Live data from the admin CMS overrides this.
+const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
   "waxing": {
     title: "Waxing",
     services: [
@@ -231,6 +223,18 @@ export default function SalonWomenFullPageScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const { replaceAllItems: __syncGlobalCart } = useCart();
+
+  // 🔌 Live CMS-driven content (admin Sub-cats + Services for category "salon-women")
+  const {
+    CATEGORIES: liveCats,
+    ALL_SERVICES: liveServices,
+    initialActiveId,
+    loading: cmsLoading,
+  } = useCategoryContent("salon-women");
+  const CATEGORIES = liveCats.length ? liveCats : [];
+  const ALL_SERVICES: Record<string, { title: string; services: any[] }> =
+    Object.keys(liveServices).length ? liveServices : FALLBACK_ALL_SERVICES;
+
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
       let svc: any = null;
@@ -244,11 +248,17 @@ export default function SalonWomenFullPageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
-  const [activeCategory, setActiveCategory] = useState("waxing");
+  const [activeCategory, setActiveCategory] = useState("");
   const [sectionPositions, setSectionPositions] = useState<{ [key: string]: number }>({});
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
+
+  // Set initial active tab when CMS data finishes loading
+  useEffect(() => {
+    if (!activeCategory && initialActiveId) setActiveCategory(initialActiveId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveId]);
 
   useEffect(() => {
     if (scrollTo && !hasScrolledToInitial && Object.keys(sectionPositions).length > 0) {
