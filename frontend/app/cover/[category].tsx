@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -204,6 +204,21 @@ export default function MfixitCoverScreen() {
   
   const config = CATEGORY_CONFIGS[category || "electrician"] || CATEGORY_CONFIGS.electrician;
 
+  // ── CMS overlay: admin-managed sections + rate card ──
+  const [cmsSections, setCmsSections] = useState<any[]>([]);
+  const [cmsRateCard, setCmsRateCard] = useState<any[]>([]);
+  useEffect(() => {
+    if (!category) return;
+    const base = typeof window !== "undefined" ? "" : (process.env.EXPO_PUBLIC_BACKEND_URL || "");
+    fetch(`${base}/api/admin/cms/public/category/${category}/cover`)
+      .then((r) => r.json())
+      .then((d) => {
+        setCmsSections(Array.isArray(d.sections) ? d.sections : []);
+        setCmsRateCard(Array.isArray(d.rate_card) ? d.rate_card : []);
+      })
+      .catch(() => { /* silent fallback */ });
+  }, [category]);
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       {/* Header */}
@@ -234,6 +249,41 @@ export default function MfixitCoverScreen() {
           </View>
           <Text style={styles.brandTagline}>End-to-end service protection</Text>
         </View>
+
+        {/* ── CMS-managed sections (override / extend the hard-coded ones) ── */}
+        {cmsSections.length > 0 && cmsSections.map((sec: any) => (
+          <View key={sec.id} style={[styles.section, { backgroundColor: "#F0FDF4" }]}>
+            <Text style={styles.sectionTitle}>{sec.title}</Text>
+            {(sec.bullets || []).map((b: string, i: number) => (
+              <View key={i} style={styles.featureItem}>
+                <View style={[styles.featureIcon, { backgroundColor: "#DCFCE7" }]}>
+                  <Check size={18} color="#059669" />
+                </View>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureText}>{b}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ))}
+
+        {/* ── CMS-managed rate card (replaces the embedded one if items exist) ── */}
+        {cmsRateCard.length > 0 && (
+          <View style={[styles.section, { backgroundColor: "#FAFAFA" }]}>
+            <Text style={styles.sectionTitle}>Rate card</Text>
+            {cmsRateCard.map((row: any) => (
+              <View key={row.id} style={[styles.featureItem, { borderBottomWidth: 1, borderBottomColor: "#F3F4F6", paddingVertical: 10 }]}>
+                <View style={styles.featureContent}>
+                  <Text style={[styles.featureText, { fontWeight: "600" }]}>{row.service_name}</Text>
+                  {row.sub_label ? <Text style={{ fontSize: 12, color: "#6B7280" }}>{row.sub_label}</Text> : null}
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: config.accentColor }}>
+                  ₹{Number(row.price).toFixed(0)} {row.price_suffix || ""}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Section 1: Warranty on Repairs (Green themed) */}
         <View style={[styles.section, { backgroundColor: "#F0FDF4" }]}>

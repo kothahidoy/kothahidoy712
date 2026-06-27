@@ -51,7 +51,7 @@ const API = (() => {
   return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
 })();
 
-type TabKey = "home" | "categories" | "subcategories" | "banners" | "promos" | "services";
+type TabKey = "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
 
 // ─────────────────────────────────────────────────────────────────────
 //  HTTP helpers
@@ -893,6 +893,194 @@ function HomeTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+//  COVER TAB  —  Mfixit Cover page sections per category
+// ─────────────────────────────────────────────────────────────────────
+const COVER_SECTION_OPTIONS = [
+  { key: "warranty", label: "Warranty" },
+  { key: "expert",   label: "Expert verified" },
+  { key: "rate",     label: "Fixed rate card" },
+  { key: "benefits", label: "Benefits" },
+  { key: "support",  label: "24/7 Customer support" },
+];
+
+function CoverTab({ categories }: any) {
+  const [catId, setCatId] = useState<string>(categories[0]?.id || "");
+  const [rows, setRows] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  const load = useCallback(async () => {
+    if (!catId) return;
+    const data = await http<any[]>("GET", `/cover-sections?category_id=${catId}`);
+    setRows(data || []);
+  }, [catId]);
+  useEffect(() => { load(); }, [load]);
+
+  const blank = { category_id: catId, section_key: "warranty", title: "30-day warranty", bullets: [""], sort_order: rows.length + 1, is_active: true };
+
+  const onSave = async () => {
+    try {
+      if (!editing?.title?.trim()) return notify("Missing", "Title required");
+      const body = {
+        ...editing,
+        category_id: catId,
+        bullets: (editing.bullets || []).filter((b: string) => b?.trim()),
+      };
+      if (editing.id) await http("PATCH", `/cover-sections/${editing.id}`, body);
+      else await http("POST", "/cover-sections", body);
+      setEditing(null);
+      await load();
+    } catch (e: any) { notify("Failed", e.message); }
+  };
+  const onDelete = async (id: string) => {
+    if (!(await confirmAsync("Delete cover section?", ""))) return;
+    await http("DELETE", `/cover-sections/${id}`); await load();
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <CategoryDropdown categories={categories} value={catId} onChange={setCatId} />
+      <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
+        <Plus size={16} color="#fff" /><Text style={btn.addTxt}>Add cover section</Text>
+      </TouchableOpacity>
+      {rows.map((r) => (
+        <View key={r.id} style={row.card}>
+          <View style={{ flex: 1 }}>
+            <Text style={row.title}>{r.title}</Text>
+            <Text style={row.sub}>{r.section_key} · {(r.bullets || []).length} bullets</Text>
+          </View>
+          <Switch value={!!r.is_active} onValueChange={async (v) => {
+            await http("PATCH", `/cover-sections/${r.id}`, { category_id: catId, section_key: r.section_key, title: r.title, is_active: v });
+            load();
+          }} />
+          <TouchableOpacity onPress={() => setEditing({ ...r, bullets: r.bullets || [""] })} style={row.iconBtn}><Edit3 size={16} color={colors.primary} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(r.id)} style={row.iconBtn}><Trash2 size={16} color={colors.error} /></TouchableOpacity>
+        </View>
+      ))}
+      <EditModal visible={!!editing} title={editing?.id ? "Edit cover section" : "New cover section"} onClose={() => setEditing(null)} onSave={onSave}>
+        {editing && (
+          <>
+            <View style={{ gap: 6 }}>
+              <Text style={fieldStyles.label}>Section type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                {COVER_SECTION_OPTIONS.map((o) => (
+                  <TouchableOpacity
+                    key={o.key}
+                    style={[chipStyles.chip, editing.section_key === o.key && chipStyles.chipActive]}
+                    onPress={() => setEditing({ ...editing, section_key: o.key })}
+                  >
+                    <Text style={[chipStyles.chipTxt, editing.section_key === o.key && { color: "#fff" }]}>{o.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <Field label="Section title" value={editing.title} onChange={(v: string) => setEditing({ ...editing, title: v })} placeholder="30-day warranty" />
+
+            <Text style={fieldStyles.label}>Bullets</Text>
+            {(editing.bullets || []).map((b: string, i: number) => (
+              <View key={i} style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                <TextInput
+                  style={[fieldStyles.input, { flex: 1 }]}
+                  placeholder={`Bullet ${i + 1}`}
+                  placeholderTextColor={colors.textSubtle}
+                  value={b}
+                  onChangeText={(v) => {
+                    const next = [...editing.bullets];
+                    next[i] = v;
+                    setEditing({ ...editing, bullets: next });
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setEditing({ ...editing, bullets: editing.bullets.filter((_: any, idx: number) => idx !== i) })}
+                  style={row.iconBtn}
+                >
+                  <Trash2 size={14} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={[btn.cancel, { alignSelf: "flex-start", paddingHorizontal: 14 }]}
+              onPress={() => setEditing({ ...editing, bullets: [...(editing.bullets || []), ""] })}
+            >
+              <Text style={btn.cancelTxt}>+ Add bullet</Text>
+            </TouchableOpacity>
+
+            <Field label="Sort order" value={editing.sort_order} onChange={(v: string) => setEditing({ ...editing, sort_order: Number(v) || 0 })} keyboardType="number-pad" />
+            <ToggleRow label="Active" value={!!editing.is_active} onChange={(v) => setEditing({ ...editing, is_active: v })} />
+          </>
+        )}
+      </EditModal>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  RATE CARD TAB
+// ─────────────────────────────────────────────────────────────────────
+function RateCardTab({ categories }: any) {
+  const [catId, setCatId] = useState<string>(categories[0]?.id || "");
+  const [rows, setRows] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  const load = useCallback(async () => {
+    if (!catId) return;
+    const data = await http<any[]>("GET", `/rate-card?category_id=${catId}`);
+    setRows(data || []);
+  }, [catId]);
+  useEffect(() => { load(); }, [load]);
+
+  const blank = { category_id: catId, service_name: "", sub_label: "", price: 0, price_suffix: "onwards", sort_order: rows.length + 1, is_active: true };
+
+  const onSave = async () => {
+    try {
+      if (!editing?.service_name?.trim()) return notify("Missing", "Service name required");
+      const body = { ...editing, category_id: catId };
+      if (editing.id) await http("PATCH", `/rate-card/${editing.id}`, body);
+      else await http("POST", "/rate-card", body);
+      setEditing(null); await load();
+    } catch (e: any) { notify("Failed", e.message); }
+  };
+  const onDelete = async (id: string) => {
+    if (!(await confirmAsync("Delete rate card row?", ""))) return;
+    await http("DELETE", `/rate-card/${id}`); await load();
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <CategoryDropdown categories={categories} value={catId} onChange={setCatId} />
+      <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
+        <Plus size={16} color="#fff" /><Text style={btn.addTxt}>Add rate card row</Text>
+      </TouchableOpacity>
+      {rows.map((r) => (
+        <View key={r.id} style={row.card}>
+          <View style={{ flex: 1 }}>
+            <Text style={row.title}>{r.service_name}</Text>
+            <Text style={row.sub}>{r.sub_label ? `${r.sub_label} · ` : ""}₹{r.price} {r.price_suffix}</Text>
+          </View>
+          <Switch value={!!r.is_active} onValueChange={async (v) => {
+            await http("PATCH", `/rate-card/${r.id}`, { category_id: catId, service_name: r.service_name, is_active: v });
+            load();
+          }} />
+          <TouchableOpacity onPress={() => setEditing({ ...r })} style={row.iconBtn}><Edit3 size={16} color={colors.primary} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(r.id)} style={row.iconBtn}><Trash2 size={16} color={colors.error} /></TouchableOpacity>
+        </View>
+      ))}
+      <EditModal visible={!!editing} title={editing?.id ? "Edit rate card row" : "New rate card row"} onClose={() => setEditing(null)} onSave={onSave}>
+        {editing && (
+          <>
+            <Field label="Service name" value={editing.service_name} onChange={(v: string) => setEditing({ ...editing, service_name: v })} placeholder="e.g. Switch / socket replacement" />
+            <Field label="Sub label (optional)" value={editing.sub_label} onChange={(v: string) => setEditing({ ...editing, sub_label: v })} placeholder="e.g. 1-gang" />
+            <Field label="Price ₹" value={editing.price} onChange={(v: string) => setEditing({ ...editing, price: Number(v) || 0 })} keyboardType="decimal-pad" />
+            <Field label="Price suffix" value={editing.price_suffix} onChange={(v: string) => setEditing({ ...editing, price_suffix: v })} placeholder="onwards" />
+            <Field label="Sort order" value={editing.sort_order} onChange={(v: string) => setEditing({ ...editing, sort_order: Number(v) || 0 })} keyboardType="number-pad" />
+            <ToggleRow label="Active" value={!!editing.is_active} onChange={(v) => setEditing({ ...editing, is_active: v })} />
+          </>
+        )}
+      </EditModal>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 //  ROOT
 // ─────────────────────────────────────────────────────────────────────
 export default function AdminCMS() {
@@ -937,6 +1125,8 @@ export default function AdminCMS() {
     { key: "banners",       label: "Banners",    icon: ImgIcon },
     { key: "promos",        label: "Promos",     icon: Megaphone },
     { key: "services",      label: "Services",   icon: Layers },
+    { key: "cover",         label: "Cover",      icon: Layers },
+    { key: "ratecard",      label: "Rate Card",  icon: Megaphone },
   ];
 
   return (
@@ -967,6 +1157,8 @@ export default function AdminCMS() {
             {tab === "banners"       && <BannersTab categories={categories} />}
             {tab === "promos"        && <PromosTab categories={categories} />}
             {tab === "services"      && <ServicesTab categories={categories} />}
+            {tab === "cover"         && <CoverTab categories={categories} />}
+            {tab === "ratecard"      && <RateCardTab categories={categories} />}
           </>
         )}
       </ScrollView>

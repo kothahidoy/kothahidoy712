@@ -429,6 +429,147 @@ async def delete_service_cms(svc_id: str):
 
 
 # ═════════════════════════════════════════════════════════════════
+# Mfixit Cover sections (per category)
+# ═════════════════════════════════════════════════════════════════
+class CoverSectionUpsert(BaseModel):
+    id: Optional[str] = None
+    category_id: str
+    section_key: str       # 'warranty' | 'expert' | 'rate' | 'benefits' | 'support'
+    title: str
+    bullets: Optional[List[str]] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+@router.get("/cover-sections")
+async def list_cover_sections(category_id: Optional[str] = None):
+    q = "?select=*&order=sort_order"
+    if category_id:
+        q = f"?select=*&category_id=eq.{category_id}&order=sort_order"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(f"{SUPABASE_URL}/rest/v1/mfixit_cover_sections{q}", headers=_sb_headers())
+        return r.json() if r.is_success else []
+
+
+@router.post("/cover-sections")
+async def create_cover_section(payload: CoverSectionUpsert):
+    body = payload.dict(exclude_none=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/mfixit_cover_sections?on_conflict=category_id,section_key",
+            headers={**_sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+            json=body,
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        return r.json()[0] if isinstance(r.json(), list) else r.json()
+
+
+@router.patch("/cover-sections/{sec_id}")
+async def update_cover_section(sec_id: str, payload: CoverSectionUpsert):
+    body = payload.dict(exclude_unset=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/mfixit_cover_sections?id=eq.{sec_id}",
+            headers=_sb_headers(), json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/cover-sections/{sec_id}")
+async def delete_cover_section(sec_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/mfixit_cover_sections?id=eq.{sec_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+# ═════════════════════════════════════════════════════════════════
+# Rate card items (per category)
+# ═════════════════════════════════════════════════════════════════
+class RateCardUpsert(BaseModel):
+    id: Optional[str] = None
+    category_id: str
+    service_name: str
+    sub_label: Optional[str] = None
+    price: float = 0
+    price_suffix: Optional[str] = "onwards"
+    sort_order: int = 0
+    is_active: bool = True
+
+
+@router.get("/rate-card")
+async def list_rate_card(category_id: Optional[str] = None):
+    q = "?select=*&order=sort_order"
+    if category_id:
+        q = f"?select=*&category_id=eq.{category_id}&order=sort_order"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(f"{SUPABASE_URL}/rest/v1/rate_card_items{q}", headers=_sb_headers())
+        return r.json() if r.is_success else []
+
+
+@router.post("/rate-card")
+async def create_rate_card_item(payload: RateCardUpsert):
+    body = payload.dict(exclude_none=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(f"{SUPABASE_URL}/rest/v1/rate_card_items", headers=_sb_headers(), json=body)
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        return r.json()[0] if isinstance(r.json(), list) else r.json()
+
+
+@router.patch("/rate-card/{item_id}")
+async def update_rate_card_item(item_id: str, payload: RateCardUpsert):
+    body = payload.dict(exclude_unset=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/rate_card_items?id=eq.{item_id}",
+            headers=_sb_headers(), json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/rate-card/{item_id}")
+async def delete_rate_card_item(item_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/rate_card_items?id=eq.{item_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+# ═════════════════════════════════════════════════════════════════
+# Public combined cover-page feed (frontend uses this)
+# ═════════════════════════════════════════════════════════════════
+@router.get("/public/category/{category_id}/cover")
+async def public_cover(category_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        sections = await client.get(
+            f"{SUPABASE_URL}/rest/v1/mfixit_cover_sections?category_id=eq.{category_id}&is_active=eq.true&order=sort_order",
+            headers=_sb_headers(),
+        )
+        rates = await client.get(
+            f"{SUPABASE_URL}/rest/v1/rate_card_items?category_id=eq.{category_id}&is_active=eq.true&order=sort_order",
+            headers=_sb_headers(),
+        )
+        return {
+            "sections": sections.json() if sections.is_success else [],
+            "rate_card": rates.json() if rates.is_success else [],
+        }
+
+
+# ═════════════════════════════════════════════════════════════════
 # Booking items breakdown (admin)
 # ═════════════════════════════════════════════════════════════════
 @router.get("/bookings/{booking_id}/items")
