@@ -83,6 +83,10 @@ app.include_router(otp_router)
 from cms_routes import router as cms_router  # noqa: E402
 app.include_router(cms_router)
 
+# Service detail editor (per-service editable detail + variants + reviews)
+from service_detail_routes import router as service_detail_router  # noqa: E402
+app.include_router(service_detail_router, prefix="/api")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

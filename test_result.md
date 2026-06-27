@@ -2367,3 +2367,227 @@ agent_communication:
       Backend is successfully connecting to Supabase and MongoDB after .env restoration.
       
       Main agent can summarize and finish.
+
+#====================================================================================================
+# Phase 1 — Per-Service Editable Detail Pages (NEW FEATURE)
+#====================================================================================================
+
+backend:
+  - task: "Service Detail Editor — Public + Admin endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/service_detail_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Phase 1 of per-service editable detail-page feature.
+          
+          MIGRATIONS APPLIED (verified via psycopg2 on Supabase pooler):
+          - services table extended with: subtitle, hero_image, warranty,
+            safety_tips(jsonb), process_steps(jsonb), exclusions(jsonb),
+            brands(jsonb), cover_features(jsonb), faqs(jsonb)
+          - NEW table: service_variants (id uuid PK, service_id FK, name,
+            price, original_price, duration_mins, image, rating, review_count,
+            features text[], sort_order, is_active, created_at)
+          - service_reviews table (pre-existing) gained indexes
+          
+          NEW ROUTES (router included with prefix /api in server.py):
+          
+          PUBLIC (no auth):
+            GET  /api/services/{service_id}/detail
+                 → {service, variants, reviews}
+                 reviews are filtered: only is_published=true AND rating=5
+                 If no variants in DB, backend auto-returns Standard (+ Premium
+                 if base_price>100) marked auto_generated:true.
+            POST /api/services/{service_id}/reviews
+                 → customer submits review (1-5★). Defaults is_published=true
+                 only if rating=5, else false (admin moderation).
+          
+          ADMIN (currently uses same Supabase service-role pattern as other
+          admin routes — no extra auth wrapper yet):
+            GET    /api/admin/services/{service_id}/detail        (returns ALL reviews regardless of rating/published)
+            PUT    /api/admin/services/{service_id}/detail        (partial update via Pydantic ServiceDetailUpdate model)
+            GET    /api/admin/services/{service_id}/variants
+            POST   /api/admin/services/{service_id}/variants
+            PUT    /api/admin/services/{service_id}/variants/{variant_id}
+            DELETE /api/admin/services/{service_id}/variants/{variant_id}
+            GET    /api/admin/services/{service_id}/reviews
+            POST   /api/admin/services/{service_id}/reviews
+            PUT    /api/admin/services/{service_id}/reviews/{review_id}
+            DELETE /api/admin/services/{service_id}/reviews/{review_id}
+          
+          MANUAL SANITY CHECKS PASSED:
+          - GET /api/services/svc-elec-3/detail → returns Light/LED Installation with auto-Standard variant
+          - GET /api/services/svc-elec-5/detail → returns MCB/Fuse Repair, DIFFERENT data (per-service confirmed)
+          - PUT /api/admin/services/svc-elec-3/detail with subtitle, safety_tips(3),
+            process_steps(4), exclusions(3), brands(6), cover_features(4), faqs(2)
+            → 200 OK, persisted to Supabase
+          - POST /api/admin/services/svc-elec-3/variants with name="Pro", price=249
+            → 201 Created in service_variants table
+          - GET /api/admin/services/svc-elec-3/variants → returns Pro variant
+          - DELETE /api/admin/services/svc-elec-3/variants/{uuid} → 200 OK
+          - POST /api/admin/services/svc-elec-3/reviews with 5★ → created, is_published=true
+          
+          BACKEND CONSIDERATIONS for tester:
+          - Test that each service_id returns its OWN independent detail (per-service confirmed).
+          - Test that filtering of public reviews shows ONLY rating=5 AND is_published=true.
+          - Test that admin reviews endpoint returns ALL reviews regardless of rating/published.
+          - Test auto-fallback variants when no explicit variants exist (auto_generated:true flag).
+          - Test PUT detail accepts partial body (only fields provided are updated).
+          - Test 404 for non-existent service_id.
+          - Test 400 for invalid rating (0 or 6).
+          - DO NOT test image upload — admin uploads use existing upload endpoint.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ ALL 19 TESTS PASSED - 100% SUCCESS RATE
+          
+          **COMPREHENSIVE TEST RESULTS:**
+          
+          **PUBLIC ENDPOINTS (Tests 1-7):**
+          ✅ Test 1: GET /api/services/svc-elec-3/detail - Returns correct service data (Light/LED Installation)
+          ✅ Test 2: GET /api/services/svc-elec-5/detail - Returns different service data (MCB/Fuse Repair)
+          ✅ Test 3: GET /api/services/non-existent-id/detail - Correctly returns 404
+          ✅ Test 4: POST 5★ review - Auto-published (is_published=true)
+          ✅ Test 5: POST 3★ review - Auto-moderated (is_published=false) ⚠️ FIXED: Changed ReviewCreate.is_published from bool=True to Optional[bool]=None
+          ✅ Test 6: POST invalid rating (7) - Correctly returns 400
+          ✅ Test 7: Public review filter - Only 5★ published reviews visible (3★ review NOT visible)
+          
+          **ADMIN DETAIL EDIT (Tests 8-9):**
+          ✅ Test 8: PUT full update - All fields (subtitle, safety_tips, process_steps, exclusions, brands, cover_features, faqs) persisted
+          ✅ Test 9: PUT partial update - Only warranty field updated, other fields preserved
+          
+          **ADMIN VARIANTS CRUD (Tests 10-15):**
+          ✅ Test 10: POST Quick Service variant - Created with UUID
+          ✅ Test 11: POST Premium Plus variant - Created with UUID
+          ✅ Test 12: GET admin variants - Returns 2 variants, correctly ordered by sort_order
+          ✅ Test 13: GET public detail - Shows explicit variants (NOT auto-generated)
+          ✅ Test 14: PUT variant partial update - Name and price updated
+          ✅ Test 15: DELETE variant - Deleted successfully, 1 remaining
+          
+          **ADMIN REVIEWS CRUD (Tests 16-19):**
+          ✅ Test 16: GET admin reviews - Shows ALL reviews including unpublished 3★ (admin view)
+          ✅ Test 17: POST admin review - Created with custom is_published value
+          ✅ Test 18: PUT review - Unpublished successfully
+          ✅ Test 19: DELETE review - Deleted successfully
+          
+          **KEY VALIDATIONS:**
+          - ✅ Per-service uniqueness confirmed (svc-elec-3 vs svc-elec-5 data different)
+          - ✅ Public review filter working (only 5★ is_published=true visible)
+          - ✅ Admin review filter working (all reviews visible regardless of rating)
+          - ✅ Auto-moderation working (5★ auto-published, <5★ unpublished)
+          - ✅ Variant auto-fallback working (Standard/Premium generated when no explicit variants)
+          - ✅ Explicit variants override auto-generated ones
+          - ✅ Partial updates working (only specified fields updated)
+          - ✅ JSONB fields persisting correctly (safety_tips, process_steps, etc.)
+          
+          **BACKEND LOGS:**
+          - No errors, warnings, or exceptions found
+          - All Supabase REST API calls returning 200/201/204 as expected
+          - Service key correctly configured (JWT format, bypasses RLS)
+          
+          **BUG FIX APPLIED:**
+          Fixed auto-moderation logic in service_detail_routes.py line 120:
+          Changed `is_published: bool = True` to `is_published: Optional[bool] = None`
+          This ensures the auto-moderation logic at line 255-256 executes correctly for public review submissions.
+          
+          **RECOMMENDATION:**
+          All Phase 1 backend endpoints are production-ready. Main agent can proceed to Phase 2 (frontend integration).
+
+
+frontend:
+  - task: "Service Detail Page — render real per-service data + remove search button"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/components/ServiceDetail/useServiceDetail.ts AND /app/frontend/app/electrician/service/[serviceId].tsx (and other categories)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          NOT YET IMPLEMENTED. Will be Phase 2:
+          - useServiceDetail.ts to fetch from /api/services/{id}/detail
+          - Remove Search icon from header
+          - Render safety_tips section above process
+          - Filter to only 5★ reviews already handled by backend
+          - Multi-tier variant grid (>2 tiers supported)
+  
+  - task: "Admin Service Detail Editor screen"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/app/admin/service-editor/[id].tsx (to be created)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          NOT YET IMPLEMENTED. Will be Phase 3:
+          - New screen with sections for each editable area
+          - Variant manager with add/remove/reorder
+          - Review manager with publish toggle
+          - JSONB arrays editor (process_steps, faqs, safety_tips)
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 3
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Service Detail Editor — Public + Admin endpoints"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Phase 1 complete: Backend service detail editor + variants + reviews.
+      
+      All endpoints registered with /api prefix. Migrations applied to Supabase.
+      Sanity checks pass. Please run backend testing against the new endpoints
+      and confirm before I proceed to Phase 2 (frontend integration).
+  
+  - agent: "testing"
+    message: |
+      🎉 PHASE 1 BACKEND TESTING COMPLETE - ALL TESTS PASSED 🎉
+      
+      **TEST SUMMARY: 19/19 PASS (100% SUCCESS RATE)**
+      
+      **ENDPOINTS TESTED:**
+      - ✅ 7 Public endpoint tests (GET detail, POST reviews, validation, filtering)
+      - ✅ 2 Admin detail edit tests (full update, partial update)
+      - ✅ 6 Admin variants CRUD tests (create, list, update, delete)
+      - ✅ 4 Admin reviews CRUD tests (list all, create, update, delete)
+      
+      **KEY FEATURES VERIFIED:**
+      - ✅ Per-service uniqueness (svc-elec-3 vs svc-elec-5 return different data)
+      - ✅ Public review filter (only 5★ is_published=true visible)
+      - ✅ Admin review filter (all reviews visible regardless of rating)
+      - ✅ Auto-moderation (5★ auto-published, <5★ unpublished for review)
+      - ✅ Variant auto-fallback (Standard/Premium generated when no explicit variants)
+      - ✅ Explicit variants override auto-generated ones
+      - ✅ Partial updates (only specified fields updated, others preserved)
+      - ✅ JSONB fields persisting correctly (safety_tips, process_steps, faqs, etc.)
+      
+      **BUG FIX APPLIED:**
+      Fixed auto-moderation logic in service_detail_routes.py:
+      - Changed ReviewCreate.is_published from `bool = True` to `Optional[bool] = None`
+      - This ensures auto-moderation logic executes correctly for public submissions
+      
+      **BACKEND LOGS:**
+      - No errors, warnings, or exceptions
+      - All Supabase REST API calls returning expected status codes
+      - Service key correctly configured (JWT format, bypasses RLS)
+      
+      **RECOMMENDATION:**
+      All Phase 1 backend endpoints are production-ready. Main agent can proceed to Phase 2 (frontend integration).
