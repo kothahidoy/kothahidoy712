@@ -130,6 +130,7 @@ export const dataService = {
           recommended: !!s.recommended,
           inclusions: s.inclusions ?? undefined,
           sortOrder: s.sort_order ?? undefined,
+          shortDescription: s.short_description ?? undefined,
         }));
       }
     }

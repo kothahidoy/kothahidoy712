@@ -40,7 +40,7 @@ export const ServiceCard: React.FC<Props> = ({
             ) : null}
           </View>
           <Text style={styles.wideDesc} numberOfLines={2}>
-            {service.description}
+            {service.shortDescription || service.description}
           </Text>
           <View style={styles.wideMeta}>
             <View style={styles.ratingPill}>
@@ -78,6 +78,11 @@ export const ServiceCard: React.FC<Props> = ({
         <Text style={styles.compactTitle} numberOfLines={2}>
           {service.title}
         </Text>
+        {service.shortDescription ? (
+          <Text style={[styles.wideDesc, { marginTop: 2 }]} numberOfLines={2}>
+            {service.shortDescription}
+          </Text>
+        ) : null}
         <View style={styles.ratingPill}>
           <Star size={12} color={colors.star} fill={colors.star} />
           <Text style={styles.ratingText}>{service.rating.toFixed(1)}</Text>

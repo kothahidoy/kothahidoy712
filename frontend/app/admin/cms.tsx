@@ -662,6 +662,7 @@ function ServicesTab({ categories }: any) {
         {editing && (
           <>
             <Field label="Title" value={editing.title} onChange={(v: string) => setEditing({ ...editing, title: v })} placeholder="e.g. Gold facial" />
+            <Field label="Short description (shown under service card)" value={editing.short_description} onChange={(v: string) => setEditing({ ...editing, short_description: v })} placeholder="e.g. Repair or replacement using existing in-wall wiring" multiline />
             <Field label="Description" value={editing.description} onChange={(v: string) => setEditing({ ...editing, description: v })} multiline />
             <View style={{ gap: 6 }}>
               <Text style={fieldStyles.label}>Sub-category</Text>

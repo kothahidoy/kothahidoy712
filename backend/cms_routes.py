@@ -357,6 +357,7 @@ class ServiceCMSUpsert(BaseModel):
     rating: Optional[float] = 4.7
     review_count: Optional[int] = 0
     image: Optional[str] = None
+    short_description: Optional[str] = None
     popular: bool = False
     top_rated: bool = False
     recommended: bool = False
