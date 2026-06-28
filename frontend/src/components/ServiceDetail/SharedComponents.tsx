@@ -21,9 +21,21 @@ import {
   AlertTriangle,
   Info,
   X as XIcon,
+  Heart,
+  Sparkles,
+  Award,
+  ShieldCheck,
 } from "lucide-react-native";
 import { colors, radius } from "@/src/theme";
-import { ServiceVariant, ProcessStep, Review, FAQ, SafetyTip } from "./types";
+import {
+  ServiceVariant,
+  ProcessStep,
+  Review,
+  FAQ,
+  SafetyTip,
+  GalleryImage,
+  LoveUsItem,
+} from "./types";
 
 // ==================== VARIANT CARD ====================
 interface VariantCardProps {
@@ -788,4 +800,227 @@ const styles = StyleSheet.create({
     color: "#374151",
     lineHeight: 20,
   },
+  // ----- DescriptionBlock -----
+  descBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 14,
+    backgroundColor: "#FFF",
+  },
+  descShort: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    lineHeight: 22,
+  },
+  descLong: {
+    fontSize: 14,
+    color: "#4B5563",
+    marginTop: 6,
+    lineHeight: 21,
+  },
+  // ----- GallerySection -----
+  gallerySection: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  galleryTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 14,
+  },
+  galleryScroll: {
+    gap: 12,
+    paddingRight: 16,
+  },
+  galleryCard: {
+    width: 140,
+    height: 170,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginRight: 12,
+    position: "relative",
+    backgroundColor: "#F3F4F6",
+  },
+  galleryImage: { width: "100%", height: "100%" },
+  galleryBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  galleryBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+  },
+  // ----- HighlightsSection -----
+  highlightsSection: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  highlightsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 14,
+  },
+  highlightsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -6,
+  },
+  highlightCard: {
+    width: "50%",
+    paddingHorizontal: 6,
+    marginBottom: 12,
+  },
+  highlightInner: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    padding: 14,
+    minHeight: 96,
+  },
+  highlightTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 8,
+  },
+  highlightDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+    lineHeight: 16,
+  },
 });
+
+// ==================== DESCRIPTION BLOCK ====================
+interface DescriptionBlockProps {
+  shortDescription?: string;
+  description?: string;
+}
+
+export const DescriptionBlock: React.FC<DescriptionBlockProps> = ({
+  shortDescription,
+  description,
+}) => {
+  if (!shortDescription && !description) return null;
+  return (
+    <View style={styles.descBlock}>
+      {shortDescription ? (
+        <Text style={styles.descShort}>{shortDescription}</Text>
+      ) : null}
+      {description ? (
+        <Text style={styles.descLong}>{description}</Text>
+      ) : null}
+    </View>
+  );
+};
+
+// ==================== GALLERY SECTION ====================
+interface GallerySectionProps {
+  title?: string;
+  defaultTitle?: string;
+  images?: GalleryImage[];
+}
+
+export const GallerySection: React.FC<GallerySectionProps> = ({
+  title,
+  defaultTitle = "Why customers love us",
+  images,
+}) => {
+  if (!images || images.length === 0) return null;
+  return (
+    <View style={styles.gallerySection}>
+      <Text style={styles.galleryTitle}>{title || defaultTitle}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.galleryScroll}
+      >
+        {images.map((g, idx) => (
+          <View key={idx} style={styles.galleryCard}>
+            <Image
+              source={{ uri: g.imageUrl }}
+              style={styles.galleryImage}
+              resizeMode="cover"
+            />
+            {g.badge ? (
+              <View style={styles.galleryBadge}>
+                <Text style={styles.galleryBadgeText}>{g.badge}</Text>
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+// ==================== HIGHLIGHTS / LOVE-US SECTION ====================
+interface HighlightsSectionProps {
+  title?: string;
+  defaultTitle?: string;
+  items?: LoveUsItem[];
+}
+
+function pickIcon(name?: string): any {
+  switch ((name || "").toLowerCase()) {
+    case "sparkles":
+      return Sparkles;
+    case "award":
+      return Award;
+    case "check":
+      return CheckCircle2;
+    case "shield":
+      return ShieldCheck;
+    case "star":
+      return Star;
+    case "heart":
+    default:
+      return Heart;
+  }
+}
+
+export const HighlightsSection: React.FC<HighlightsSectionProps> = ({
+  title,
+  defaultTitle = "Why we are loved",
+  items,
+}) => {
+  if (!items || items.length === 0) return null;
+  return (
+    <View style={styles.highlightsSection}>
+      <Text style={styles.highlightsTitle}>{title || defaultTitle}</Text>
+      <View style={styles.highlightsGrid}>
+        {items.map((it, idx) => {
+          const Icon = pickIcon(it.icon);
+          const tint = it.color || "#DB2777";
+          return (
+            <View key={idx} style={styles.highlightCard}>
+              <View style={styles.highlightInner}>
+                <Icon
+                  size={22}
+                  color={tint}
+                  fill={(it.icon || "").toLowerCase() === "heart" ? tint : undefined}
+                />
+                <Text style={styles.highlightTitle}>{it.title}</Text>
+                {it.description ? (
+                  <Text style={styles.highlightDesc}>{it.description}</Text>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
