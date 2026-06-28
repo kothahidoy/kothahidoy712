@@ -57,6 +57,19 @@ class ProcessStep(BaseModel):
     step: int
     title: str
     description: str
+    image_url: Optional[str] = ""
+
+
+class GalleryImage(BaseModel):
+    image_url: str
+    badge: Optional[str] = ""
+
+
+class LoveUsItem(BaseModel):
+    icon: Optional[str] = "heart"        # heart | sparkles | award | check | shield | star
+    color: Optional[str] = "#DB2777"
+    title: str
+    description: Optional[str] = ""
 
 
 class FAQ(BaseModel):
@@ -84,6 +97,10 @@ class ServiceDetailUpdate(BaseModel):
     cover_features: Optional[List[str]] = None
     faqs: Optional[List[FAQ]] = None
     is_active: Optional[bool] = None
+    gallery_title: Optional[str] = None
+    gallery_images: Optional[List[GalleryImage]] = None
+    loveus_title: Optional[str] = None
+    loveus_items: Optional[List[LoveUsItem]] = None
 
 
 class VariantCreate(BaseModel):
@@ -288,7 +305,7 @@ async def admin_update_service_detail(service_id: str, payload: ServiceDetailUpd
     if not body:
         raise HTTPException(400, "No fields to update")
     # Convert pydantic submodels to plain dicts/lists
-    for k in ("safety_tips", "process_steps", "faqs"):
+    for k in ("safety_tips", "process_steps", "faqs", "gallery_images", "loveus_items"):
         if k in body and isinstance(body[k], list):
             body[k] = [
                 (i if isinstance(i, dict) else i.dict() if hasattr(i, "dict") else i)

@@ -38,6 +38,17 @@ interface ProcessStep {
   step: number;
   title: string;
   description: string;
+  image_url?: string;
+}
+interface GalleryImage {
+  image_url: string;
+  badge?: string;
+}
+interface LoveUsItem {
+  icon?: string;
+  color?: string;
+  title: string;
+  description?: string;
 }
 interface FAQ {
   question: string;
@@ -65,6 +76,10 @@ interface ServiceCore {
   brands?: string[];
   cover_features?: string[];
   faqs?: FAQ[];
+  gallery_title?: string;
+  gallery_images?: GalleryImage[];
+  loveus_title?: string;
+  loveus_items?: LoveUsItem[];
 }
 interface VariantRow {
   id: string;
@@ -161,6 +176,10 @@ export default function AdminServiceEditor() {
         brands: service.brands || [],
         cover_features: service.cover_features || [],
         faqs: service.faqs || [],
+        gallery_title: service.gallery_title || "",
+        gallery_images: service.gallery_images || [],
+        loveus_title: service.loveus_title || "",
+        loveus_items: service.loveus_items || [],
       };
       const res = await fetch(
         `${API_BASE}/api/admin/services/${encodeURIComponent(serviceId)}/detail`,
@@ -377,7 +396,7 @@ export default function AdminServiceEditor() {
     setService((s) => {
       if (!s) return s;
       const arr = (s.process_steps || []).slice();
-      arr.push({ step: arr.length + 1, title: "", description: "" });
+      arr.push({ step: arr.length + 1, title: "", description: "", image_url: "" });
       return { ...s, process_steps: arr };
     });
   };
@@ -441,6 +460,58 @@ export default function AdminServiceEditor() {
       const arr = (s.faqs || []).slice();
       arr.splice(idx, 1);
       return { ...s, faqs: arr };
+    });
+  };
+
+  // Gallery (e.g. "Glow like never before") editor
+  const updateGalleryImage = (idx: number, key: keyof GalleryImage, val: string) => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.gallery_images || []).slice();
+      arr[idx] = { ...arr[idx], [key]: val };
+      return { ...s, gallery_images: arr };
+    });
+  };
+  const addGalleryImage = () => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.gallery_images || []).slice();
+      arr.push({ image_url: "", badge: "" });
+      return { ...s, gallery_images: arr };
+    });
+  };
+  const removeGalleryImage = (idx: number) => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.gallery_images || []).slice();
+      arr.splice(idx, 1);
+      return { ...s, gallery_images: arr };
+    });
+  };
+
+  // Love-Us (e.g. "Why women love us") editor
+  const updateLoveItem = (idx: number, key: keyof LoveUsItem, val: string) => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.loveus_items || []).slice();
+      arr[idx] = { ...arr[idx], [key]: val };
+      return { ...s, loveus_items: arr };
+    });
+  };
+  const addLoveItem = () => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.loveus_items || []).slice();
+      arr.push({ icon: "heart", color: "#DB2777", title: "", description: "" });
+      return { ...s, loveus_items: arr };
+    });
+  };
+  const removeLoveItem = (idx: number) => {
+    setService((s) => {
+      if (!s) return s;
+      const arr = (s.loveus_items || []).slice();
+      arr.splice(idx, 1);
+      return { ...s, loveus_items: arr };
     });
   };
 
@@ -742,6 +813,122 @@ export default function AdminServiceEditor() {
                   onChangeText={(t) => updateProcessStep(i, "description", t)}
                   multiline
                 />
+                <TextInput
+                  style={[styles.input, { marginTop: 6 }]}
+                  placeholder="Step image URL (optional, e.g. https://...)"
+                  value={p.image_url || ""}
+                  onChangeText={(t) => updateProcessStep(i, "image_url" as any, t)}
+                  autoCapitalize="none"
+                />
+              </View>
+            ))}
+          </Section>
+
+          {/* Gallery (e.g. "Glow like never before") */}
+          <Section
+            title={`Gallery — image strip (${(service.gallery_images || []).length})`}
+            action={
+              <TouchableOpacity style={styles.addBtn} onPress={addGalleryImage}>
+                <Plus size={14} color="#FFF" />
+                <Text style={styles.addBtnText}>Add Image</Text>
+              </TouchableOpacity>
+            }
+          >
+            <Text style={styles.helper}>
+              Shows as a horizontal image strip on the service page. Title appears above the images.
+            </Text>
+            <Field label="Section title">
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Glow like never before"
+                value={service.gallery_title || ""}
+                onChangeText={(t) => setService({ ...service, gallery_title: t })}
+              />
+            </Field>
+            {(service.gallery_images || []).map((g, i) => (
+              <View key={i} style={styles.editBlock}>
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Image URL (https://...)"
+                    value={g.image_url || ""}
+                    onChangeText={(t) => updateGalleryImage(i, "image_url", t)}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeGalleryImage(i)}
+                    style={[styles.iconBtn, { marginLeft: 4 }]}
+                  >
+                    <Trash2 size={16} color="#DC2626" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Badge text (e.g. Radiant Skin) — optional"
+                  value={g.badge || ""}
+                  onChangeText={(t) => updateGalleryImage(i, "badge", t)}
+                />
+              </View>
+            ))}
+          </Section>
+
+          {/* Love-us section (e.g. "Why women love us") */}
+          <Section
+            title={`Highlights — Why customers love us (${(service.loveus_items || []).length})`}
+            action={
+              <TouchableOpacity style={styles.addBtn} onPress={addLoveItem}>
+                <Plus size={14} color="#FFF" />
+                <Text style={styles.addBtnText}>Add Highlight</Text>
+              </TouchableOpacity>
+            }
+          >
+            <Text style={styles.helper}>
+              Cards on the service page (icon + title + small description).
+            </Text>
+            <Field label="Section title">
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Why women love us"
+                value={service.loveus_title || ""}
+                onChangeText={(t) => setService({ ...service, loveus_title: t })}
+              />
+            </Field>
+            {(service.loveus_items || []).map((it, i) => (
+              <View key={i} style={styles.editBlock}>
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Title (e.g. 4.9★ Rating)"
+                    value={it.title}
+                    onChangeText={(t) => updateLoveItem(i, "title", t)}
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeLoveItem(i)}
+                    style={[styles.iconBtn, { marginLeft: 4 }]}
+                  >
+                    <Trash2 size={16} color="#DC2626" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Small description (e.g. 100K+ happy customers)"
+                  value={it.description || ""}
+                  onChangeText={(t) => updateLoveItem(i, "description", t)}
+                />
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Icon: heart | sparkles | award | check | shield | star"
+                    value={it.icon || ""}
+                    onChangeText={(t) => updateLoveItem(i, "icon", t)}
+                  />
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginLeft: 8 }]}
+                    placeholder="Color (#DB2777)"
+                    value={it.color || ""}
+                    onChangeText={(t) => updateLoveItem(i, "color", t)}
+                  />
+                </View>
               </View>
             ))}
           </Section>

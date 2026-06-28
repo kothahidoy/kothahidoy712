@@ -15,6 +15,19 @@ export interface ProcessStep {
   step: number;
   title: string;
   description: string;
+  imageUrl?: string;
+}
+
+export interface GalleryImage {
+  imageUrl: string;
+  badge?: string;
+}
+
+export interface LoveUsItem {
+  icon?: string;
+  color?: string;
+  title: string;
+  description?: string;
 }
 
 export interface Review {
@@ -44,6 +57,7 @@ export interface ServiceDetailData {
   title: string;
   subtitle?: string;
   description?: string;
+  shortDescription?: string;
   rating: number;
   reviewCount: string;
   categoryName: string;
@@ -60,6 +74,10 @@ export interface ServiceDetailData {
   warranty?: string;
   coverFeatures?: string[];
   safetyTips?: SafetyTip[];
+  galleryTitle?: string;
+  gallery?: GalleryImage[];
+  loveUsTitle?: string;
+  loveUs?: LoveUsItem[];
 }
 
 export interface CartItem {

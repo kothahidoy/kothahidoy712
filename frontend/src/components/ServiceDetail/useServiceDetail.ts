@@ -6,6 +6,8 @@ import {
   FAQ,
   ProcessStep,
   SafetyTip,
+  GalleryImage,
+  LoveUsItem,
 } from "./types";
 
 // Category color configurations
@@ -301,9 +303,8 @@ export function useServiceDetail(serviceId: string, categoryId: string) {
         date: formatReviewDate(r.created_at),
         comment: r.review_text || "",
         helpful: 0,
-        avatar:
-          r.customer_avatar ||
-          `https://i.pravatar.cc/100?u=${encodeURIComponent(r.id || r.customer_name || "x")}`,
+        // Empty string => no avatar set; ReviewCard renders initials fallback.
+        avatar: r.customer_avatar || "",
       }));
 
       const safetyTipsRaw: any[] = Array.isArray(svc.safety_tips) ? svc.safety_tips : [];
@@ -323,6 +324,7 @@ export function useServiceDetail(serviceId: string, categoryId: string) {
               step: p.step || idx + 1,
               title: p.title || "",
               description: p.description || "",
+              imageUrl: p.image_url || p.imageUrl || "",
             }))
           : DEFAULT_PROCESS_STEPS[catId] || DEFAULT_PROCESS_STEPS.electrician;
 
@@ -360,11 +362,32 @@ export function useServiceDetail(serviceId: string, categoryId: string) {
           ? coverRaw
           : getDefaultCoverFeatures(catId);
 
+      // Editable gallery ("Glow like never before" etc.)
+      const galleryRaw: any[] = Array.isArray(svc.gallery_images) ? svc.gallery_images : [];
+      const gallery: GalleryImage[] = galleryRaw
+        .map((g: any) => ({
+          imageUrl: g.image_url || g.imageUrl || "",
+          badge: g.badge || "",
+        }))
+        .filter((g) => !!g.imageUrl);
+
+      // Editable "Why women love us" / "Why we are loved"
+      const loveRaw: any[] = Array.isArray(svc.loveus_items) ? svc.loveus_items : [];
+      const loveUs: LoveUsItem[] = loveRaw
+        .map((l: any) => ({
+          icon: l.icon || "heart",
+          color: l.color || "#DB2777",
+          title: l.title || "",
+          description: l.description || "",
+        }))
+        .filter((l) => !!l.title);
+
       return {
         id: String(svc.id || serviceId),
         title: svc.title || "Service",
         subtitle: svc.subtitle || "",
-        description: svc.description || svc.short_description || "",
+        shortDescription: svc.short_description || "",
+        description: svc.description || "",
         rating: Number(svc.rating) || 4.7,
         reviewCount: formatReviewCount(svc.review_count),
         categoryName: categoryConfig.name,
@@ -381,6 +404,10 @@ export function useServiceDetail(serviceId: string, categoryId: string) {
         warranty: svc.warranty || "30 days",
         coverFeatures,
         safetyTips,
+        galleryTitle: svc.gallery_title || "",
+        gallery,
+        loveUsTitle: svc.loveus_title || "",
+        loveUs,
       };
     },
     [categoryId, serviceId]

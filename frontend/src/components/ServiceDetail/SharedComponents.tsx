@@ -142,6 +142,13 @@ export const ProcessStepComponent: React.FC<ProcessStepProps> = ({
       >
         {step.description}
       </Text>
+      {step.imageUrl ? (
+        <Image
+          source={{ uri: step.imageUrl }}
+          style={styles.processStepImage}
+          resizeMode="cover"
+        />
+      ) : null}
     </View>
   </View>
 );
@@ -151,34 +158,59 @@ interface ReviewCardProps {
   review: Review;
 }
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => (
-  <View style={styles.reviewCard}>
-    <View style={styles.reviewHeader}>
-      <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
-      <View style={styles.reviewInfo}>
-        <Text style={styles.reviewName}>{review.name}</Text>
-        <View style={styles.reviewMeta}>
-          <View style={styles.reviewStars}>
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                color={i < review.rating ? "#FBBF24" : "#E5E7EB"}
-                fill={i < review.rating ? "#FBBF24" : "#E5E7EB"}
-              />
-            ))}
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
+  const hasAvatar = !!review.avatar && review.avatar.trim() !== "";
+  const initial = (review.name || "?").trim().charAt(0).toUpperCase();
+  // Stable color from name
+  const palette = ["#DB2777", "#0891B2", "#059669", "#D97706", "#7C3AED", "#2563EB"];
+  const colorIdx =
+    (review.name || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0) %
+    palette.length;
+  const initBg = palette[colorIdx];
+  return (
+    <View style={styles.reviewCard}>
+      <View style={styles.reviewHeader}>
+        {hasAvatar ? (
+          <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
+        ) : (
+          <View
+            style={[
+              styles.reviewAvatar,
+              {
+                backgroundColor: initBg,
+                alignItems: "center",
+                justifyContent: "center",
+              },
+            ]}
+          >
+            <Text style={styles.reviewInitial}>{initial}</Text>
           </View>
-          <Text style={styles.reviewDate}>{review.date}</Text>
+        )}
+        <View style={styles.reviewInfo}>
+          <Text style={styles.reviewName}>{review.name}</Text>
+          <View style={styles.reviewMeta}>
+            <View style={styles.reviewStars}>
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  color={i < review.rating ? "#FBBF24" : "#E5E7EB"}
+                  fill={i < review.rating ? "#FBBF24" : "#E5E7EB"}
+                />
+              ))}
+            </View>
+            <Text style={styles.reviewDate}>{review.date}</Text>
+          </View>
         </View>
       </View>
+      <Text style={styles.reviewComment}>{review.comment}</Text>
+      <TouchableOpacity style={styles.reviewHelpful}>
+        <ThumbsUp size={14} color="#6B7280" />
+        <Text style={styles.reviewHelpfulText}>Helpful ({review.helpful})</Text>
+      </TouchableOpacity>
     </View>
-    <Text style={styles.reviewComment}>{review.comment}</Text>
-    <TouchableOpacity style={styles.reviewHelpful}>
-      <ThumbsUp size={14} color="#6B7280" />
-      <Text style={styles.reviewHelpfulText}>Helpful ({review.helpful})</Text>
-    </TouchableOpacity>
-  </View>
-);
+  );
+};
 
 // ==================== FAQ ITEM ====================
 interface FAQItemProps {
@@ -516,6 +548,13 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     lineHeight: 20,
   },
+  processStepImage: {
+    width: "100%",
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    marginTop: 12,
+  },
   processStepDescDark: {
     color: "#9CA3AF",
   },
@@ -536,6 +575,11 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 12,
+  },
+  reviewInitial: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
   },
   reviewInfo: {
     flex: 1,

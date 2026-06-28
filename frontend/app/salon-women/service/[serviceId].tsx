@@ -18,6 +18,8 @@ import {
   Sparkles,
   Heart,
   Award,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react-native";
 import {
   VariantCard,
@@ -32,6 +34,26 @@ import {
 } from "@/src/components/ServiceDetail";
 
 // SALON WOMEN LAYOUT - Beauty focus, before/after gallery style, luxe design
+
+// Map icon string from admin to lucide icon component
+function pickLoveIcon(name?: string): any {
+  switch ((name || "").toLowerCase()) {
+    case "sparkles":
+      return Sparkles;
+    case "award":
+      return Award;
+    case "check":
+      return CheckCircle2;
+    case "shield":
+      return ShieldCheck;
+    case "star":
+      return Star;
+    case "heart":
+    default:
+      return Heart;
+  }
+}
+
 export default function SalonWomenServiceDetailScreen() {
   const router = useRouter();
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
@@ -128,52 +150,49 @@ export default function SalonWomenServiceDetailScreen() {
               {serviceData.rating} ({serviceData.reviewCount} reviews)
             </Text>
           </View>
-          {/* Beautician Badge */}
-          <View style={styles.beauticianBadge}>
-            <Award size={16} color="#DB2777" />
-            <Text style={styles.beauticianBadgeText}>
-              {serviceData.subtitle || `Certified Beauticians • Premium Skincare`}
+          {/* Beautician Badge (subtitle) */}
+          {serviceData.subtitle ? (
+            <View style={styles.beauticianBadge}>
+              <Award size={16} color="#DB2777" />
+              <Text style={styles.beauticianBadgeText}>{serviceData.subtitle}</Text>
+            </View>
+          ) : null}
+          {/* Short description */}
+          {serviceData.shortDescription ? (
+            <Text style={styles.shortDescription}>
+              {serviceData.shortDescription}
             </Text>
-          </View>
+          ) : null}
+          {/* Long description */}
+          {serviceData.description ? (
+            <Text style={styles.longDescription}>{serviceData.description}</Text>
+          ) : null}
         </View>
 
-        {/* Beauty Results Preview - Unique Section */}
-        <View style={styles.resultsSection}>
-          <Text style={styles.resultsSectionTitle}>Glow like never before</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.resultsScroll}
-          >
-            <View style={styles.resultCard}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=200&q=80" }}
-                style={styles.resultImage}
-              />
-              <View style={styles.resultBadge}>
-                <Text style={styles.resultBadgeText}>Radiant Skin</Text>
-              </View>
-            </View>
-            <View style={styles.resultCard}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=200&q=80" }}
-                style={styles.resultImage}
-              />
-              <View style={styles.resultBadge}>
-                <Text style={styles.resultBadgeText}>Smooth Finish</Text>
-              </View>
-            </View>
-            <View style={styles.resultCard}>
-              <Image
-                source={{ uri: "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?auto=format&fit=crop&w=200&q=80" }}
-                style={styles.resultImage}
-              />
-              <View style={styles.resultBadge}>
-                <Text style={styles.resultBadgeText}>Natural Glow</Text>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
+        {/* Beauty Results Preview - editable from admin */}
+        {(serviceData.gallery && serviceData.gallery.length > 0) ? (
+          <View style={styles.resultsSection}>
+            <Text style={styles.resultsSectionTitle}>
+              {serviceData.galleryTitle || "Glow like never before"}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.resultsScroll}
+            >
+              {serviceData.gallery.map((g, idx) => (
+                <View key={idx} style={styles.resultCard}>
+                  <Image source={{ uri: g.imageUrl }} style={styles.resultImage} />
+                  {g.badge ? (
+                    <View style={styles.resultBadge}>
+                      <Text style={styles.resultBadgeText}>{g.badge}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         <SectionDivider />
 
@@ -200,24 +219,32 @@ export default function SalonWomenServiceDetailScreen() {
 
         <SectionDivider />
 
-        {/* Why Women Love Us */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Why women love us</Text>
-          <View style={styles.loveGrid}>
-            <View style={styles.loveCard}>
-              <Heart size={24} color="#DB2777" fill="#DB2777" />
-              <Text style={styles.loveTitle}>4.9★ Rating</Text>
-              <Text style={styles.loveDesc}>100K+ happy customers</Text>
+        {/* Why Women Love Us — editable from admin */}
+        {(serviceData.loveUs && serviceData.loveUs.length > 0) ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {serviceData.loveUsTitle || "Why women love us"}
+              </Text>
+              <View style={styles.loveGrid}>
+                {serviceData.loveUs.map((item, idx) => {
+                  const Icon = pickLoveIcon(item.icon);
+                  const tint = item.color || "#DB2777";
+                  return (
+                    <View key={idx} style={styles.loveCard}>
+                      <Icon size={24} color={tint} fill={item.icon === "heart" ? tint : undefined} />
+                      <Text style={styles.loveTitle}>{item.title}</Text>
+                      {item.description ? (
+                        <Text style={styles.loveDesc}>{item.description}</Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-            <View style={styles.loveCard}>
-              <Sparkles size={24} color="#F59E0B" />
-              <Text style={styles.loveTitle}>Premium Only</Text>
-              <Text style={styles.loveDesc}>VLCC, O3+ products</Text>
-            </View>
-          </View>
-        </View>
-
-        <SectionDivider />
+            <SectionDivider />
+          </>
+        ) : null}
 
         {/* Our Process */}
         <View style={styles.section}>
@@ -337,6 +364,19 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   beauticianBadgeText: { fontSize: 12, fontWeight: "600", color: "#DB2777" },
+  shortDescription: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginTop: 14,
+    lineHeight: 22,
+  },
+  longDescription: {
+    fontSize: 14,
+    color: "#4B5563",
+    marginTop: 8,
+    lineHeight: 21,
+  },
   resultsSection: { paddingHorizontal: 16, paddingBottom: 20 },
   resultsSectionTitle: { fontSize: 18, fontWeight: "700", color: "#000", marginBottom: 16 },
   resultsScroll: { gap: 12 },
