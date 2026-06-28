@@ -651,3 +651,77 @@ async def public_category_cms(category_id: str):
             "sub_categories": subs_r.json() if subs_r.is_success else [],
             "services": svcs_r.json() if svcs_r.is_success else [],
         }
+
+
+# ═════════════════════════════════════════════════════════════════
+# Home page promo carousel slides (image OR video)
+# ═════════════════════════════════════════════════════════════════
+class HomePromoUpsert(BaseModel):
+    id: Optional[str] = None
+    title: str
+    subtitle: Optional[str] = None
+    price: Optional[str] = None
+    original_price: Optional[str] = None
+    discount_label: Optional[str] = None
+    badge_emoji: Optional[str] = "🏷️"
+    cta_text: Optional[str] = "Book now"
+    link_url: Optional[str] = None
+    media_type: str = "image"            # 'image' | 'video'
+    media_url: str
+    poster_url: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+@router.get("/home-promos")
+async def list_home_promos(active_only: bool = False):
+    q = "?select=*&order=sort_order,created_at"
+    if active_only:
+        q = "?select=*&is_active=eq.true&order=sort_order,created_at"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/home_promos{q}",
+            headers=_sb_headers(),
+        )
+        return r.json() if r.is_success else []
+
+
+@router.post("/home-promos")
+async def create_home_promo(payload: HomePromoUpsert):
+    body = payload.dict(exclude_none=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/home_promos",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        data = r.json()
+        return data[0] if isinstance(data, list) else data
+
+
+@router.patch("/home-promos/{promo_id}")
+async def update_home_promo(promo_id: str, payload: HomePromoUpsert):
+    body = payload.dict(exclude_unset=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/home_promos?id=eq.{promo_id}",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/home-promos/{promo_id}")
+async def delete_home_promo(promo_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/home_promos?id=eq.{promo_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}

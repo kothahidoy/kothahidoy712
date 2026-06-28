@@ -2905,3 +2905,217 @@ agent_communication:
       
       **RECOMMENDATION:**
       Backend implementation is production-ready. Main agent can summarize and finish.
+
+
+
+---
+
+## 2026-06-28 — Home Promo Slides CMS Endpoints Testing
+
+user_problem_statement: |
+  Test the new Home Promo Slides CMS endpoints that back an auto-swipeable carousel 
+  on the customer home screen. Endpoints support both image and video slides.
+
+backend:
+  - task: "Home Promo Slides CMS CRUD Endpoints"
+    implemented: true
+    working: true
+    file: "backend/cms_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Implemented full CRUD endpoints for home_promos table:
+            - GET  /api/admin/cms/home-promos (list all slides)
+            - GET  /api/admin/cms/home-promos?active_only=true (filter active)
+            - POST /api/admin/cms/home-promos (create slide)
+            - PATCH /api/admin/cms/home-promos/{id} (update slide)
+            - DELETE /api/admin/cms/home-promos/{id} (delete slide)
+          
+          Supports both image and video slides with fields:
+            - title, subtitle, price, original_price, discount_label
+            - badge_emoji, cta_text, link_url
+            - media_type (image/video), media_url, poster_url
+            - sort_order, is_active
+          
+          Supabase table home_promos already created via SQL migration.
+      
+      - working: true
+        agent: "testing"
+        comment: |
+          🎉 ALL TESTS PASSED - HOME PROMO SLIDES CMS ENDPOINTS WORKING PERFECTLY 🎉
+          
+          **TEST RESULTS: 12/12 PASS (100% SUCCESS RATE)**
+          
+          **NEW ENDPOINTS TESTED:**
+          
+          **1. GET /api/admin/cms/home-promos** ✅ PASS
+          - Status: 200 OK
+          - Returns: Empty array [] (initial state)
+          - Response format: Correct array structure
+          
+          **2. GET /api/admin/cms/home-promos?active_only=true** ✅ PASS
+          - Status: 200 OK
+          - Returns: Empty array [] (no active slides initially)
+          - Filtering: Correctly filters by is_active=true
+          
+          **3. POST /api/admin/cms/home-promos (image slide)** ✅ PASS
+          - Status: 200 OK (201 Created from Supabase)
+          - Payload: Full image slide with title, subtitle, price, discount, emoji, CTA, link
+          - Response: Includes generated UUID id field
+          - Created slide ID: 2d36d01a-15a6-4a8c-a2c7-20367c659d2b
+          - All fields correctly saved: title="Test InstaHelp", media_type="image", is_active=true
+          
+          **4. PATCH /api/admin/cms/home-promos/{id}** ✅ PASS
+          - Status: 200 OK
+          - Payload: {"title":"Updated InstaHelp", "is_active":false}
+          - Response: {"ok": true}
+          - Update successful
+          
+          **5. Verify update (GET after PATCH)** ✅ PASS
+          - Status: 200 OK
+          - Verification: title="Updated InstaHelp" ✓
+          - Verification: is_active=false ✓
+          - Data round-trip consistency confirmed
+          
+          **6. POST /api/admin/cms/home-promos (video slide)** ✅ PASS
+          - Status: 200 OK
+          - Payload: Video slide with media_type="video", poster_url
+          - Response: Includes id field and media_type="video"
+          - Created slide ID: ff32a1e8-81ab-40f4-92a8-82c37304d6cc
+          - Video-specific fields correctly saved: poster_url="https://example.com/poster.jpg"
+          
+          **7. GET ?active_only=true (after update)** ✅ PASS
+          - Status: 200 OK
+          - Returns: 1 active slide (video slide only)
+          - Filtering works correctly:
+            ✓ Includes active video slide
+            ✓ Excludes inactive image slide (set to is_active=false in step 4)
+          - Active-only filter working as expected
+          
+          **8. DELETE /api/admin/cms/home-promos/{id} (image slide)** ✅ PASS
+          - Status: 200 OK
+          - Response: {"ok": true}
+          - Slide 2d36d01a-15a6-4a8c-a2c7-20367c659d2b deleted successfully
+          
+          **9. DELETE /api/admin/cms/home-promos/{id} (video slide)** ✅ PASS
+          - Status: 200 OK
+          - Response: {"ok": true}
+          - Slide ff32a1e8-81ab-40f4-92a8-82c37304d6cc deleted successfully
+          
+          **10. Verify cleanup (GET after DELETE)** ✅ PASS
+          - Status: 200 OK
+          - Count: 0 (returned to initial state)
+          - All test data cleaned up successfully
+          
+          **REGRESSION TESTS (Existing Endpoints):**
+          
+          **11. GET /api/admin/cms/categories** ✅ PASS
+          - Status: 200 OK
+          - Returns: 9 categories (expected ~9)
+          - No regression - existing endpoint still working
+          
+          **12. GET /api/admin/cms/banners?category_id=salon-women** ✅ PASS
+          - Status: 200 OK
+          - Returns: Array with 1 banner
+          - No regression - existing endpoint still working
+          
+          **BACKEND LOGS VERIFICATION:**
+          - All API requests logged correctly in backend.err.log
+          - Supabase REST API calls successful:
+            ✓ GET home_promos → 200 OK
+            ✓ POST home_promos → 201 Created
+            ✓ PATCH home_promos → 200 OK
+            ✓ DELETE home_promos → 200 OK
+          - No 500 errors or tracebacks
+          - All HTTP status codes match expected values
+          
+          **DATA CONSISTENCY VERIFICATION:**
+          ✅ Create → Read → Update → Read → Delete → Read cycle completed successfully
+          ✅ UUID generation working correctly (gen_random_uuid())
+          ✅ Timestamp fields auto-populated (created_at)
+          ✅ Default values applied correctly (badge_emoji="🏷️", cta_text="Book now")
+          ✅ Optional fields handled correctly (null values for subtitle, price, etc.)
+          ✅ Media type differentiation working (image vs video)
+          ✅ Active/inactive filtering working correctly
+          ✅ Sort order field present and functional
+          
+          **KEY FINDINGS:**
+          1. ✅ All CRUD operations working perfectly (GET, POST, PATCH, DELETE)
+          2. ✅ Both image and video slide types supported
+          3. ✅ Active-only filtering works correctly
+          4. ✅ Data round-trip consistency verified (create→update→read→delete)
+          5. ✅ UUID generation and auto-timestamps working
+          6. ✅ No regressions on existing CMS endpoints (categories, banners)
+          7. ✅ Supabase table home_promos exists and is correctly configured
+          8. ✅ All test data cleaned up (count returned to 0)
+          
+          **RESPONSE SHAPE VERIFICATION:**
+          - All responses return correct JSON structure
+          - Array endpoints return [] when empty
+          - Single item endpoints return object with id field
+          - Update/delete endpoints return {"ok": true}
+          - All fields match Pydantic model (HomePromoUpsert)
+          
+          **NO CRITICAL ISSUES FOUND**
+          **NO MINOR ISSUES FOUND**
+          
+          **RECOMMENDATION:**
+          All Home Promo Slides CMS endpoints are production-ready. The implementation is 
+          complete, tested, and working correctly. Main agent can summarize and finish.
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 5
+  run_ui: false
+  last_updated: "2026-06-28"
+
+test_plan:
+  current_focus:
+    - "Home Promo Slides CMS CRUD Endpoints"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: |
+      🎉 HOME PROMO SLIDES CMS ENDPOINTS - COMPREHENSIVE TEST COMPLETE 🎉
+      
+      **TEST REQUEST:** Test new Home Promo Slides CMS endpoints in /app/backend/cms_routes.py
+      
+      **TEST RESULTS: 12/12 PASS (100% SUCCESS RATE)**
+      
+      **ENDPOINTS TESTED:**
+      1. ✅ GET /api/admin/cms/home-promos → 200 OK (returns array)
+      2. ✅ GET /api/admin/cms/home-promos?active_only=true → 200 OK (filters correctly)
+      3. ✅ POST /api/admin/cms/home-promos (image) → 200 OK (creates with UUID)
+      4. ✅ PATCH /api/admin/cms/home-promos/{id} → 200 OK (updates successfully)
+      5. ✅ Verify update → title and is_active changed correctly
+      6. ✅ POST /api/admin/cms/home-promos (video) → 200 OK (video type supported)
+      7. ✅ GET ?active_only=true → Correctly returns only active slides
+      8. ✅ DELETE /api/admin/cms/home-promos/{id} (image) → 200 OK
+      9. ✅ DELETE /api/admin/cms/home-promos/{id} (video) → 200 OK
+      10. ✅ Verify cleanup → Count returned to initial state
+      11. ✅ GET /api/admin/cms/categories → 200 OK (regression - no issues)
+      12. ✅ GET /api/admin/cms/banners?category_id=salon-women → 200 OK (regression - no issues)
+      
+      **DATA ROUND-TRIP VERIFIED:**
+      - Create → Read → Update → Read → Delete → Read cycle completed successfully
+      - All data consistency checks passed
+      - Test data cleaned up (count returned to 0)
+      
+      **BACKEND LOGS:**
+      - All Supabase REST API calls successful (200/201 status codes)
+      - No 500 errors or tracebacks
+      - httpx logging shows correct request/response flow
+      
+      **NO ISSUES FOUND - ALL ENDPOINTS WORKING PERFECTLY**
+      
+      **RECOMMENDATION:**
+      Main agent can summarize and finish. All Home Promo Slides CMS endpoints are 
+      production-ready and fully tested.

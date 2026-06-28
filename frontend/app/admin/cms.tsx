@@ -801,6 +801,233 @@ const SECTION_META: Record<HomeSection, { title: string; sub: string }> = {
   recommended: { title: "Recommended for you",   sub: "Curated daily picks" },
 };
 
+
+// ─────────────────────────────────────────────────────────────────────
+//  HERO PROMO SLIDES  —  Auto-swipeable carousel on the customer home screen
+//  Supports images AND videos (stored in home_promos Supabase table)
+// ─────────────────────────────────────────────────────────────────────
+function HeroPromosSection() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<any[]>("GET", "/home-promos");
+      setRows(data || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const blank = {
+    title: "Try InstaHelp at just",
+    subtitle: "",
+    price: "₹79",
+    original_price: "₹245",
+    discount_label: "68% OFF",
+    badge_emoji: "🏷️",
+    cta_text: "Book now",
+    link_url: "/category/insta-help",
+    media_type: "image",
+    media_url: "",
+    poster_url: "",
+    sort_order: rows.length + 1,
+    is_active: true,
+  };
+
+  const onSave = async () => {
+    try {
+      if (!editing?.title?.trim()) return notify("Missing", "Title is required");
+      if (!editing?.media_url?.trim()) return notify("Missing", "Upload an image or video");
+      const body = { ...editing };
+      if (editing.id) await http("PATCH", `/home-promos/${editing.id}`, body);
+      else await http("POST", "/home-promos", body);
+      setEditing(null);
+      await load();
+    } catch (e: any) {
+      notify("Failed", e.message);
+    }
+  };
+
+  const onDelete = async (id: string) => {
+    if (!(await confirmAsync("Delete this slide?", "It will disappear from the home screen."))) return;
+    await http("DELETE", `/home-promos/${id}`);
+    await load();
+  };
+
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textMain }}>
+            Hero promo slides
+          </Text>
+          <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+            Auto-swipeable carousel below the search bar · supports images & videos · {rows.length} {rows.length === 1 ? "slide" : "slides"}
+          </Text>
+        </View>
+        <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
+          <Plus size={14} color="#fff" />
+          <Text style={[btn.addTxt, { fontSize: 12 }]}>Add slide</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator />
+      ) : rows.length === 0 ? (
+        <View style={{ padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colors.textSubtle }}>No slides yet. Tap &quot;Add slide&quot; to create your first hero carousel slide.</Text>
+        </View>
+      ) : rows.map((p) => (
+        <View key={p.id} style={row.card}>
+          {p.media_type === "video" ? (
+            <View style={[row.thumb, { backgroundColor: "#111", alignItems: "center", justifyContent: "center" }]}>
+              <PlayCircle size={20} color="#fff" />
+            </View>
+          ) : (
+            <Image source={{ uri: p.media_url || p.poster_url }} style={row.thumb} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={row.title} numberOfLines={1}>{p.title}</Text>
+            <Text style={row.sub} numberOfLines={1}>
+              #{p.sort_order} · {p.media_type} · {p.price || "no price"}
+            </Text>
+          </View>
+          <Switch
+            value={!!p.is_active}
+            onValueChange={async (v) => {
+              await http("PATCH", `/home-promos/${p.id}`, { title: p.title, media_url: p.media_url, media_type: p.media_type, is_active: v });
+              load();
+            }}
+          />
+          <TouchableOpacity onPress={() => setEditing({ ...p })} style={row.iconBtn}>
+            <Edit3 size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(p.id)} style={row.iconBtn}>
+            <Trash2 size={16} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <EditModal
+        visible={!!editing}
+        title={editing?.id ? "Edit slide" : "New slide"}
+        onClose={() => setEditing(null)}
+        onSave={onSave}
+      >
+        {editing && (
+          <>
+            <Field
+              label="Title (e.g. Try InstaHelp at just)"
+              value={editing.title}
+              onChange={(v: string) => setEditing({ ...editing, title: v })}
+              placeholder="Try InstaHelp at just"
+            />
+            <Field
+              label="Subtitle (optional)"
+              value={editing.subtitle}
+              onChange={(v: string) => setEditing({ ...editing, subtitle: v })}
+              placeholder="Short helper text"
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Price (e.g. ₹79)"
+                  value={editing.price}
+                  onChange={(v: string) => setEditing({ ...editing, price: v })}
+                  placeholder="₹79"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Original price (struck out)"
+                  value={editing.original_price}
+                  onChange={(v: string) => setEditing({ ...editing, original_price: v })}
+                  placeholder="₹245"
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 2 }}>
+                <Field
+                  label="Discount label"
+                  value={editing.discount_label}
+                  onChange={(v: string) => setEditing({ ...editing, discount_label: v })}
+                  placeholder="68% OFF"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Badge emoji"
+                  value={editing.badge_emoji}
+                  onChange={(v: string) => setEditing({ ...editing, badge_emoji: v })}
+                  placeholder="🏷️"
+                />
+              </View>
+            </View>
+            <Field
+              label="CTA button text"
+              value={editing.cta_text}
+              onChange={(v: string) => setEditing({ ...editing, cta_text: v })}
+              placeholder="Book now"
+            />
+            <Field
+              label="Link URL (route or full URL)"
+              value={editing.link_url}
+              onChange={(v: string) => setEditing({ ...editing, link_url: v })}
+              placeholder="/category/insta-help"
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setEditing({ ...editing, media_type: "image" })}
+                style={[chipStyles.chip, editing.media_type === "image" && chipStyles.chipActive]}
+              >
+                <ImgIcon size={14} color={editing.media_type === "image" ? "#fff" : colors.textMain} />
+                <Text style={[chipStyles.chipTxt, editing.media_type === "image" && { color: "#fff" }]}>Image</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setEditing({ ...editing, media_type: "video" })}
+                style={[chipStyles.chip, editing.media_type === "video" && chipStyles.chipActive]}
+              >
+                <Video size={14} color={editing.media_type === "video" ? "#fff" : colors.textMain} />
+                <Text style={[chipStyles.chipTxt, editing.media_type === "video" && { color: "#fff" }]}>Video</Text>
+              </TouchableOpacity>
+            </View>
+            <MediaPicker
+              value={editing.media_url}
+              onChange={(v) => setEditing({ ...editing, media_url: v })}
+              acceptVideo
+              label={editing.media_type === "video" ? "Video file" : "Image file"}
+            />
+            {editing.media_type === "video" && (
+              <MediaPicker
+                value={editing.poster_url}
+                onChange={(v) => setEditing({ ...editing, poster_url: v })}
+                label="Poster image (thumbnail before video plays)"
+              />
+            )}
+            <Field
+              label="Sort order (lower = first)"
+              value={editing.sort_order}
+              onChange={(v: string) => setEditing({ ...editing, sort_order: Number(v) || 0 })}
+              keyboardType="number-pad"
+            />
+            <ToggleRow
+              label="Active (visible on home screen)"
+              value={!!editing.is_active}
+              onChange={(v) => setEditing({ ...editing, is_active: v })}
+            />
+          </>
+        )}
+      </EditModal>
+    </View>
+  );
+}
+
+
 function HomeTab() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -849,6 +1076,8 @@ function HomeTab() {
 
   return (
     <View style={{ gap: 18 }}>
+      <HeroPromosSection />
+
       <View style={{ padding: 12, backgroundColor: "#FEF9C3", borderRadius: 10 }}>
         <Text style={{ fontSize: 13, color: "#854D0E", fontWeight: "600" }}>
           Tip: Toggle Popular / Top Rated / Recommended below to control what shows on the home screen.

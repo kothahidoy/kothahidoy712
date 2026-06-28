@@ -30,6 +30,7 @@ import {
 
 import { CategoryTile } from "@/src/components/IconBubble";
 import { ServiceCard } from "@/src/components/ServiceCard";
+import HeroPromoCarousel, { HomePromoSlide } from "@/src/components/HeroPromoCarousel";
 import { useSession } from "@/src/context/SessionContext";
 import { useCart } from "@/src/context/CartContext";
 import { dataService } from "@/src/data/service";
@@ -222,6 +223,7 @@ export default function HomeScreen() {
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [search, setSearch] = useState("");
   const [visibleVideoIds, setVisibleVideoIds] = useState<string[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HomePromoSlide[]>([]);
 
   const onViewableVideosChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const visibleIds = viewableItems
@@ -256,6 +258,24 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Fetch hero promo slides from CMS
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/cms/home-promos?active_only=true");
+        if (!res.ok) return;
+        const data: HomePromoSlide[] = await res.json();
+        if (!cancelled) {
+          setHeroSlides((data || []).filter((s) => s.is_active !== false && !!s.media_url));
+        }
+      } catch {
+        /* fall back to hardcoded card */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const cityLabel = profile?.city ?? "Durgapur";
   const firstName = (profile?.name ?? "there").split(" ")[0];
@@ -318,28 +338,32 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* Promo Card */}
-          <View style={styles.heroPromoCard}>
-            <View style={styles.heroPromoContent}>
-              <Text style={styles.heroPromoTitle}>{HERO_PROMO.title}</Text>
-              <View style={styles.heroPromoPrice}>
-                <Text style={styles.heroPromoPriceValue}>{HERO_PROMO.price}</Text>
-                <Text style={styles.heroPromoOriginalPrice}>{HERO_PROMO.originalPrice}</Text>
+          {/* Promo Card — auto-swipeable CMS carousel (image + video); falls back to hardcoded card */}
+          {heroSlides.length > 0 ? (
+            <HeroPromoCarousel slides={heroSlides} />
+          ) : (
+            <View style={styles.heroPromoCard}>
+              <View style={styles.heroPromoContent}>
+                <Text style={styles.heroPromoTitle}>{HERO_PROMO.title}</Text>
+                <View style={styles.heroPromoPrice}>
+                  <Text style={styles.heroPromoPriceValue}>{HERO_PROMO.price}</Text>
+                  <Text style={styles.heroPromoOriginalPrice}>{HERO_PROMO.originalPrice}</Text>
+                </View>
+                <View style={styles.heroPromoDiscount}>
+                  <Text style={styles.heroPromoDiscountText}>🏷️ {HERO_PROMO.discount}</Text>
+                </View>
+                <TouchableOpacity style={styles.heroPromoBookBtn}>
+                  <Text style={styles.heroPromoBookBtnText}>Book now</Text>
+                  <ArrowRight size={16} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
-              <View style={styles.heroPromoDiscount}>
-                <Text style={styles.heroPromoDiscountText}>🏷️ {HERO_PROMO.discount}</Text>
-              </View>
-              <TouchableOpacity style={styles.heroPromoBookBtn}>
-                <Text style={styles.heroPromoBookBtnText}>Book now</Text>
-                <ArrowRight size={16} color="#FFFFFF" />
-              </TouchableOpacity>
+              <Image
+                source={{ uri: HERO_PROMO.image }}
+                style={styles.heroPromoImage}
+                resizeMode="cover"
+              />
             </View>
-            <Image
-              source={{ uri: HERO_PROMO.image }}
-              style={styles.heroPromoImage}
-              resizeMode="cover"
-            />
-          </View>
+          )}
         </LinearGradient>
 
         {/* Search results — show filtered services while typing */}
