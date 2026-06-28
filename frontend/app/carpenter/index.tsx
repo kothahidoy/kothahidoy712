@@ -119,6 +119,9 @@ const ServiceCard = ({
         <Text style={styles.price}>Starts at ₹{service.price}</Text>
         {service.duration && <Text style={styles.duration}> • {service.duration}</Text>}
       </View>
+      {service.shortDescription ? (
+        <Text style={styles.serviceShortDesc} numberOfLines={2}>{service.shortDescription}</Text>
+      ) : null}
       <TouchableOpacity style={styles.viewDetailsBtn} onPress={onViewDetails}>
         <Text style={styles.viewDetailsText}>View details</Text>
       </TouchableOpacity>
@@ -400,6 +403,7 @@ const styles = StyleSheet.create({
   serviceName: { fontSize: 16, fontWeight: "700", color: "#000000", marginBottom: 6, lineHeight: 22 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
   ratingText: { fontSize: 13, color: "#6B7280", textDecorationLine: "underline" },
+  serviceShortDesc: { fontSize: 13, color: "#6B7280", lineHeight: 18, marginBottom: 8 },
   priceRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   price: { fontSize: 14, fontWeight: "600", color: "#000000" },
   duration: { fontSize: 14, color: "#6B7280" },

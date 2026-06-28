@@ -32,6 +32,9 @@ import {
   InclusionsList,
   SectionDivider,
   useServiceDetail,
+  DescriptionBlock,
+  GallerySection,
+  HighlightsSection,
 } from "@/src/components/ServiceDetail";
 
 // SALON (MEN) LAYOUT - Grooming focus, stylist profiles, barber-style design
@@ -139,6 +142,26 @@ export default function SalonServiceDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Admin-controllable: short + long description */}
+        <DescriptionBlock
+          shortDescription={serviceData.shortDescription}
+          description={serviceData.description}
+        />
+
+        {/* Admin-controllable: image gallery */}
+        <GallerySection
+          title={serviceData.galleryTitle}
+          defaultTitle="Why men love us"
+          images={serviceData.gallery}
+        />
+
+        {/* Admin-controllable: highlights / why we are loved */}
+        <HighlightsSection
+          title={serviceData.loveUsTitle}
+          defaultTitle="Why men choose us"
+          items={serviceData.loveUs}
+        />
 
         {/* Service Variants */}
         <ScrollView

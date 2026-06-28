@@ -217,6 +217,9 @@ const ServiceCard = ({
         <Text style={styles.price}>Starts at ₹{service.price}</Text>
         {service.duration && <Text style={styles.duration}> • {service.duration}</Text>}
       </View>
+      {service.shortDescription ? (
+        <Text style={styles.serviceShortDesc} numberOfLines={2}>{service.shortDescription}</Text>
+      ) : null}
       <TouchableOpacity style={styles.viewDetailsBtn} onPress={onViewDetails}>
         <Text style={styles.viewDetailsText}>View details</Text>
       </TouchableOpacity>
@@ -693,6 +696,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     textDecorationLine: "underline",
+  serviceShortDesc: { fontSize: 13, color: "#6B7280", lineHeight: 18, marginBottom: 8 },
   },
   priceRow: {
     flexDirection: "row",

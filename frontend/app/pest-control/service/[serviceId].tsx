@@ -30,6 +30,9 @@ import {
   InclusionsList,
   SectionDivider,
   useServiceDetail,
+  DescriptionBlock,
+  GallerySection,
+  HighlightsSection,
 } from "@/src/components/ServiceDetail";
 
 // PEST CONTROL LAYOUT - Pest types, treatment plans, safety certifications
@@ -147,6 +150,26 @@ export default function PestControlServiceDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Admin-controllable: short + long description */}
+        <DescriptionBlock
+          shortDescription={serviceData.shortDescription}
+          description={serviceData.description}
+        />
+
+        {/* Admin-controllable: image gallery */}
+        <GallerySection
+          title={serviceData.galleryTitle}
+          defaultTitle="Why customers love us"
+          images={serviceData.gallery}
+        />
+
+        {/* Admin-controllable: highlights / why we are loved */}
+        <HighlightsSection
+          title={serviceData.loveUsTitle}
+          defaultTitle="Why customers choose us"
+          items={serviceData.loveUs}
+        />
 
         {/* Pest Type Selector - Unique to Pest Control */}
         <View style={styles.pestSection}>

@@ -30,6 +30,9 @@ import {
   InclusionsList,
   SectionDivider,
   useServiceDetail,
+  DescriptionBlock,
+  GallerySection,
+  HighlightsSection,
 } from "@/src/components/ServiceDetail";
 
 // CLEANING LAYOUT - Room count selector, deep clean options, supplies included
@@ -138,6 +141,26 @@ export default function CleaningServiceDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Admin-controllable: short + long description */}
+        <DescriptionBlock
+          shortDescription={serviceData.shortDescription}
+          description={serviceData.description}
+        />
+
+        {/* Admin-controllable: image gallery */}
+        <GallerySection
+          title={serviceData.galleryTitle}
+          defaultTitle="Why customers love us"
+          images={serviceData.gallery}
+        />
+
+        {/* Admin-controllable: highlights / why we are loved */}
+        <HighlightsSection
+          title={serviceData.loveUsTitle}
+          defaultTitle="Why customers choose us"
+          items={serviceData.loveUs}
+        />
 
         {/* Room Selector - Unique to Cleaning */}
         <View style={styles.roomSelector}>

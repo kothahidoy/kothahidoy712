@@ -128,6 +128,8 @@ export function useCategoryContent(categoryId: string): UseCategoryContentResult
             price: Number(sv.starting_price) || 0,
             duration: sv.duration_mins ? `${sv.duration_mins} mins` : undefined,
             image: sv.image || PLACEHOLDER,
+            description: sv.description || undefined,
+            shortDescription: sv.short_description || undefined,
           })),
         };
       }
