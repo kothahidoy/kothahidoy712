@@ -99,11 +99,13 @@ function MediaPicker({
   onChange,
   acceptVideo = false,
   label = "Image",
+  mediaType,
 }: {
   value?: string | null;
   onChange: (url: string) => void;
   acceptVideo?: boolean;
   label?: string;
+  mediaType?: "image" | "video";
 }) {
   const [uploading, setUploading] = useState(false);
 
@@ -130,20 +132,38 @@ function MediaPicker({
     }
   }, [acceptVideo, onChange]);
 
-  const isVideo = (value || "").match(/\.(mp4|mov|webm)$/i);
+  // Robust video detection: explicit mediaType prop (most reliable) OR URL
+  // path ends with a video extension — strips query strings and fragments first.
+  const detectIsVideo = (raw: string) => {
+    if (!raw) return false;
+    if (mediaType === "video") return true;
+    if (mediaType === "image") return false;
+    // Strip query and fragment, then check extension on the path
+    const path = raw.split("?")[0].split("#")[0].toLowerCase();
+    return /\.(mp4|mov|webm|m4v|mkv|avi|3gp|hevc|m3u8)$/i.test(path);
+  };
+  const trimmed = (value || "").trim();
+  const isVideo = detectIsVideo(trimmed);
+  // Treat the value as valid for preview if it looks like a URL or data URI
+  const looksLikeUrl = /^(https?:\/\/|data:|file:)/i.test(trimmed);
 
   return (
     <View style={{ gap: 8 }}>
       <Text style={fieldStyles.label}>{label}</Text>
-      {value ? (
+      {trimmed && looksLikeUrl ? (
         <View style={mediaStyles.preview}>
           {isVideo ? (
             <View style={mediaStyles.videoTile}>
               <Video size={32} color="#fff" />
-              <Text style={mediaStyles.videoLabel}>Video uploaded</Text>
+              <Text style={mediaStyles.videoLabel} numberOfLines={2}>
+                Video linked ✓
+              </Text>
+              <Text style={[mediaStyles.videoLabel, { fontSize: 9, opacity: 0.8 }]} numberOfLines={1}>
+                {trimmed.length > 38 ? trimmed.slice(0, 38) + "…" : trimmed}
+              </Text>
             </View>
           ) : (
-            <Image source={{ uri: value }} style={mediaStyles.previewImg} />
+            <Image source={{ uri: trimmed }} style={mediaStyles.previewImg} />
           )}
           <TouchableOpacity style={mediaStyles.previewClear} onPress={() => onChange("")}>
             <X size={14} color="#fff" />
@@ -158,11 +178,18 @@ function MediaPicker({
       </View>
       <TextInput
         style={fieldStyles.input}
-        placeholder="…or paste image/video URL"
+        placeholder={
+          mediaType === "video"
+            ? "…or paste video URL (mp4/mov/webm, with or without ?query)"
+            : mediaType === "image"
+            ? "…or paste image URL"
+            : "…or paste image/video URL"
+        }
         placeholderTextColor={colors.textSubtle}
         autoCapitalize="none"
+        autoCorrect={false}
         value={value || ""}
-        onChangeText={onChange}
+        onChangeText={(v) => onChange(v.trim())}
       />
     </View>
   );
@@ -1000,6 +1027,7 @@ function HeroPromosSection() {
               value={editing.media_url}
               onChange={(v) => setEditing({ ...editing, media_url: v })}
               acceptVideo
+              mediaType={editing.media_type === "video" ? "video" : "image"}
               label={editing.media_type === "video" ? "Video file" : "Image file"}
             />
             {editing.media_type === "video" && (
