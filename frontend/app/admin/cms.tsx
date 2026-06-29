@@ -1241,6 +1241,230 @@ function ThoughtfulCurationsSection() {
 }
 
 
+function CelebratingProsSection() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState<any>({ title: "", subtitle: "", is_active: true });
+  const [editingHeader, setEditingHeader] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [data, sec] = await Promise.all([
+        http<any[]>("GET", "/celebrating-pros"),
+        http<any>("GET", "/celebrating-pros-section"),
+      ]);
+      setRows(data || []);
+      setSection({
+        title: sec?.title || "Top rated professionals",
+        subtitle: sec?.subtitle || "Trusted by Mfixit",
+        is_active: sec?.is_active !== false,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const blank = {
+    caption: "",
+    thumbnail_url: "",
+    video_url: "",
+    sort_order: rows.length + 1,
+    is_active: true,
+  };
+
+  const onSave = async () => {
+    try {
+      if (!editing?.video_url?.trim()) return notify("Missing", "Upload or paste a video");
+      const body = { ...editing };
+      if (editing.id) await http("PATCH", `/celebrating-pros/${editing.id}`, body);
+      else await http("POST", "/celebrating-pros", body);
+      setEditing(null);
+      await load();
+    } catch (e: any) {
+      notify("Failed", e.message);
+    }
+  };
+
+  const onDelete = async (id: string) => {
+    if (!(await confirmAsync("Delete this video?", "It will disappear from the home screen."))) return;
+    await http("DELETE", `/celebrating-pros/${id}`);
+    await load();
+  };
+
+  const saveHeader = async () => {
+    try {
+      await http("PATCH", "/celebrating-pros-section", {
+        title: section.title?.trim() || "Top rated professionals",
+        subtitle: section.subtitle?.trim() || "",
+        is_active: section.is_active,
+      });
+      setEditingHeader(false);
+      await load();
+    } catch (e: any) {
+      notify("Failed", e.message);
+    }
+  };
+
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textMain }}>
+            Celebrating Professionals
+          </Text>
+          <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+            UC-style video rail · header &quot;{section.title}&quot; · {rows.length} {rows.length === 1 ? "video" : "videos"}
+          </Text>
+        </View>
+        <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
+          <Plus size={14} color="#fff" />
+          <Text style={[btn.addTxt, { fontSize: 12 }]}>Add video</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Section header config card */}
+      <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 8, backgroundColor: "#fafbff" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textMain }}>Section header</Text>
+          {editingHeader ? (
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity onPress={() => { setEditingHeader(false); load(); }} style={row.iconBtn}>
+                <X size={16} color={colors.textSubtle} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={saveHeader} style={row.iconBtn}>
+                <Save size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => setEditingHeader(true)} style={row.iconBtn}>
+              <Edit3 size={16} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+        {editingHeader ? (
+          <>
+            <Field
+              label="Title (e.g. Top rated professionals)"
+              value={section.title}
+              onChange={(v: string) => setSection({ ...section, title: v })}
+              placeholder="Top rated professionals"
+            />
+            <Field
+              label="Subtitle (e.g. Trusted by Mfixit)"
+              value={section.subtitle}
+              onChange={(v: string) => setSection({ ...section, subtitle: v })}
+              placeholder="Trusted by Mfixit"
+            />
+            <ToggleRow
+              label="Show section on home"
+              value={!!section.is_active}
+              onChange={(v) => setSection({ ...section, is_active: v })}
+            />
+          </>
+        ) : (
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textMain }}>{section.title}</Text>
+            {!!section.subtitle && (
+              <Text style={{ fontSize: 12, color: colors.textSubtle, marginTop: 2 }}>{section.subtitle}</Text>
+            )}
+            <Text style={{ fontSize: 10, color: section.is_active ? "#16a34a" : colors.error, marginTop: 4 }}>
+              {section.is_active ? "✓ Visible on home" : "Hidden from home"}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {loading ? (
+        <ActivityIndicator />
+      ) : rows.length === 0 ? (
+        <View style={{ padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colors.textSubtle }}>
+            No videos yet. Tap &quot;Add video&quot; to upload your first one.
+          </Text>
+        </View>
+      ) : rows.map((p) => (
+        <View key={p.id} style={row.card}>
+          {p.thumbnail_url ? (
+            <Image source={{ uri: p.thumbnail_url }} style={row.thumb} />
+          ) : (
+            <View style={[row.thumb, { backgroundColor: "#111", alignItems: "center", justifyContent: "center" }]}>
+              <PlayCircle size={20} color="#fff" />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={row.title} numberOfLines={1}>{p.caption || "(no caption)"}</Text>
+            <Text style={row.sub} numberOfLines={1}>
+              #{p.sort_order} · video
+            </Text>
+          </View>
+          <Switch
+            value={!!p.is_active}
+            onValueChange={async (v) => {
+              await http("PATCH", `/celebrating-pros/${p.id}`, {
+                video_url: p.video_url,
+                is_active: v,
+              });
+              load();
+            }}
+          />
+          <TouchableOpacity onPress={() => setEditing({ ...p })} style={row.iconBtn}>
+            <Edit3 size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(p.id)} style={row.iconBtn}>
+            <Trash2 size={16} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <EditModal
+        visible={!!editing}
+        title={editing?.id ? "Edit video" : "New video"}
+        onClose={() => setEditing(null)}
+        onSave={onSave}
+      >
+        {editing && (
+          <>
+            <MediaPicker
+              value={editing.video_url}
+              onChange={(v) => setEditing({ ...editing, video_url: v })}
+              acceptVideo
+              mediaType="video"
+              label="Video file (mp4 / mov / webm)"
+            />
+            <MediaPicker
+              value={editing.thumbnail_url}
+              onChange={(v) => setEditing({ ...editing, thumbnail_url: v })}
+              mediaType="image"
+              label="Thumbnail image (shown before video plays)"
+            />
+            <Field
+              label="Caption (optional, small overlay text)"
+              value={editing.caption}
+              onChange={(v: string) => setEditing({ ...editing, caption: v })}
+              placeholder="e.g. Priya — Mfixit Beauty Expert"
+            />
+            <Field
+              label="Sort order (lower = first)"
+              value={editing.sort_order}
+              onChange={(v: string) => setEditing({ ...editing, sort_order: Number(v) || 0 })}
+              keyboardType="number-pad"
+            />
+            <ToggleRow
+              label="Active (visible on home)"
+              value={!!editing.is_active}
+              onChange={(v) => setEditing({ ...editing, is_active: v })}
+            />
+          </>
+        )}
+      </EditModal>
+    </View>
+  );
+}
+
+
 function HomeTab() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1292,6 +1516,8 @@ function HomeTab() {
       <HeroPromosSection />
 
       <ThoughtfulCurationsSection />
+
+      <CelebratingProsSection />
 
       <View style={{ padding: 12, backgroundColor: "#FEF9C3", borderRadius: 10 }}>
         <Text style={{ fontSize: 13, color: "#854D0E", fontWeight: "600" }}>

@@ -378,6 +378,19 @@ export default function HomeScreen() {
   const [visibleVideoIds, setVisibleVideoIds] = useState<string[]>([]);
   const [heroSlides, setHeroSlides] = useState<HomePromoSlide[]>([]);
   const [curatedVideos, setCuratedVideos] = useState<VideoCardItem[]>(CURATED_VIDEOS);
+  const [celebratingPros, setCelebratingPros] = useState<VideoCardItem[]>([]);
+  const [celebratingSection, setCelebratingSection] = useState<{
+    title: string;
+    subtitle: string;
+    is_active: boolean;
+  }>({ title: "Top rated professionals", subtitle: "Trusted by Mfixit", is_active: true });
+  const [visibleCelebIds, setVisibleCelebIds] = useState<string[]>([]);
+
+  const onViewableCelebChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    setVisibleCelebIds(
+      viewableItems.filter((it) => it.isViewable).map((it) => it.item.id)
+    );
+  }).current;
 
   const onViewableVideosChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const visibleIds = viewableItems
@@ -455,6 +468,44 @@ export default function HomeScreen() {
         }
       } catch {
         /* fall back to mock curated videos */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch celebrating professionals (videos + section header) from CMS
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+        const [vidsRes, secRes] = await Promise.all([
+          fetch(`${base}/api/admin/cms/celebrating-pros?active_only=true`),
+          fetch(`${base}/api/admin/cms/celebrating-pros-section`),
+        ]);
+        if (!cancelled && vidsRes.ok) {
+          const data: any[] = await vidsRes.json();
+          const mapped: VideoCardItem[] = (data || [])
+            .filter((c) => c?.video_url)
+            .map((c) => ({
+              id: c.id,
+              title: c.caption || "",
+              titleLine2: "",
+              thumbnail: c.thumbnail_url || "",
+              videoUrl: c.video_url,
+            }));
+          setCelebratingPros(mapped);
+        }
+        if (!cancelled && secRes.ok) {
+          const sec = await secRes.json();
+          setCelebratingSection({
+            title: sec?.title || "Top rated professionals",
+            subtitle: sec?.subtitle || "Trusted by Mfixit",
+            is_active: sec?.is_active !== false,
+          });
+        }
+      } catch {
+        /* silently keep defaults */
       }
     })();
     return () => { cancelled = true; };
@@ -718,16 +769,43 @@ export default function HomeScreen() {
           )}
         />
 
-        {/* Top rated pros */}
-        <SectionHeader title="Top-rated professionals" subtitle="Trusted by Mfixit" />
-        <FlatList
-          data={pros}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(p) => p.id}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          renderItem={({ item }) => <ProCard pro={item} />}
-        />
+        {/* Celebrating Professionals — UC-style video rail (CMS controlled) */}
+        {celebratingSection.is_active && (
+          <View>
+            <View style={styles.celebHeader}>
+              <Text style={styles.celebTitle}>{celebratingSection.title}</Text>
+              {!!celebratingSection.subtitle && (
+                <Text style={styles.celebSubtitle}>{celebratingSection.subtitle}</Text>
+              )}
+            </View>
+            {celebratingPros.length === 0 ? (
+              <View style={{ paddingHorizontal: 20 }}>
+                <View style={styles.celebEmpty}>
+                  <Text style={styles.celebEmptyText}>
+                    Videos coming soon — add some from the admin panel.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <FlatList
+                data={celebratingPros}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+                ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                onViewableItemsChanged={onViewableCelebChanged}
+                viewabilityConfig={viewabilityConfig}
+                renderItem={({ item }) => (
+                  <VideoCard
+                    item={item}
+                    isVisible={visibleCelebIds.includes(item.id)}
+                  />
+                )}
+              />
+            )}
+          </View>
+        )}
 
         {/* Recommended */}
         <SectionHeader
@@ -1299,6 +1377,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  celebHeader: {
+    paddingHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  celebTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.textMain,
+    letterSpacing: -0.3,
+  },
+  celebSubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  celebEmpty: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  celebEmptyText: {
+    fontSize: 12,
+    color: colors.textSubtle,
   },
   videoCard: {
     width: (SCREEN_WIDTH - 52) / 2,

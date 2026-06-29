@@ -794,3 +794,117 @@ async def delete_home_curation(curation_id: str):
         if r.status_code not in (200, 204):
             raise HTTPException(r.status_code, r.text)
         return {"ok": True}
+
+
+# ═════════════════════════════════════════════════════════════════
+# Celebrating Professionals — UC-style video rail (admin managed)
+# Tables:
+#   celebrating_pros (id, caption, thumbnail_url, video_url,
+#                     sort_order, is_active, created_at, updated_at)
+#   celebrating_pros_section (id=1, title, subtitle, is_active)
+# ═════════════════════════════════════════════════════════════════
+class CelebratingProUpsert(BaseModel):
+    id: Optional[str] = None
+    caption: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    video_url: str
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CelebratingProsSectionUpsert(BaseModel):
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@router.get("/celebrating-pros")
+async def list_celebrating_pros(active_only: bool = False):
+    q = "?select=*&order=sort_order,created_at"
+    if active_only:
+        q = "?select=*&is_active=eq.true&order=sort_order,created_at"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros{q}",
+            headers=_sb_headers(),
+        )
+        return r.json() if r.is_success else []
+
+
+@router.post("/celebrating-pros")
+async def create_celebrating_pro(payload: CelebratingProUpsert):
+    body = payload.dict(exclude_none=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        data = r.json()
+        return data[0] if isinstance(data, list) else data
+
+
+@router.patch("/celebrating-pros/{item_id}")
+async def update_celebrating_pro(item_id: str, payload: CelebratingProUpsert):
+    body = payload.dict(exclude_unset=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros?id=eq.{item_id}",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/celebrating-pros/{item_id}")
+async def delete_celebrating_pro(item_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros?id=eq.{item_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+# Section header (title + subtitle, single config row)
+@router.get("/celebrating-pros-section")
+async def get_celebrating_pros_section():
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros_section?id=eq.1&limit=1",
+            headers=_sb_headers(),
+        )
+        if r.is_success:
+            rows = r.json()
+            if rows:
+                return rows[0]
+        # Fallback defaults
+        return {
+            "id": 1,
+            "title": "Top rated professionals",
+            "subtitle": "Trusted by Mfixit",
+            "is_active": True,
+        }
+
+
+@router.patch("/celebrating-pros-section")
+async def update_celebrating_pros_section(payload: CelebratingProsSectionUpsert):
+    body = payload.dict(exclude_unset=True, exclude_none=True)
+    if not body:
+        return {"ok": True}
+    body["updated_at"] = "now()"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/celebrating_pros_section?id=eq.1",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
