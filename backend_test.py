@@ -7,7 +7,7 @@ import requests
 import json
 import sys
 
-BASE_URL = "https://b6bd46d6-2913-47fd-bed1-fe975bf8d877.preview.emergentagent.com/api"
+BASE_URL = "https://code-sync-tool-3.preview.emergentagent.com/api"
 
 def test_create_tricky_video_url():
     """Test 1: Create a slide with video URL containing query strings"""
