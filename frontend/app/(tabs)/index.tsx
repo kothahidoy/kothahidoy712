@@ -183,20 +183,32 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
     vid.load();
     videoElRef.current = vid;
 
-    // Kick off playback. Some browsers reject the returned promise if not
-    // user-gesture-eligible — we swallow that.
+    // Kick off playback once enough has buffered so it plays smoothly. We
+    // listen on `canplaythrough` (browser thinks it can play end-to-end
+    // without stalling) and fall back to `canplay` after 2s if the network
+    // is slow.
+    let played = false;
     const tryPlay = () => {
+      if (played) return;
+      played = true;
       const p = vid.play();
       if (p && typeof (p as any).catch === "function") {
         (p as any).catch(() => {
-          // ignored — autoplay policy may still allow it after metadata
+          // autoplay rejected — will retry on next user interaction
+          played = false;
         });
       }
     };
-    vid.addEventListener("canplay", tryPlay, { once: true });
-    tryPlay();
+    vid.addEventListener("canplaythrough", tryPlay, { once: true });
+    const fallbackTimer = setTimeout(tryPlay, 2000);
+    vid.addEventListener("canplay", () => {
+      // If canplaythrough never fires (slow connection), still kick off
+      // after a short grace so the user isn't staring at a poster.
+      setTimeout(tryPlay, 400);
+    }, { once: true });
 
     return () => {
+      clearTimeout(fallbackTimer);
       try {
         vid.pause();
         vid.removeAttribute("src");
