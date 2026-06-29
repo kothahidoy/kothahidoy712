@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   Dimensions,
   FlatList,
@@ -143,33 +143,107 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
   const [isMuted, setIsMuted] = useState(true);
 
   // ─── WEB BRANCH ───────────────────────────────────────────────────────
-  // expo-video on web has a known autoplay race (play() interrupted by
-  // pause()). For web we render a native HTML5 <video> with the autoplay,
-  // muted and playsinline attributes — the standard, browser-friendly way
-  // to autoplay short looping videos. The thumbnail is set as the
-  // <video>'s `poster` so it shows while the video buffers.
+  // We attach a raw <video> element imperatively via useEffect + a host
+  // div ref. This bypasses React's reconciliation (which was causing the
+  // <video> element to be unmounted/aborted on every parent re-render
+  // triggered by visibility tracking + CMS data swap) and matches what
+  // big web video apps do for autoplay reliability.
+  const hostRef = useRef<any>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const host: HTMLDivElement | null = hostRef.current;
+    if (!host) return;
+
+    // Create the <video> element once per (videoUrl, thumbnail).
+    const vid = document.createElement("video");
+    // Set crossOrigin BEFORE src so browser uses CORS mode (avoids ORB block).
+    vid.crossOrigin = "anonymous";
+    if (item.thumbnail) vid.poster = item.thumbnail;
+    vid.autoplay = true;
+    vid.muted = true; // must be muted BEFORE play() for autoplay policy
+    vid.loop = true;
+    vid.playsInline = true;
+    (vid as any).setAttribute("playsinline", "true");
+    (vid as any).setAttribute("webkit-playsinline", "true");
+    vid.preload = "auto";
+    vid.controls = false;
+    vid.style.position = "absolute";
+    vid.style.top = "0";
+    vid.style.left = "0";
+    vid.style.width = "100%";
+    vid.style.height = "100%";
+    vid.style.objectFit = "cover";
+    vid.style.borderRadius = "16px";
+    vid.style.backgroundColor = "#000";
+
+    host.appendChild(vid);
+    vid.src = item.videoUrl;
+    vid.load();
+    videoElRef.current = vid;
+
+    // Kick off playback. Some browsers reject the returned promise if not
+    // user-gesture-eligible — we swallow that.
+    const tryPlay = () => {
+      const p = vid.play();
+      if (p && typeof (p as any).catch === "function") {
+        (p as any).catch(() => {
+          // ignored — autoplay policy may still allow it after metadata
+        });
+      }
+    };
+    vid.addEventListener("canplay", tryPlay, { once: true });
+    tryPlay();
+
+    return () => {
+      try {
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load();
+      } catch {}
+      if (vid.parentNode) vid.parentNode.removeChild(vid);
+      videoElRef.current = null;
+    };
+  }, [item.videoUrl, item.thumbnail]);
+
+  // Reflect mute state changes onto the element without recreating it.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const v = videoElRef.current;
+    if (v) v.muted = isMuted;
+  }, [isMuted]);
+
+  // Pause / play based on visibility on web too (saves bandwidth).
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const v = videoElRef.current;
+    if (!v) return;
+    if (isVisible) {
+      const p = v.play();
+      if (p && typeof (p as any).catch === "function") {
+        (p as any).catch(() => {});
+      }
+    } else {
+      try { v.pause(); } catch {}
+    }
+  }, [isVisible]);
+
   if (Platform.OS === "web") {
     return (
       <View style={styles.videoCard} testID={`video-${item.id}`}>
         <View style={styles.videoContainer}>
-          {/* @ts-ignore — emit raw HTML video element via React DOM on web */}
-          {React.createElement("video", {
-            src: item.videoUrl,
-            poster: item.thumbnail,
-            autoPlay: true,
-            muted: isMuted,
-            loop: true,
-            playsInline: true,
-            preload: "auto",
-            crossOrigin: "anonymous",
+          {/* @ts-ignore — emit a raw <div> on web to host the imperative <video> */}
+          {React.createElement("div", {
+            ref: hostRef,
             style: {
               position: "absolute",
               top: 0,
               left: 0,
               width: "100%",
               height: "100%",
-              objectFit: "cover",
               borderRadius: 16,
+              overflow: "hidden",
               backgroundColor: "#000",
             } as any,
           })}
