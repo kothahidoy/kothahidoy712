@@ -140,58 +140,60 @@ interface VideoCardProps {
 
 function VideoCard({ item, isVisible }: VideoCardProps) {
   const [isMuted, setIsMuted] = useState(true);
+  const hasStartedRef = useRef(false);
 
   const player = useVideoPlayer(item.videoUrl, (player) => {
     player.loop = true;
     player.muted = true;
   });
 
-  // Robust autoplay: call play() AFTER mount and KEEP retrying for the
-  // first ~3s. expo-video on web sometimes needs a few ticks after the
-  // <video> element is attached to the DOM before play() actually starts
-  // the stream. muted=true is set in init so the browser autoplay policy
-  // is already satisfied.
+  // Single autoplay effect — keep retrying play() until the video starts.
+  // We deliberately do NOT call pause() until after the first successful
+  // playback (tracked via hasStartedRef), otherwise an early pause from the
+  // visibility effect races with play() and the browser aborts both:
+  //   "The play() request was interrupted by a call to pause()"
   useEffect(() => {
     let cancelled = false;
-    let attempts = 0;
-    const tryPlay = () => {
+    let timer: any;
+
+    const attempt = (n: number) => {
       if (cancelled) return;
-      attempts += 1;
       try {
         player.muted = true;
-        const maybePromise: any = player.play();
-        if (maybePromise && typeof maybePromise.then === "function") {
-          maybePromise.catch(() => {
-            // Browser blocked it (rare with muted) — retry shortly
-          });
+        const p: any = player.play();
+        if (p && typeof p.then === "function") {
+          p.then(() => {
+            hasStartedRef.current = true;
+          }).catch(() => { /* will retry */ });
+        } else {
+          hasStartedRef.current = true;
         }
-      } catch {
-        /* swallow & retry */
+      } catch { /* will retry */ }
+      // Retry for up to ~5s total
+      if (n < 10) {
+        timer = setTimeout(() => attempt(n + 1), 500);
       }
-      // Re-check after a moment; bail once playing or after 6 tries (~3s)
-      setTimeout(() => {
-        if (cancelled) return;
-        // We can't reliably read `playing` on every platform; just retry
-        // for the first few attempts then stop.
-        if (attempts < 6) tryPlay();
-      }, 500);
     };
-    tryPlay();
-    return () => { cancelled = true; };
+    attempt(0);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [player]);
 
-  // Pause / resume based on visibility (perf only).
+  // Only act on visibility AFTER playback has successfully started.
   useEffect(() => {
+    if (!hasStartedRef.current) return; // don't interfere with initial autoplay
     try {
       if (isVisible) {
-        player.muted = isMuted;
         const p: any = player.play();
         if (p && typeof p.then === "function") p.catch(() => {});
       } else {
         player.pause();
       }
-    } catch { /* player may not be ready yet */ }
-  }, [isVisible, player, isMuted]);
+    } catch { /* ignore */ }
+  }, [isVisible, player]);
 
   useEffect(() => {
     player.muted = isMuted;

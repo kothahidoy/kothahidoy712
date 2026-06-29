@@ -3360,9 +3360,9 @@ agent_communication:
 frontend:
   - task: "Thoughtful Curations video auto-play on web"
     implemented: true
-    working: false
+    working: "NA"
     file: "/app/frontend/app/(tabs)/index.tsx"
-    stuck_count: 2
+    stuck_count: 3
     priority: "high"
     needs_retesting: true
     status_history:
@@ -3555,6 +3555,87 @@ frontend:
           pause() during the first 5 seconds after mount, allowing the autoplay retry 
           loop to complete without interference. After initial autoplay succeeds, the 
           visibility effect can resume normal pause/play behavior for performance optimization.
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          THIRD FIX ATTEMPT (2026-06-29):
+          
+          Applied the exact solution recommended by testing agent: consolidated the 
+          two competing useEffects to eliminate the play/pause race condition.
+          
+          Changes in /app/frontend/app/(tabs)/index.tsx VideoCard (lines 141-196):
+          1. Added `hasStartedRef` useRef to track if initial playback has started
+          2. Autoplay retry loop (lines 155-183):
+             - Calls player.play() every 500ms for up to 10 attempts (~5s total)
+             - Sets hasStartedRef.current = true when play() succeeds
+          3. Visibility effect (lines 186-196):
+             - NOW ONLY RUNS AFTER hasStartedRef.current === true
+             - Early return if !hasStartedRef.current (line 187)
+             - This prevents pause() from interfering with initial autoplay
+          
+          This eliminates the race condition because:
+          - During initial 5 seconds: only autoplay retry loop runs
+          - After first successful play(): visibility effect activates
+          - No more competing play()/pause() calls during startup
+          
+          Please re-test and verify:
+          - Videos auto-play (paused === false, currentTime > 0)
+          - currentTime increases between samples (proves playback)
+          - ZERO or ≤1 "play() request was interrupted" errors per video
+        -working: "NA"
+        -agent: "testing"
+        -comment: |
+          ⚠️ TEST BLOCKED - UNABLE TO VERIFY FIX DUE TO PROFILE SETUP NAVIGATION ISSUE
+          
+          **ATTEMPTED TEST (3rd Attempt):**
+          Attempted to test the consolidated useEffect fix (hasStartedRef) but was 
+          unable to reach the home page due to a critical navigation blocker.
+          
+          **BLOCKING ISSUE:**
+          The profile setup screen (/auth/profile-setup) does not progress to the 
+          home page after filling the form:
+          - ✅ Name field filled: "Tester" (6 characters, meets >1 requirement)
+          - ✅ City selected: "Durgapur" (default)
+          - ✅ canContinue condition should be true (line 30 in profile-setup.tsx)
+          - ❌ Continue button does NOT navigate to /(tabs) when clicked
+          - Tried multiple approaches: Playwright click, force click, JavaScript click
+          - All attempts failed - page remains on profile setup screen
+          
+          **VERIFICATION OF BACKEND & CODE:**
+          ✅ Backend has 2 active curations with valid Supabase video URLs:
+             1. "test title" - https://xuxetkeqxuwgphqrdzvy.supabase.co/.../be248380...mp4
+             2. "men salon" - https://xuxetkeqxuwgphqrdzvy.supabase.co/.../387aa4cb...mp4
+          ✅ Frontend code correctly fetches from ${EXPO_PUBLIC_BACKEND_URL}/api/admin/cms/home-curations?active_only=true
+          ✅ Frontend code has the consolidated useEffect fix (lines 141-196):
+             - hasStartedRef tracks initial playback success
+             - Visibility effect only runs AFTER hasStartedRef.current === true
+             - This should eliminate the play/pause race condition
+          ✅ Videos are rendered in FlatList with VideoCard component (lines 573-588)
+          
+          **CODE REVIEW OF FIX:**
+          The main agent's fix looks CORRECT in theory:
+          - Line 143: `const hasStartedRef = useRef(false);`
+          - Lines 155-183: Autoplay retry loop sets hasStartedRef.current = true on success
+          - Line 187: `if (!hasStartedRef.current) return;` prevents early pause()
+          - This should resolve the race condition identified in previous test
+          
+          **RECOMMENDATION:**
+          Main agent needs to:
+          1. **HIGH PRIORITY**: Fix the profile setup navigation issue
+             - Debug why Continue button doesn't navigate to /(tabs)
+             - Check if there's a validation or state management issue
+             - Consider adding a bypass for testing (e.g., direct navigation to /(tabs))
+          2. Once navigation is fixed, re-test the video autoplay feature
+          3. The consolidated useEffect fix appears correct and should work once testable
+          
+          **ALTERNATIVE TESTING APPROACH:**
+          If profile setup cannot be fixed quickly, consider:
+          - Adding a test-only route that bypasses profile setup
+          - Using a different entry point to reach the home page
+          - Testing on a real device/browser manually
+          
+          **STATUS:** Cannot confirm if fix works due to navigation blocker. Code review 
+          suggests fix is correct, but requires end-to-end testing to verify.
 
 agent_communication:
     -agent: "main"
