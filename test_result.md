@@ -3362,7 +3362,7 @@ frontend:
     implemented: true
     working: false
     file: "/app/frontend/app/(tabs)/index.tsx"
-    stuck_count: 1
+    stuck_count: 2
     priority: "high"
     needs_retesting: true
     status_history:
@@ -3467,6 +3467,94 @@ frontend:
           4. Consider using native HTML5 video element with autoplay attribute as a fallback for web
           5. Add console.log statements to verify player.play() is being called
           6. Check browser console for any expo-video or media playback errors
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          SECOND FIX ATTEMPT (2026-06-29):
+          
+          Applied two fixes based on testing agent's findings:
+          1. CMS API URL fix: Changed line 330 from relative URL to use 
+             `process.env.EXPO_PUBLIC_BACKEND_URL` so frontend now fetches 
+             from correct backend endpoint.
+          2. Robust autoplay retry loop: Added useEffect (lines 154-181) that 
+             calls player.play() repeatedly every 500ms for up to 6 attempts 
+             (~3s total). This handles cases where expo-video on web needs a 
+             few ticks after DOM attachment before play() succeeds.
+          
+          VideoView is always mounted (not gated on visibility). Muted=true 
+          is set in init callback before any play() calls to satisfy browser 
+          autoplay policy.
+          
+          Please re-test and verify:
+          - Videos now load from Supabase (src contains xuxetkeqxuwgphqrdzvy.supabase.co)
+          - Videos auto-play (paused === false, currentTime > 0)
+          - No console errors related to play()/pause() conflicts
+        -working: false
+        -agent: "testing"
+        -comment: |
+          ❌ VIDEO AUTO-PLAY STILL NOT WORKING - ROOT CAUSE IDENTIFIED
+          
+          **TEST RESULTS: 2/5 PASS CRITERIA**
+          
+          **✅ PARTIAL SUCCESS:**
+          1. ✅ CMS API fix is working! Videos now load from Supabase
+             - Video 1 src: https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/public/cms-media/be24...
+             - Video 2 src: https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/public/cms-media/387a...
+          2. ✅ Videos are muted correctly (muted === true)
+          
+          **❌ CRITICAL FAILURES:**
+          1. ❌ Videos are NOT auto-playing (paused === true for both)
+          2. ❌ currentTime === 0.00 for both videos (no playback progress)
+          3. ❌ currentTime did NOT increase between first and second sample
+          4. ❌ readyState === 0 (HAVE_NOTHING - videos not even loading)
+          
+          **🔍 ROOT CAUSE IDENTIFIED:**
+          
+          Browser console shows repeating error (44+ occurrences):
+          ```
+          PAGE ERROR: The play() request was interrupted by a call to pause(). 
+          https://goo.gl/LdLk22
+          ```
+          
+          **THE BUG:**
+          There is a RACE CONDITION between two competing effects:
+          
+          1. **Autoplay retry loop (lines 154-181):**
+             - Calls player.play() every 500ms for up to 6 attempts
+             - Starts immediately when component mounts
+          
+          2. **Visibility effect (lines 184-194):**
+             - Calls player.pause() when isVisible === false
+             - Calls player.play() when isVisible === true
+             - Runs concurrently with autoplay retry loop
+          
+          **What's happening:**
+          - Autoplay retry loop calls play()
+          - Visibility effect immediately calls pause() (if isVisible is false)
+          - This creates endless play() → pause() → play() → pause() cycle
+          - Browser rejects all play() requests because they're interrupted
+          - Videos never start playing
+          
+          **SOLUTION NEEDED:**
+          The main agent must fix the conflict between these two effects. Options:
+          1. Disable visibility effect's pause() during initial autoplay phase (first 3-5 seconds)
+          2. Only start visibility effect after autoplay retry loop completes
+          3. Add a flag to track if initial autoplay succeeded before allowing pause()
+          4. Make autoplay retry loop check isVisible before calling play()
+          5. Remove the visibility effect entirely and rely only on autoplay retry loop
+          
+          **TECHNICAL DETAILS:**
+          - Both videos present in DOM
+          - Both videos have correct Supabase URLs
+          - Both videos are muted
+          - No network errors loading video files
+          - Issue is purely JavaScript play()/pause() conflict
+          
+          **RECOMMENDATION:**
+          Main agent should modify the visibility effect (lines 184-194) to NOT call 
+          pause() during the first 5 seconds after mount, allowing the autoplay retry 
+          loop to complete without interference. After initial autoplay succeeds, the 
+          visibility effect can resume normal pause/play behavior for performance optimization.
 
 agent_communication:
     -agent: "main"

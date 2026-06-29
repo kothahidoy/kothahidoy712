@@ -144,24 +144,54 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
   const player = useVideoPlayer(item.videoUrl, (player) => {
     player.loop = true;
     player.muted = true;
-    // Kick off autoplay as soon as the player is constructed. On web this
-    // satisfies the browser autoplay policy because muted=true is set
-    // before play() is called.
-    try { player.play(); } catch { /* ignore — will retry via effect below */ }
   });
 
-  // Re-apply play/pause when visibility changes. Many web browsers
-  // throttle non-visible <video> elements; keeping currently-visible
-  // cards playing and others paused saves CPU/bandwidth.
+  // Robust autoplay: call play() AFTER mount and KEEP retrying for the
+  // first ~3s. expo-video on web sometimes needs a few ticks after the
+  // <video> element is attached to the DOM before play() actually starts
+  // the stream. muted=true is set in init so the browser autoplay policy
+  // is already satisfied.
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const tryPlay = () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        player.muted = true;
+        const maybePromise: any = player.play();
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.catch(() => {
+            // Browser blocked it (rare with muted) — retry shortly
+          });
+        }
+      } catch {
+        /* swallow & retry */
+      }
+      // Re-check after a moment; bail once playing or after 6 tries (~3s)
+      setTimeout(() => {
+        if (cancelled) return;
+        // We can't reliably read `playing` on every platform; just retry
+        // for the first few attempts then stop.
+        if (attempts < 6) tryPlay();
+      }, 500);
+    };
+    tryPlay();
+    return () => { cancelled = true; };
+  }, [player]);
+
+  // Pause / resume based on visibility (perf only).
   useEffect(() => {
     try {
       if (isVisible) {
-        player.play();
+        player.muted = isMuted;
+        const p: any = player.play();
+        if (p && typeof p.then === "function") p.catch(() => {});
       } else {
         player.pause();
       }
     } catch { /* player may not be ready yet */ }
-  }, [isVisible, player]);
+  }, [isVisible, player, isMuted]);
 
   useEffect(() => {
     player.muted = isMuted;
@@ -278,7 +308,8 @@ export default function HomeScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/cms/home-promos?active_only=true");
+        const base = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+        const res = await fetch(`${base}/api/admin/cms/home-promos?active_only=true`);
         if (!res.ok) return;
         const data: HomePromoSlide[] = await res.json();
         if (!cancelled) {
@@ -296,7 +327,8 @@ export default function HomeScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/cms/home-curations?active_only=true");
+        const base = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+        const res = await fetch(`${base}/api/admin/cms/home-curations?active_only=true`);
         if (!res.ok) return;
         const data: any[] = await res.json();
         const mapped: VideoCardItem[] = (data || [])
