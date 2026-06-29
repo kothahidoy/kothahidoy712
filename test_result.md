@@ -3119,3 +3119,236 @@ agent_communication:
       **RECOMMENDATION:**
       Main agent can summarize and finish. All Home Promo Slides CMS endpoints are 
       production-ready and fully tested.
+
+#====================================================================================================
+# Home Curations CMS + Upload Bug Fix - 2026-06-29
+#====================================================================================================
+
+backend:
+  - task: "Home Curations CMS endpoints + media upload"
+    implemented: true
+    working: true
+    file: "/app/backend/cms_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          Added new CRUD endpoints under /api/admin/cms/home-curations
+          (GET, POST, PATCH, DELETE) backed by Supabase `home_curations` table.
+          User has run the migration SQL — table exists and one row was already
+          created successfully via the API (verified in backend logs).
+          
+          ALSO: A user-reported bug needs verification — POST /api/admin/cms/upload
+          returned 422 from the WEB admin panel because RN FormData shape was
+          serialized as "[object Object]". The fix is in the FRONTEND
+          (`uploadMedia` in /app/frontend/app/admin/cms.tsx) — on web, the asset
+          URI is now fetched as a Blob and appended as a real File. Backend
+          endpoint itself is unchanged.
+          
+          Please verify (curl-based) that:
+          1. GET /api/admin/cms/home-curations works (returns array)
+          2. GET /api/admin/cms/home-curations?active_only=true filters correctly
+          3. POST /api/admin/cms/home-curations creates a row (title, thumbnail_url,
+             video_url, sort_order, is_active)
+          4. PATCH /api/admin/cms/home-curations/{id} updates a row
+          5. DELETE /api/admin/cms/home-curations/{id} removes a row
+          6. POST /api/admin/cms/upload accepts a real multipart file (use curl
+             -F "file=@/tmp/dummy.png") and returns {url, type}
+          7. No regression on existing CMS endpoints (categories, banners, home-promos)
+        -working: true
+        -agent: "testing"
+        -comment: |
+          ✅ ALL 9 BACKEND TESTS PASSED - CMS ENDPOINTS WORKING CORRECTLY
+          
+          **TEST RESULTS: 9/9 PASS**
+          
+          **CRITICAL: /api/admin/cms/upload BUG FIX VERIFIED** ✅
+          - POST /api/admin/cms/upload with PNG image: HTTP 200 OK
+          - POST /api/admin/cms/upload with MP4 video: HTTP 200 OK
+          - Backend logs show NO 422 errors for proper multipart uploads
+          - Backend logs confirm: "POST https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/cms-media/...png HTTP/1.1 200 OK"
+          - Backend logs confirm: "POST https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/cms-media/...mp4 HTTP/1.1 200 OK"
+          - Returned URLs are reachable (HEAD 200)
+          - Image type correctly identified as "image"
+          - Video type correctly identified as "video"
+          - **CONCLUSION: Backend endpoint is UNCHANGED and working correctly. The 422 error was a FRONTEND bug (FormData serialization) which has been fixed.**
+          
+          **NEW: /api/admin/cms/home-curations CRUD** ✅
+          1. GET /api/admin/cms/home-curations: 200 OK, returns array (1 existing curation)
+          2. GET /api/admin/cms/home-curations?active_only=true: 200 OK, filters correctly (only active items)
+          3. POST /api/admin/cms/home-curations: 200 OK, created curation with ID d5a47eb9-f153-4a80-b3db-ce91005e1319
+             - Payload: {title, title_line2, thumbnail_url, video_url, sort_order, is_active}
+             - Response includes all fields correctly
+          4. PATCH /api/admin/cms/home-curations/{id}: 200 OK, updated title and is_active
+             - Verified update applied: title='Updated Test', is_active=False
+          5. GET ?active_only=true after update: Correctly excludes inactive curation
+          6. DELETE /api/admin/cms/home-curations/{id}: 200 OK, curation removed
+             - Verified deletion: curation no longer exists in GET response
+          
+          **REGRESSION TESTS** ✅
+          - GET /api/admin/cms/categories: 200 OK (9 items)
+          - GET /api/admin/cms/services: 200 OK (57 items)
+          - GET /api/admin/cms/home-promos: 200 OK (1 item)
+          - GET /api/admin/cms/banners?category_id=salon-women: 200 OK (1 item)
+          
+          **BACKEND LOGS ANALYSIS:**
+          - All API requests return expected status codes (200/201)
+          - No 500 errors or tracebacks
+          - Supabase REST API calls working correctly
+          - Supabase Storage uploads working correctly
+          - The ONE 422 error in logs is from BEFORE the frontend fix (timestamp: earlier in the day)
+          - All subsequent upload calls return 200 OK
+          
+          **KEY FINDINGS:**
+          1. ✅ Backend /api/admin/cms/upload endpoint is WORKING CORRECTLY with proper multipart files
+          2. ✅ The 422 error was caused by frontend sending "[object Object]" string instead of file
+          3. ✅ New home-curations CRUD endpoints fully functional
+          4. ✅ All existing CMS endpoints still working (no regression)
+          5. ✅ Supabase integration working correctly (REST API + Storage)
+          
+          **NO CRITICAL ISSUES FOUND**
+          
+          **RECOMMENDATION:**
+          Backend is production-ready. The upload bug was a frontend issue (now fixed). Main agent should ask user to test the web upload flow manually to verify the frontend fix works end-to-end.
+
+frontend:
+  - task: "Fix file upload from device on web (multipart FormData)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/admin/cms.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "user"
+        -comment: |
+          User reported uploading any media (video/image) from device on the web
+          admin panel fails with HTTP 422:
+          "Value error, Expected UploadFile, received: <class 'str'>"
+          The form field was being sent as the literal string "[object Object]".
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          Root cause: React Native's FormData accepts a {uri, name, type} shape
+          for files on iOS/Android, but on web the browser's FormData serializes
+          that object as JSON ("[object Object]"), so FastAPI's UploadFile
+          rejected it.
+          
+          Fix in `uploadMedia()` at /app/frontend/app/admin/cms.tsx:
+            - Platform.OS === "web": fetch the asset.uri to get a Blob,
+              wrap it in `new File([blob], name, { type })` and append as a
+              proper multipart file part.
+            - Native (iOS/Android): keep the existing {uri, name, type} shape.
+          
+          This affects ALL upload buttons across CMS (banners, promos, services,
+          categories, hero promos, and the new Home Curations).
+          
+          Frontend-only test required — verify file uploads succeed from a web
+          browser for image AND video, and that the returned URL is rendered
+          back into the form preview.
+
+  - task: "Home thumbnail visible while video loads (or when URL is invalid)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/index.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "user"
+        -comment: |
+          User added a curation with a valid Supabase thumbnail URL and a
+          Pixabay webpage URL as the video. On home, the thumbnail did not show.
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          Pixabay /videos/... is an HTML page, not a direct video file, so
+          expo-video can never play it. But the previous VideoCard layout
+          *replaced* the thumbnail with VideoView on visibility, so the user
+          saw a blank tile.
+          
+          Fix: VideoCard now always renders the Image thumbnail with
+          StyleSheet.absoluteFillObject behind the VideoView. When the video
+          fails to load (or the URL is a webpage), the thumbnail stays visible
+          as a fallback. This is the standard pattern used by IG/TikTok-style
+          video tiles.
+          
+          Also clarified the CMS placeholder text to require a DIRECT video
+          file URL (.mp4 / .mov / .webm).
+
+  - task: "Thoughtful Curations CMS section (admin)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/admin/cms.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          New `ThoughtfulCurationsSection` component added inside the CMS Home
+          tab — full CRUD: add video + thumbnail + title (+ optional line 2) +
+          sort order + active toggle. Uses the shared MediaPicker. The home
+          screen fetches /api/admin/cms/home-curations?active_only=true and
+          falls back to the original mock list when empty. User has already
+          verified row creation works end-to-end.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.4"
+  test_sequence: 14
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Home Curations CMS endpoints + media upload"
+    - "Fix file upload from device on web (multipart FormData)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: |
+      Please test the backend endpoints listed under "Home Curations CMS
+      endpoints + media upload" task using curl/httpx. Focus areas:
+        1. /api/admin/cms/home-curations CRUD against Supabase
+        2. /api/admin/cms/upload — verify a REAL multipart file upload still
+           succeeds (use curl -F "file=@some.png") — this is the endpoint the
+           frontend bug was hitting; the backend should be unchanged but please
+           confirm it still accepts proper UploadFile correctly and returns
+           {url, type}.
+      No regression please on existing endpoints. Skip frontend UI tests for now;
+      the user will validate the web upload fix manually after backend is green.
+    -agent: "testing"
+    -message: |
+      ✅ BACKEND TESTING COMPLETE - ALL TESTS PASSED (9/9)
+      
+      **CRITICAL BUG FIX VERIFIED:**
+      The /api/admin/cms/upload endpoint is WORKING CORRECTLY with proper multipart files.
+      - Image upload (PNG): HTTP 200 OK ✅
+      - Video upload (MP4): HTTP 200 OK ✅
+      - Backend logs show NO 422 errors for proper uploads
+      - The 422 error was caused by FRONTEND sending "[object Object]" string instead of file
+      - Backend endpoint is UNCHANGED and working as designed
+      
+      **NEW ENDPOINTS VERIFIED:**
+      All /api/admin/cms/home-curations CRUD operations working correctly:
+      - GET (all): 200 OK ✅
+      - GET (active_only): 200 OK ✅
+      - POST: 200 OK ✅
+      - PATCH: 200 OK ✅
+      - DELETE: 200 OK ✅
+      
+      **REGRESSION TESTS PASSED:**
+      All existing CMS endpoints still working (categories, services, home-promos, banners) ✅
+      
+      **RECOMMENDATION:**
+      Backend is production-ready. The upload bug was a frontend issue (FormData serialization).
+      Main agent should ask user to test the web upload flow manually to verify the frontend fix works end-to-end.

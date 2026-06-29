@@ -176,18 +176,20 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
       testID={`video-${item.id}`}
     >
       <View style={styles.videoContainer}>
-        {showVideo && isVisible ? (
+        {/* Thumbnail is ALWAYS rendered behind — visible while loading and
+            visible as a fallback if the video URL fails (e.g. a webpage URL
+            instead of a direct mp4). */}
+        <Image
+          source={{ uri: item.thumbnail }}
+          style={[styles.videoThumbnail, StyleSheet.absoluteFillObject]}
+          resizeMode="cover"
+        />
+        {showVideo && isVisible && (
           <VideoView
-            style={styles.videoPlayer}
+            style={[styles.videoPlayer, StyleSheet.absoluteFillObject]}
             player={player}
             contentFit="cover"
             nativeControls={false}
-          />
-        ) : (
-          <Image
-            source={{ uri: item.thumbnail }}
-            style={styles.videoThumbnail}
-            resizeMode="cover"
           />
         )}
         

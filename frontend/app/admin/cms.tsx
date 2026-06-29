@@ -75,14 +75,34 @@ async function http<T = any>(
 
 async function uploadMedia(asset: ImagePicker.ImagePickerAsset): Promise<{ url: string; type: "image" | "video" }> {
   const form = new FormData();
-  const ext = (asset.fileName || asset.uri).split(".").pop()?.toLowerCase() || "jpg";
-  const isVideo = asset.type === "video" || ["mp4", "mov", "webm"].includes(ext);
-  // @ts-ignore React Native FormData file shape
-  form.append("file", {
-    uri: asset.uri,
-    name: asset.fileName || `upload-${Date.now()}.${ext}`,
-    type: isVideo ? `video/${ext === "mov" ? "quicktime" : ext}` : `image/${ext === "jpg" ? "jpeg" : ext}`,
-  });
+  const ext = (asset.fileName || asset.uri).split(".").pop()?.toLowerCase().split("?")[0] || "jpg";
+  const isVideo = asset.type === "video" || ["mp4", "mov", "webm", "m4v", "mkv"].includes(ext);
+  const mimeType = isVideo
+    ? `video/${ext === "mov" ? "quicktime" : ext}`
+    : `image/${ext === "jpg" ? "jpeg" : ext}`;
+  const fileName = asset.fileName || `upload-${Date.now()}.${ext}`;
+
+  if (Platform.OS === "web") {
+    // On WEB: convert the blob: / data: URI returned by expo-image-picker
+    // into a real Blob/File so the multipart form is a proper file part
+    // (not "[object Object]" which FastAPI rejects with 422).
+    const resp = await fetch(asset.uri);
+    const blob = await resp.blob();
+    const file =
+      typeof File !== "undefined"
+        ? new File([blob], fileName, { type: blob.type || mimeType })
+        : blob;
+    form.append("file", file as any, fileName);
+  } else {
+    // NATIVE (iOS / Android): React Native's FormData accepts this shape.
+    // @ts-ignore React Native FormData file shape
+    form.append("file", {
+      uri: asset.uri,
+      name: fileName,
+      type: mimeType,
+    });
+  }
+
   const r = await fetch(`${API}/upload`, { method: "POST", body: form as any });
   if (!r.ok) {
     const t = await r.text();
@@ -180,7 +200,7 @@ function MediaPicker({
         style={fieldStyles.input}
         placeholder={
           mediaType === "video"
-            ? "…or paste video URL (mp4/mov/webm, with or without ?query)"
+            ? "…or paste DIRECT video URL (must end in .mp4/.mov/.webm — webpage links won't play)"
             : mediaType === "image"
             ? "…or paste image URL"
             : "…or paste image/video URL"
