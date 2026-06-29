@@ -1056,6 +1056,171 @@ function HeroPromosSection() {
 }
 
 
+function ThoughtfulCurationsSection() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<any[]>("GET", "/home-curations");
+      setRows(data || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const blank = {
+    title: "",
+    title_line2: "",
+    thumbnail_url: "",
+    video_url: "",
+    sort_order: rows.length + 1,
+    is_active: true,
+  };
+
+  const onSave = async () => {
+    try {
+      if (!editing?.title?.trim()) return notify("Missing", "Title is required");
+      if (!editing?.video_url?.trim()) return notify("Missing", "Upload or paste a video");
+      if (!editing?.thumbnail_url?.trim()) return notify("Missing", "Upload a thumbnail image");
+      const body = { ...editing };
+      if (editing.id) await http("PATCH", `/home-curations/${editing.id}`, body);
+      else await http("POST", "/home-curations", body);
+      setEditing(null);
+      await load();
+    } catch (e: any) {
+      notify("Failed", e.message);
+    }
+  };
+
+  const onDelete = async (id: string) => {
+    if (!(await confirmAsync("Delete this curation?", "It will disappear from the home screen."))) return;
+    await http("DELETE", `/home-curations/${id}`);
+    await load();
+  };
+
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textMain }}>
+            Thoughtful curations
+          </Text>
+          <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+            Auto-playing video tiles on home · upload video + thumbnail · {rows.length} {rows.length === 1 ? "video" : "videos"}
+          </Text>
+        </View>
+        <TouchableOpacity style={btn.add} onPress={() => setEditing(blank)}>
+          <Plus size={14} color="#fff" />
+          <Text style={[btn.addTxt, { fontSize: 12 }]}>Add video</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator />
+      ) : rows.length === 0 ? (
+        <View style={{ padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colors.textSubtle }}>
+            No videos yet. Tap &quot;Add video&quot; to upload your first curation.
+          </Text>
+        </View>
+      ) : rows.map((p) => (
+        <View key={p.id} style={row.card}>
+          {p.thumbnail_url ? (
+            <Image source={{ uri: p.thumbnail_url }} style={row.thumb} />
+          ) : (
+            <View style={[row.thumb, { backgroundColor: "#111", alignItems: "center", justifyContent: "center" }]}>
+              <PlayCircle size={20} color="#fff" />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={row.title} numberOfLines={1}>{p.title} {p.title_line2 ? `· ${p.title_line2}` : ""}</Text>
+            <Text style={row.sub} numberOfLines={1}>
+              #{p.sort_order} · video
+            </Text>
+          </View>
+          <Switch
+            value={!!p.is_active}
+            onValueChange={async (v) => {
+              await http("PATCH", `/home-curations/${p.id}`, {
+                title: p.title,
+                thumbnail_url: p.thumbnail_url,
+                video_url: p.video_url,
+                is_active: v,
+              });
+              load();
+            }}
+          />
+          <TouchableOpacity onPress={() => setEditing({ ...p })} style={row.iconBtn}>
+            <Edit3 size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(p.id)} style={row.iconBtn}>
+            <Trash2 size={16} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <EditModal
+        visible={!!editing}
+        title={editing?.id ? "Edit curation" : "New curation"}
+        onClose={() => setEditing(null)}
+        onSave={onSave}
+      >
+        {editing && (
+          <>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Title (line 1)"
+                  value={editing.title}
+                  onChange={(v: string) => setEditing({ ...editing, title: v })}
+                  placeholder="Roll-on"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Title (line 2, optional)"
+                  value={editing.title_line2}
+                  onChange={(v: string) => setEditing({ ...editing, title_line2: v })}
+                  placeholder="waxing"
+                />
+              </View>
+            </View>
+            <MediaPicker
+              value={editing.video_url}
+              onChange={(v) => setEditing({ ...editing, video_url: v })}
+              acceptVideo
+              mediaType="video"
+              label="Video file (mp4 / mov / webm)"
+            />
+            <MediaPicker
+              value={editing.thumbnail_url}
+              onChange={(v) => setEditing({ ...editing, thumbnail_url: v })}
+              mediaType="image"
+              label="Thumbnail image (shown before video plays)"
+            />
+            <Field
+              label="Sort order (lower = first)"
+              value={editing.sort_order}
+              onChange={(v: string) => setEditing({ ...editing, sort_order: Number(v) || 0 })}
+              keyboardType="number-pad"
+            />
+            <ToggleRow
+              label="Active (visible on home)"
+              value={!!editing.is_active}
+              onChange={(v) => setEditing({ ...editing, is_active: v })}
+            />
+          </>
+        )}
+      </EditModal>
+    </View>
+  );
+}
+
+
 function HomeTab() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1105,6 +1270,8 @@ function HomeTab() {
   return (
     <View style={{ gap: 18 }}>
       <HeroPromosSection />
+
+      <ThoughtfulCurationsSection />
 
       <View style={{ padding: 12, backgroundColor: "#FEF9C3", borderRadius: 10 }}>
         <Text style={{ fontSize: 13, color: "#854D0E", fontWeight: "600" }}>

@@ -725,3 +725,72 @@ async def delete_home_promo(promo_id: str):
         if r.status_code not in (200, 204):
             raise HTTPException(r.status_code, r.text)
         return {"ok": True}
+
+
+# ═════════════════════════════════════════════════════════════════
+# Thoughtful Curations — home screen video tiles (admin managed)
+# Table: home_curations (id, title, title_line2, thumbnail_url,
+#        video_url, sort_order, is_active, created_at, updated_at)
+# ═════════════════════════════════════════════════════════════════
+class HomeCurationUpsert(BaseModel):
+    id: Optional[str] = None
+    title: str
+    title_line2: Optional[str] = None
+    thumbnail_url: str
+    video_url: str
+    sort_order: int = 0
+    is_active: bool = True
+
+
+@router.get("/home-curations")
+async def list_home_curations(active_only: bool = False):
+    q = "?select=*&order=sort_order,created_at"
+    if active_only:
+        q = "?select=*&is_active=eq.true&order=sort_order,created_at"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/home_curations{q}",
+            headers=_sb_headers(),
+        )
+        return r.json() if r.is_success else []
+
+
+@router.post("/home-curations")
+async def create_home_curation(payload: HomeCurationUpsert):
+    body = payload.dict(exclude_none=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/home_curations",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        data = r.json()
+        return data[0] if isinstance(data, list) else data
+
+
+@router.patch("/home-curations/{curation_id}")
+async def update_home_curation(curation_id: str, payload: HomeCurationUpsert):
+    body = payload.dict(exclude_unset=True, exclude={"id"})
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/home_curations?id=eq.{curation_id}",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/home-curations/{curation_id}")
+async def delete_home_curation(curation_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/home_curations?id=eq.{curation_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}

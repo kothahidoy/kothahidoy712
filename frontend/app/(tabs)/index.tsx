@@ -93,7 +93,7 @@ const SPOTLIGHT_BANNERS = [
   },
 ];
 
-// Mock data for "Thoughtful Curations" VIDEO section
+// Mock data for "Thoughtful Curations" VIDEO section (fallback when CMS is empty)
 const CURATED_VIDEOS = [
   {
     id: "vid-1",
@@ -126,8 +126,15 @@ const CURATED_VIDEOS = [
 ];
 
 // VideoCard component with auto-play on visibility
+interface VideoCardItem {
+  id: string;
+  title: string;
+  titleLine2?: string;
+  thumbnail: string;
+  videoUrl: string;
+}
 interface VideoCardProps {
-  item: typeof CURATED_VIDEOS[0];
+  item: VideoCardItem;
   isVisible: boolean;
 }
 
@@ -224,6 +231,7 @@ export default function HomeScreen() {
   const [search, setSearch] = useState("");
   const [visibleVideoIds, setVisibleVideoIds] = useState<string[]>([]);
   const [heroSlides, setHeroSlides] = useState<HomePromoSlide[]>([]);
+  const [curatedVideos, setCuratedVideos] = useState<VideoCardItem[]>(CURATED_VIDEOS);
 
   const onViewableVideosChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const visibleIds = viewableItems
@@ -272,6 +280,33 @@ export default function HomeScreen() {
         }
       } catch {
         /* fall back to hardcoded card */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch thoughtful curations (videos) from CMS
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/cms/home-curations?active_only=true");
+        if (!res.ok) return;
+        const data: any[] = await res.json();
+        const mapped: VideoCardItem[] = (data || [])
+          .filter((c) => c?.video_url && c?.thumbnail_url)
+          .map((c) => ({
+            id: c.id,
+            title: c.title,
+            titleLine2: c.title_line2 || "",
+            thumbnail: c.thumbnail_url,
+            videoUrl: c.video_url,
+          }));
+        if (!cancelled && mapped.length > 0) {
+          setCuratedVideos(mapped);
+        }
+      } catch {
+        /* fall back to mock curated videos */
       }
     })();
     return () => { cancelled = true; };
@@ -496,7 +531,7 @@ export default function HomeScreen() {
             <Text style={styles.curationSubtitle}>of our finest experiences</Text>
           </View>
           <FlatList
-            data={CURATED_VIDEOS}
+            data={curatedVideos}
             keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}
