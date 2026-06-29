@@ -7,7 +7,7 @@ import requests
 import json
 import sys
 
-BASE_URL = "https://code-sync-tool-3.preview.emergentagent.com/api"
+BASE_URL = "https://github-pull-18.preview.emergentagent.com/api"
 
 def test_create_tricky_video_url():
     """Test 1: Create a slide with video URL containing query strings"""
