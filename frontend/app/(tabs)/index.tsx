@@ -3,6 +3,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -140,64 +141,85 @@ interface VideoCardProps {
 
 function VideoCard({ item, isVisible }: VideoCardProps) {
   const [isMuted, setIsMuted] = useState(true);
-  const hasStartedRef = useRef(false);
 
+  // ─── WEB BRANCH ───────────────────────────────────────────────────────
+  // expo-video on web has a known autoplay race (play() interrupted by
+  // pause()). For web we render a native HTML5 <video> with the autoplay,
+  // muted and playsinline attributes — the standard, browser-friendly way
+  // to autoplay short looping videos. The thumbnail is set as the
+  // <video>'s `poster` so it shows while the video buffers.
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.videoCard} testID={`video-${item.id}`}>
+        <View style={styles.videoContainer}>
+          {/* @ts-ignore — emit raw HTML video element via React DOM on web */}
+          {React.createElement("video", {
+            src: item.videoUrl,
+            poster: item.thumbnail,
+            autoPlay: true,
+            muted: isMuted,
+            loop: true,
+            playsInline: true,
+            preload: "auto",
+            crossOrigin: "anonymous",
+            style: {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 16,
+              backgroundColor: "#000",
+            } as any,
+          })}
+
+          {/* Mute / unmute */}
+          <TouchableOpacity
+            style={styles.muteButton}
+            onPress={() => setIsMuted((m) => !m)}
+            activeOpacity={0.8}
+          >
+            {isMuted ? (
+              <VolumeX size={16} color="#FFFFFF" />
+            ) : (
+              <Volume2 size={16} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.85)"]}
+            style={styles.videoGradient}
+          >
+            <Text style={styles.videoTitle}>{item.title}</Text>
+            {!!item.titleLine2 && (
+              <Text style={styles.videoTitle}>{item.titleLine2}</Text>
+            )}
+          </LinearGradient>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── NATIVE BRANCH (iOS / Android) ────────────────────────────────────
+  // Use expo-video here — it works reliably on native and gives proper
+  // hardware-accelerated playback.
   const player = useVideoPlayer(item.videoUrl, (player) => {
     player.loop = true;
     player.muted = true;
   });
 
-  // Single autoplay effect — keep retrying play() until the video starts.
-  // We deliberately do NOT call pause() until after the first successful
-  // playback (tracked via hasStartedRef), otherwise an early pause from the
-  // visibility effect races with play() and the browser aborts both:
-  //   "The play() request was interrupted by a call to pause()"
   useEffect(() => {
-    let cancelled = false;
-    let timer: any;
-
-    const attempt = (n: number) => {
-      if (cancelled) return;
-      try {
-        player.muted = true;
-        const p: any = player.play();
-        if (p && typeof p.then === "function") {
-          p.then(() => {
-            hasStartedRef.current = true;
-          }).catch(() => { /* will retry */ });
-        } else {
-          hasStartedRef.current = true;
-        }
-      } catch { /* will retry */ }
-      // Retry for up to ~5s total
-      if (n < 10) {
-        timer = setTimeout(() => attempt(n + 1), 500);
-      }
-    };
-    attempt(0);
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [player]);
-
-  // Only act on visibility AFTER playback has successfully started.
-  useEffect(() => {
-    if (!hasStartedRef.current) return; // don't interfere with initial autoplay
     try {
+      player.muted = isMuted;
       if (isVisible) {
         const p: any = player.play();
         if (p && typeof p.then === "function") p.catch(() => {});
       } else {
         player.pause();
       }
-    } catch { /* ignore */ }
-  }, [isVisible, player]);
-
-  useEffect(() => {
-    player.muted = isMuted;
-  }, [isMuted, player]);
+    } catch { /* ignore — player may not be ready yet */ }
+  }, [isVisible, player, isMuted]);
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
