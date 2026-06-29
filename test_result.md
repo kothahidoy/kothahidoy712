@@ -3352,3 +3352,137 @@ agent_communication:
       **RECOMMENDATION:**
       Backend is production-ready. The upload bug was a frontend issue (FormData serialization).
       Main agent should ask user to test the web upload flow manually to verify the frontend fix works end-to-end.
+
+#====================================================================================================
+# Video auto-play fix on web - 2026-06-29
+#====================================================================================================
+
+frontend:
+  - task: "Thoughtful Curations video auto-play on web"
+    implemented: true
+    working: false
+    file: "/app/frontend/app/(tabs)/index.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "user"
+        -comment: |
+          User uploaded valid Supabase Storage .mp4 videos + image thumbnails
+          for two curation tiles ("test title" and "men salon"). On the
+          customer home screen the thumbnails render correctly but the
+          videos do NOT auto-play — the tiles just show a static thumbnail
+          forever. Screenshot attached shows umbrella and phone-mockup
+          thumbnails visible but no motion.
+        -working: "NA"
+        -agent: "main"
+        -comment: |
+          Root cause: the VideoView was gated on `showVideo && isVisible`,
+          which only became true via the FlatList's `onViewableItemsChanged`
+          callback. On WEB, that visibility callback fires inconsistently
+          (especially for items rendered inside a horizontal FlatList), so
+          showVideo often stayed false → VideoView was never mounted →
+          no autoplay.
+          
+          Fix applied (in /app/frontend/app/(tabs)/index.tsx VideoCard):
+            1. Removed the showVideo state gate. VideoView is now ALWAYS
+               mounted underneath the absolute-positioned thumbnail Image.
+            2. Autoplay is kicked off inside the useVideoPlayer init
+               callback (muted=true is set BEFORE play() so the browser
+               autoplay policy is satisfied).
+            3. The visibility effect still pauses off-screen videos for
+               perf (non-fatal if it fails — try/catch).
+          
+          Please verify on a real web browser session:
+            • Open the customer home (after explore / login / profile
+              completion if required) and scroll to "Thoughtful curations".
+            • Confirm the <video> elements inside the curation tiles are:
+                - present in the DOM
+                - paused === false  (i.e. playing)
+                - muted === true
+                - currentTime > 0 after ~2 seconds
+            • Confirm the thumbnail image is still rendered (so it acts as
+              a poster while the video buffers / if URL is broken).
+            • Check console logs for any expo-video errors.
+          
+          Backend is unchanged. CMS upload (image + video) was already
+          verified by deep_testing_backend_v2 earlier in this run.
+        -working: false
+        -agent: "testing"
+        -comment: |
+          ❌ VIDEO AUTO-PLAY IS NOT WORKING - CRITICAL ISSUES FOUND
+          
+          **TEST RESULTS: 0/6 PASS**
+          
+          **ISSUE 1: CMS API NOT BEING CALLED CORRECTLY** ❌
+          - Frontend is calling `/api/admin/cms/home-curations?active_only=true` (relative URL)
+          - This resolves to `http://localhost:3000/api/admin/cms/home-curations` (frontend server)
+          - Should be calling `http://localhost:8001/api/admin/cms/home-curations` (backend server)
+          - Console error: "REQUEST FAILED: http://localhost:3000/api/admin/cms/home-curations?active_only=true - net::ERR_ABORTED"
+          - Console error: "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          - Root cause: Line 299 in /app/frontend/app/(tabs)/index.tsx uses relative URL instead of EXPO_PUBLIC_BACKEND_URL
+          - Result: Frontend falls back to mock data (Google test videos) instead of Supabase videos
+          
+          **ISSUE 2: VIDEOS NOT AUTO-PLAYING (EVEN FALLBACK MOCK VIDEOS)** ❌
+          - Found 4 video elements (all from Google test bucket - fallback data)
+          - ALL 4 videos have paused === true (NOT playing)
+          - ALL 4 videos have currentTime === 0.00 (no playback progress)
+          - ALL 4 videos have readyState === 0 (HAVE_NOTHING - not loaded)
+          - ALL 4 videos have videoWidth === 0 (stream not decoded)
+          - After waiting 5 seconds total, currentTime still === 0.00 for all videos
+          - The main agent's fix (removing showVideo gate + autoplay in useVideoPlayer init) is NOT working
+          
+          **BACKEND VERIFICATION:** ✅
+          - GET /api/admin/cms/home-curations?active_only=true returns 2 active curations:
+            1. "test title" - Supabase mp4 + Supabase thumbnail
+            2. "men salon" - Supabase mp4 + Pexels thumbnail
+          - Backend is working correctly
+          
+          **VIDEO ELEMENTS FOUND:**
+          - Video 1: https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4
+          - Video 2: https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4
+          - Video 3: https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4
+          - Video 4: https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4
+          
+          **CRITICAL FINDINGS:**
+          1. ❌ Videos are NOT auto-playing (paused === true for all)
+          2. ❌ CMS API call is failing (404 error - wrong URL)
+          3. ❌ Frontend is using fallback mock data instead of Supabase data
+          4. ❌ Even the fallback mock videos are not playing
+          5. ❌ The main agent's fix did NOT resolve the auto-play issue
+          
+          **ROOT CAUSE ANALYSIS:**
+          The main agent's fix (removing showVideo gate) may be correct in theory, but the videos are still not playing. Possible reasons:
+          1. expo-video's useVideoPlayer.play() might not be working on web
+          2. Browser autoplay policy might be blocking even muted videos
+          3. The VideoView component might not be rendering correctly on web
+          4. The try/catch in line 150 might be silently failing
+          
+          **RECOMMENDATION:**
+          Main agent needs to:
+          1. Fix the API URL in line 299: Change `/api/admin/cms/home-curations` to `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/admin/cms/home-curations`
+          2. Debug why videos are not auto-playing even after the fix
+          3. Check if expo-video's play() method works on web
+          4. Consider using native HTML5 video element with autoplay attribute as a fallback for web
+          5. Add console.log statements to verify player.play() is being called
+          6. Check browser console for any expo-video or media playback errors
+
+agent_communication:
+    -agent: "main"
+    -message: |
+      Please verify on the WEB preview at http://localhost:3000 that the
+      "Thoughtful curations" section on the customer home now auto-plays
+      its videos (muted). Use the data already in Supabase — two rows are
+      present:
+        1. "test title" — Supabase mp4 + Supabase image thumbnail
+        2. "men salon"  — Supabase mp4 + remote image thumbnail
+      
+      The user has a profile-completion screen guarding the home tab. Use
+      these credentials if asked / check /app/memory/test_credentials.md
+      first. If you cannot get past the profile screen, you can also point
+      a Chromium tab directly at any home-tab route, or fill the "Full
+      name" field with any string and tap Continue (city is pre-selected
+      to Durgapur). After reaching the home, scroll until the "Thoughtful
+      curations" tiles are visible and inspect <video> element state via
+      page.evaluate.

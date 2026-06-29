@@ -140,25 +140,27 @@ interface VideoCardProps {
 
 function VideoCard({ item, isVisible }: VideoCardProps) {
   const [isMuted, setIsMuted] = useState(true);
-  const [showVideo, setShowVideo] = useState(false);
-  
+
   const player = useVideoPlayer(item.videoUrl, (player) => {
     player.loop = true;
     player.muted = true;
+    // Kick off autoplay as soon as the player is constructed. On web this
+    // satisfies the browser autoplay policy because muted=true is set
+    // before play() is called.
+    try { player.play(); } catch { /* ignore — will retry via effect below */ }
   });
 
+  // Re-apply play/pause when visibility changes. Many web browsers
+  // throttle non-visible <video> elements; keeping currently-visible
+  // cards playing and others paused saves CPU/bandwidth.
   useEffect(() => {
-    if (isVisible) {
-      // Small delay before showing video
-      const timer = setTimeout(() => {
-        setShowVideo(true);
+    try {
+      if (isVisible) {
         player.play();
-      }, 300);
-      return () => clearTimeout(timer);
-    } else {
-      setShowVideo(false);
-      player.pause();
-    }
+      } else {
+        player.pause();
+      }
+    } catch { /* player may not be ready yet */ }
   }, [isVisible, player]);
 
   useEffect(() => {
@@ -184,14 +186,16 @@ function VideoCard({ item, isVisible }: VideoCardProps) {
           style={[styles.videoThumbnail, StyleSheet.absoluteFillObject]}
           resizeMode="cover"
         />
-        {showVideo && isVisible && (
-          <VideoView
-            style={[styles.videoPlayer, StyleSheet.absoluteFillObject]}
-            player={player}
-            contentFit="cover"
-            nativeControls={false}
-          />
-        )}
+        {/* VideoView is ALWAYS mounted — autoplay (muted) starts immediately
+            from the useVideoPlayer init callback. Browser autoplay policy is
+            satisfied because muted=true is set BEFORE play() is called. */}
+        <VideoView
+          style={[styles.videoPlayer, StyleSheet.absoluteFillObject]}
+          player={player}
+          contentFit="cover"
+          nativeControls={false}
+        />
+        {!isVisible && null}
         
         {/* Mute/Unmute button */}
         <TouchableOpacity
