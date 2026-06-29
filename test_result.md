@@ -3360,9 +3360,9 @@ agent_communication:
 frontend:
   - task: "Thoughtful Curations video auto-play on web"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(tabs)/index.tsx"
-    stuck_count: 3
+    stuck_count: 4
     priority: "high"
     needs_retesting: true
     status_history:
@@ -3636,6 +3636,95 @@ frontend:
           
           **STATUS:** Cannot confirm if fix works due to navigation blocker. Code review 
           suggests fix is correct, but requires end-to-end testing to verify.
+        -working: false
+        -agent: "testing"
+        -comment: |
+          ❌ VIDEO AUTO-PLAY STILL NOT WORKING - 4TH ATTEMPT COMPLETE
+          
+          **TEST RESULTS: 0/6 PASS CRITERIA**
+          
+          **✅ NAVIGATION SUCCESS:**
+          - Successfully bypassed profile-setup using testID selectors
+          - Filled name field: "Tester User" using data-testid="profile-name-input"
+          - Clicked Continue button using data-testid="profile-continue-btn"
+          - Successfully navigated to home page (URL: http://localhost:3000/)
+          - Found "Thoughtful curations" section on page
+          
+          **✅ VIDEOS FOUND:**
+          - Found 2 Supabase-hosted videos as expected
+          - Video 1: https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/public/cms-media/be24...
+          - Video 2: https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/public/cms-media/387a...
+          
+          **❌ CRITICAL FAILURES - ALL PASS CRITERIA FAILED:**
+          
+          **Video 1 Results:**
+          - ✅ muted === true: PASS (value: True)
+          - ❌ paused === false: FAIL (value: True) - Video is PAUSED, not playing
+          - ❌ currentTime increases: FAIL (0.00s → 0.00s) - No playback progress
+          - ❌ videoWidth > 0: FAIL (value: 0) - Stream not decoded
+          - ❌ error === null: FAIL (value: empty string) - Error state present
+          - readyState: 0 (HAVE_NOTHING - video not even loading)
+          
+          **Video 2 Results:**
+          - ✅ muted === true: PASS (value: True)
+          - ❌ paused === false: FAIL (value: True) - Video is PAUSED, not playing
+          - ❌ currentTime increases: FAIL (0.00s → 0.00s) - No playback progress
+          - ❌ videoWidth > 0: FAIL (value: 0) - Stream not decoded
+          - ❌ error === null: FAIL (value: empty string) - Error state present
+          - readyState: 0 (HAVE_NOTHING - video not even loading)
+          
+          **🔴 ROOT CAUSE CONFIRMED - PLAY/PAUSE RACE CONDITION STILL EXISTS:**
+          
+          Browser console shows HUNDREDS of occurrences (545+ times) of:
+          ```
+          PAGE ERROR: The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22
+          ```
+          
+          **THE MAIN AGENT'S THIRD FIX (hasStartedRef) DID NOT WORK:**
+          
+          The consolidated useEffect fix with hasStartedRef was supposed to prevent the 
+          visibility effect from calling pause() during initial autoplay, but the race 
+          condition STILL EXISTS. The videos are experiencing endless play() → pause() 
+          → play() → pause() cycles, preventing any video from ever starting playback.
+          
+          **EVIDENCE:**
+          - Console logs show 545+ "play() interrupted by pause()" errors
+          - Both videos remain paused (paused === true)
+          - Both videos have currentTime === 0.00 (no progress)
+          - Both videos have readyState === 0 (not loading)
+          - Both videos have videoWidth === 0 (stream not decoded)
+          
+          **NEXT STEPS FOR MAIN AGENT:**
+          
+          The hasStartedRef approach is not working. Main agent needs to try a different approach:
+          
+          1. **OPTION A: Remove visibility effect entirely during initial mount**
+             - Disable the visibility effect for the first 10 seconds after component mount
+             - Only enable pause/play based on visibility after initial autoplay succeeds
+          
+          2. **OPTION B: Use a different autoplay strategy**
+             - Instead of retry loop, use a single play() call with proper error handling
+             - Add `autoPlay` attribute directly to the video element
+             - Use native HTML5 video autoplay instead of expo-video's play() method
+          
+          3. **OPTION C: Debug why hasStartedRef is not preventing pause()**
+             - Add console.log statements to track when hasStartedRef is set to true
+             - Verify that the visibility effect is actually checking hasStartedRef
+             - Check if there are multiple VideoCard instances interfering with each other
+          
+          4. **OPTION D: Use a state machine approach**
+             - Create explicit states: INITIALIZING, PLAYING, PAUSED, ERROR
+             - Only allow pause() when state is PLAYING
+             - Prevent pause() when state is INITIALIZING
+          
+          **RECOMMENDATION:**
+          The main agent should try OPTION A first (disable visibility effect during initial mount) 
+          as it's the simplest and most likely to work. If that fails, try OPTION B (native HTML5 
+          autoplay) as expo-video's play() method may have issues on web.
+          
+          **STUCK_COUNT SHOULD BE INCREMENTED:**
+          This is the 4th failed attempt to fix video autoplay. The task should be marked as 
+          stuck and may require web search for expo-video autoplay best practices on web.
 
 agent_communication:
     -agent: "main"
