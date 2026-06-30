@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
@@ -192,6 +193,91 @@ function Slide({ slide, onPress }: SlideProps) {
 }
 
 function SlideVideo({ uri, poster }: { uri: string; poster?: string }) {
+  // ─── WEB BRANCH ───────────────────────────────────────────────────────
+  // Use an imperatively-attached <video> DOM element — avoids the expo-video
+  // autoplay race on web that left the banner blank.
+  const hostRef = useRef<any>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const host: HTMLDivElement | null = hostRef.current;
+    if (!host) return;
+
+    const vid = document.createElement("video");
+    if (poster) vid.poster = poster;
+    vid.autoplay = true;
+    vid.muted = true;
+    vid.loop = true;
+    vid.playsInline = true;
+    (vid as any).setAttribute("playsinline", "true");
+    (vid as any).setAttribute("webkit-playsinline", "true");
+    vid.preload = "auto";
+    vid.controls = false;
+    vid.style.position = "absolute";
+    vid.style.top = "0";
+    vid.style.left = "0";
+    vid.style.width = "100%";
+    vid.style.height = "100%";
+    vid.style.objectFit = "cover";
+    vid.style.backgroundColor = "#E5E7EB";
+
+    host.appendChild(vid);
+    vid.src = uri;
+    vid.load();
+    videoElRef.current = vid;
+
+    let played = false;
+    const tryPlay = () => {
+      if (played) return;
+      played = true;
+      const p = vid.play();
+      if (p && typeof (p as any).catch === "function") {
+        (p as any).catch(() => { played = false; });
+      }
+    };
+    vid.addEventListener("canplaythrough", tryPlay, { once: true });
+    const fb1 = setTimeout(tryPlay, 1500);
+    const fb2 = setTimeout(tryPlay, 4000);
+
+    return () => {
+      clearTimeout(fb1);
+      clearTimeout(fb2);
+      try {
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load();
+      } catch {}
+      if (vid.parentNode) vid.parentNode.removeChild(vid);
+      videoElRef.current = null;
+    };
+  }, [uri, poster]);
+
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.media}>
+        {/* @ts-ignore — raw div host for imperative <video> */}
+        {React.createElement("div", {
+          ref: hostRef,
+          style: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            overflow: "hidden",
+            backgroundColor: "#E5E7EB",
+          } as any,
+        })}
+      </View>
+    );
+  }
+
+  // ─── NATIVE BRANCH (iOS / Android) ────────────────────────────────────
+  return <NativeSlideVideo uri={uri} poster={poster} />;
+}
+
+function NativeSlideVideo({ uri, poster }: { uri: string; poster?: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
@@ -209,7 +295,6 @@ function SlideVideo({ uri, poster }: { uri: string; poster?: string }) {
         allowsPictureInPicture={false}
       />
       {!!poster && (
-        // poster is shown until video buffers — for web fallback only
         <Image
           source={{ uri: poster }}
           style={[StyleSheet.absoluteFillObject as any, { opacity: 0 }]}
