@@ -95,6 +95,10 @@ app.include_router(live_location_router)
 from booking_public_routes import router as booking_public_router  # noqa: E402
 app.include_router(booking_public_router)
 
+# Welcome screen CMS (admin-editable text/toggles/colors/hero image)
+from welcome_cms_routes import router as welcome_cms_router  # noqa: E402
+app.include_router(welcome_cms_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
