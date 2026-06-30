@@ -23,6 +23,7 @@ import {
 } from "lucide-react-native";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ProviderTrackingCard } from "@/src/components/ProviderTrackingCard";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
 import { providerService } from "@/src/data/providerService";
@@ -218,6 +219,23 @@ export default function BookingDetail() {
             </View>
           </View>
         )}
+
+        {/* Live Provider Tracking — shows map + provider's live GPS pin */}
+        {booking.providerId &&
+          (booking.status === "assigned" || booking.status === "in_progress") && (
+            <ProviderTrackingCard
+              bookingId={booking.id}
+              destination={
+                booking.address
+                  ? {
+                      latitude: booking.address.latitude,
+                      longitude: booking.address.longitude,
+                    }
+                  : null
+              }
+              destinationLabel={booking.address?.addressLine}
+            />
+          )}
 
         {/* Contact pro */}
         {booking.status !== "cancelled" && booking.status !== "completed" ? (

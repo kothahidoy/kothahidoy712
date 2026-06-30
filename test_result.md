@@ -104,6 +104,45 @@
 
 user_problem_statement: "Build Urban Company-style booking flow: redesigned cart with Plus membership / coupons / 'people also take' / tip / payment summary / cancellation policy, plus a slot picker screen and final checkout"
 
+## Latest Task — Live Location (Customer-side tracking map) — Aug 2025
+**User scope decisions:**
+  1. Track BOTH customer + provider (c)
+  2. Customer location auto-detect on home top-bar AND "Use current location" button on cart/address (c)
+  3. Provider uploads location every 30s + customer sees pin move on map (a+b)
+  4. Foreground-only — no background tracking (b)
+  5. Map shown on booking detail page AND address picker (c)
+
+**Already existed in codebase before this task:**
+  - Backend: POST /api/provider/{id}/location, GET /api/booking/{id}/provider-location
+  - Supabase table: provider_locations (verified with curl)
+  - Provider job screen: uploads location every 30s when status=in_progress
+  - Home top-bar: useLiveLocation hook auto-detects + reverse-geocodes
+  - Addresses screen: "Use current location" one-tap + form-detect button
+
+**Newly built in this task:**
+  1. `/app/frontend/src/components/LiveMap.tsx` — cross-platform Leaflet+OpenStreetMap component
+     - Web: iframe with srcDoc
+     - Native: react-native-webview
+     - Shows pulsing blue provider pin + red destination pin + dashed line
+     - Auto-fits bounds, communicates via postMessage
+  2. `/app/frontend/src/components/ProviderTrackingCard.tsx` — polls API every 15s
+     - Shows LiveMap + status badge (Live / Stale / Waiting)
+     - Shows distance in km (haversine) + last update time
+     - "Open route in Google Maps" deep link button
+  3. Updated `/app/frontend/app/booking/[id].tsx` to render ProviderTrackingCard
+     when booking.status is "assigned" OR "in_progress" AND providerId is set
+  4. Updated `/app/frontend/app/(provider)/job/[id].tsx` to start uploading location
+     at "assigned" status (was only in_progress), so customer sees provider approaching
+
+**Supabase connection (also done this session):**
+  - Created `/app/backend/.env` with MONGO_URL, DB_NAME, SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET, SUPABASE_DB_PASSWORD
+  - Created `/app/frontend/.env` with EXPO_PACKAGER_PROXY_URL, EXPO_PACKAGER_HOSTNAME, EXPO_PUBLIC_BACKEND_URL, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
+  - Installed razorpay python package (was missing from venv)
+  - Both backend and expo services running successfully
+  - Verified Supabase REST API returns real categories data
+
+
+
 backend:
   - task: "Service detail extra fields (gallery, loveus, process step image)"
     implemented: true

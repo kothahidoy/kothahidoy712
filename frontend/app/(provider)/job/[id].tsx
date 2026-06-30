@@ -74,7 +74,9 @@ export default function JobDetail() {
 
   useEffect(() => {
     if (!provider || !job) return;
-    if (job.status !== "in_progress") {
+    // Start sharing location as soon as the job is assigned (provider en route)
+    // and continue while in_progress. Stops on completed/cancelled.
+    if (job.status !== "assigned" && job.status !== "in_progress") {
       setLiveSharing(false);
       return;
     }
@@ -280,7 +282,7 @@ export default function JobDetail() {
                 {isInProgress ? "In Progress" : "Assigned"}
               </Text>
             </View>
-            {isInProgress && (
+            {(isAssigned || isInProgress) && (
               <View style={styles.liveSharePill}>
                 <View
                   style={[
