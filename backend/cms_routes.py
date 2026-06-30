@@ -16,12 +16,127 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import uuid
+import asyncio
+import subprocess
+import tempfile
+import shutil
+import logging
 import httpx
+
+logger = logging.getLogger("cms_routes")
 
 router = APIRouter(prefix="/api/admin/cms", tags=["admin-cms"])
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+# Where ffmpeg lives on this container (auto-detected on first use)
+_FFMPEG_BIN: Optional[str] = None
+
+
+def _ffmpeg_path() -> Optional[str]:
+    """Locate ffmpeg binary — prefer the imageio-ffmpeg bundled binary
+    (always present in the venv) and fall back to system $PATH."""
+    global _FFMPEG_BIN
+    if _FFMPEG_BIN is not None:
+        return _FFMPEG_BIN or None
+    # 1) imageio-ffmpeg ships a static, bundled binary inside the venv —
+    #    survives container restarts because it's just a Python package file.
+    try:
+        import imageio_ffmpeg  # type: ignore
+        path = imageio_ffmpeg.get_ffmpeg_exe()
+        if path and os.path.exists(path):
+            _FFMPEG_BIN = path
+            return path
+    except Exception:
+        pass
+    # 2) Fall back to whatever ffmpeg may be on $PATH.
+    found = shutil.which("ffmpeg") or ""
+    _FFMPEG_BIN = found
+    return found or None
+
+
+def _transcode_video_sync(in_path: str, out_path: str) -> tuple[bool, str]:
+    """
+    Re-encode any user-uploaded video to a browser-friendly profile:
+      • H.264 High @ yuv420p (universal codec)
+      • Cap width at 720px (keeps aspect ratio, even height enforced)
+      • CRF 26 + bitrate ceiling 1500 kbps (smooth on cellular)
+      • Keyframes every 1s (instant seek + smooth scrub)
+      • +faststart (moov atom at front → instant playback start)
+      • AAC audio (if present) so the file works as <video> on web
+
+    Returns (success, log_excerpt).
+    """
+    ff = _ffmpeg_path()
+    if not ff:
+        return False, "ffmpeg binary not found on PATH"
+
+    cmd = [
+        ff,
+        "-y",
+        "-i", in_path,
+        # Video stream
+        "-c:v", "libx264",
+        "-profile:v", "high",
+        "-level", "4.0",
+        "-pix_fmt", "yuv420p",
+        "-preset", "veryfast",
+        "-crf", "26",
+        "-maxrate", "1500k",
+        "-bufsize", "3000k",
+        "-vf", "scale='min(720,iw)':-2",
+        "-g", "30",
+        "-keyint_min", "30",
+        # Audio (if present)
+        "-c:a", "aac",
+        "-b:a", "96k",
+        "-ac", "2",
+        # Container
+        "-movflags", "+faststart",
+        "-max_muxing_queue_size", "1024",
+        out_path,
+    ]
+    try:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,  # 3 minute hard cap
+        )
+        if r.returncode != 0:
+            return False, (r.stderr or "")[-500:]
+        if not os.path.exists(out_path) or os.path.getsize(out_path) < 1024:
+            return False, "ffmpeg produced empty output"
+        return True, "ok"
+    except subprocess.TimeoutExpired:
+        return False, "ffmpeg timed out (video too long?)"
+    except Exception as exc:
+        return False, f"ffmpeg crashed: {exc}"
+
+
+async def _transcode_video(raw_bytes: bytes, src_ext: str) -> tuple[bytes, str, str]:
+    """
+    Async wrapper around _transcode_video_sync.
+    Returns (mp4_bytes, new_ext='mp4', log_excerpt).
+    On failure raises RuntimeError.
+    """
+    tmp_dir = tempfile.mkdtemp(prefix="mfixit-tx-")
+    try:
+        in_path = os.path.join(tmp_dir, f"in.{src_ext}")
+        out_path = os.path.join(tmp_dir, "out.mp4")
+        with open(in_path, "wb") as fh:
+            fh.write(raw_bytes)
+
+        ok, log = await asyncio.to_thread(_transcode_video_sync, in_path, out_path)
+        if not ok:
+            raise RuntimeError(log)
+
+        with open(out_path, "rb") as fh:
+            data = fh.read()
+        return data, "mp4", log
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _sb_headers(prefer: str = "return=representation") -> dict:
@@ -38,7 +153,12 @@ def _sb_headers(prefer: str = "return=representation") -> dict:
 # ═════════════════════════════════════════════════════════════════
 @router.post("/upload")
 async def upload_media(file: UploadFile = File(...)):
-    """Upload any image/video file to the cms-media bucket and return a public URL."""
+    """Upload any image/video file to the cms-media bucket and return a public URL.
+
+    For videos we auto-transcode server-side to a browser-optimised mp4
+    (H.264 / yuv420p / 720p cap / faststart) so playback starts instantly
+    on every client device with zero buffering jank. If transcode fails
+    we fall back to uploading the original."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(500, "Supabase not configured")
 
@@ -46,21 +166,46 @@ async def upload_media(file: UploadFile = File(...)):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower() or "bin"
     if ext not in ("jpg", "jpeg", "png", "webp", "gif", "mp4", "mov", "webm"):
         raise HTTPException(400, f"Unsupported file type: .{ext}")
-    object_name = f"{uuid.uuid4()}.{ext}"
+
+    is_video = ext in ("mp4", "mov", "webm")
+    media_type = "video" if is_video else "image"
+    upload_ext = ext
+    upload_ct = file.content_type or "application/octet-stream"
+    upload_bytes = content
+
+    if is_video:
+        try:
+            transcoded, new_ext, log = await _transcode_video(content, ext)
+            upload_bytes = transcoded
+            upload_ext = new_ext
+            upload_ct = "video/mp4"
+            logger.info(
+                "Transcoded %s (%d KB) → mp4 (%d KB)",
+                file.filename, len(content) // 1024, len(transcoded) // 1024,
+            )
+        except Exception as e:
+            logger.warning(
+                "ffmpeg transcode failed for %s — uploading original. %s",
+                file.filename, str(e)[:200],
+            )
+            # Keep originals so upload doesn't fail completely; client side
+            # autoplay code is already robust to slightly-iffy mp4s.
+
+    object_name = f"{uuid.uuid4()}.{upload_ext}"
 
     url = f"{SUPABASE_URL}/storage/v1/object/cms-media/{object_name}"
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "Content-Type": file.content_type or "application/octet-stream",
+        "Content-Type": upload_ct,
         "x-upsert": "true",
+        "cache-control": "public, max-age=86400",
     }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        r = await client.post(url, headers=headers, content=content)
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        r = await client.post(url, headers=headers, content=upload_bytes)
         if r.status_code not in (200, 201):
             raise HTTPException(r.status_code, f"Upload failed: {r.text[:300]}")
     public_url = f"{SUPABASE_URL}/storage/v1/object/public/cms-media/{object_name}"
-    media_type = "video" if ext in ("mp4", "mov", "webm") else "image"
     return {"url": public_url, "type": media_type, "filename": object_name}
 
 
