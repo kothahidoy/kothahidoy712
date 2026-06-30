@@ -883,6 +883,7 @@ function HeroPromosSection() {
     poster_url: "",
     sort_order: rows.length + 1,
     is_active: true,
+    show_overlay: true,
   };
 
   const onSave = async () => {
@@ -1068,6 +1069,14 @@ function HeroPromosSection() {
               value={!!editing.is_active}
               onChange={(v) => setEditing({ ...editing, is_active: v })}
             />
+            <ToggleRow
+              label="Show overlay (title, price, Book button)"
+              value={editing.show_overlay !== false}
+              onChange={(v) => setEditing({ ...editing, show_overlay: v })}
+            />
+            <Text style={{ fontSize: 11, color: colors.textSubtle, marginTop: -4 }}>
+              Turn this OFF to show only the full image/video without any text/price/Book button on top.
+            </Text>
           </>
         )}
       </EditModal>

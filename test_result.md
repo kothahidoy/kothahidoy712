@@ -349,10 +349,34 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Service detail extra fields (gallery, loveus, process step image)"
+    - "Hero promo slide show_overlay toggle"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+backend:
+  - task: "Hero promo show_overlay field"
+    implemented: true
+    working: true
+    file: "backend/cms_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Added `show_overlay: bool = True` to HomePromoUpsert model.
+          Added column `show_overlay BOOLEAN NOT NULL DEFAULT TRUE` to public.home_promos
+          via direct Postgres connection (Supavisor pooler aws-1-ap-south-1, port 6543).
+          Verified PATCH with show_overlay=false roundtrips through API:
+            curl PATCH .../home-promos/{id} -d '{"show_overlay":false,...}' → {"ok":true}
+            curl GET  .../home-promos?active_only=true → show_overlay: false
+          Frontend (HeroPromoCarousel) reads slide.show_overlay !== false to decide
+          whether to render the title/price/CTA overlay; when false the media renders
+          full-bleed (no text/Book button on top, just the video/image).
+          Admin CMS panel (cms.tsx) exposes a toggle "Show overlay (title, price, Book button)"
+          inside the Edit Slide modal.
 
 agent_communication:
   - agent: "main"

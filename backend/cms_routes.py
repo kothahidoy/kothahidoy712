@@ -816,6 +816,9 @@ class HomePromoUpsert(BaseModel):
     poster_url: Optional[str] = None
     sort_order: int = 0
     is_active: bool = True
+    # When False, the home carousel hides the overlay (title/price/Book button)
+    # and the slide renders as a full-bleed image/video only.
+    show_overlay: bool = True
 
 
 @router.get("/home-promos")

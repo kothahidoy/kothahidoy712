@@ -46,6 +46,8 @@ export type HomePromoSlide = {
   poster_url?: string | null;
   is_active?: boolean;
   sort_order?: number;
+  /** When false, hide title/subtitle/price/discount/CTA and render the media full-bleed. */
+  show_overlay?: boolean;
 };
 
 interface Props {
@@ -136,6 +138,9 @@ interface SlideProps {
 
 function Slide({ slide, onPress }: SlideProps) {
   const isVideo = slide.media_type === "video";
+  // Default: overlay shown. Explicit false hides title/price/Book button and
+  // makes the media fill the whole card.
+  const overlayOn = slide.show_overlay !== false;
 
   return (
     <TouchableOpacity
@@ -143,48 +148,54 @@ function Slide({ slide, onPress }: SlideProps) {
       onPress={onPress}
       style={[styles.card, { width: CARD_WIDTH }]}
     >
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={2}>
-          {slide.title}
-        </Text>
-
-        {!!slide.subtitle && (
-          <Text style={styles.subtitle} numberOfLines={2}>
-            {slide.subtitle}
+      {overlayOn && (
+        <View style={styles.content}>
+          <Text style={styles.title} numberOfLines={2}>
+            {slide.title}
           </Text>
-        )}
 
-        {!!slide.price && (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceValue}>{slide.price}</Text>
-            {!!slide.original_price && (
-              <Text style={styles.originalPrice}>{slide.original_price}</Text>
-            )}
-          </View>
-        )}
-
-        {!!slide.discount_label && (
-          <View style={styles.discountRow}>
-            <Text style={styles.discountText}>
-              {(slide.badge_emoji || "🏷️") + " " + slide.discount_label}
+          {!!slide.subtitle && (
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {slide.subtitle}
             </Text>
-          </View>
-        )}
+          )}
 
-        {!!slide.cta_text && (
-          <View style={styles.ctaBtn}>
-            <Text style={styles.ctaText}>{slide.cta_text}</Text>
-            <ArrowRight size={16} color="#FFFFFF" />
-          </View>
-        )}
-      </View>
+          {!!slide.price && (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceValue}>{slide.price}</Text>
+              {!!slide.original_price && (
+                <Text style={styles.originalPrice}>{slide.original_price}</Text>
+              )}
+            </View>
+          )}
+
+          {!!slide.discount_label && (
+            <View style={styles.discountRow}>
+              <Text style={styles.discountText}>
+                {(slide.badge_emoji || "🏷️") + " " + slide.discount_label}
+              </Text>
+            </View>
+          )}
+
+          {!!slide.cta_text && (
+            <View style={styles.ctaBtn}>
+              <Text style={styles.ctaText}>{slide.cta_text}</Text>
+              <ArrowRight size={16} color="#FFFFFF" />
+            </View>
+          )}
+        </View>
+      )}
 
       {isVideo ? (
-        <SlideVideo uri={slide.media_url} poster={slide.poster_url || undefined} />
+        <SlideVideo
+          uri={slide.media_url}
+          poster={slide.poster_url || undefined}
+          fullBleed={!overlayOn}
+        />
       ) : (
         <Image
           source={{ uri: slide.media_url }}
-          style={styles.media}
+          style={overlayOn ? styles.media : styles.mediaFull}
           resizeMode="cover"
         />
       )}
@@ -192,7 +203,15 @@ function Slide({ slide, onPress }: SlideProps) {
   );
 }
 
-function SlideVideo({ uri, poster }: { uri: string; poster?: string }) {
+function SlideVideo({
+  uri,
+  poster,
+  fullBleed = false,
+}: {
+  uri: string;
+  poster?: string;
+  fullBleed?: boolean;
+}) {
   // ─── WEB BRANCH ───────────────────────────────────────────────────────
   // Use an imperatively-attached <video> DOM element — avoids the expo-video
   // autoplay race on web that left the banner blank.
@@ -255,7 +274,7 @@ function SlideVideo({ uri, poster }: { uri: string; poster?: string }) {
 
   if (Platform.OS === "web") {
     return (
-      <View style={styles.media}>
+      <View style={fullBleed ? styles.mediaFull : styles.media}>
         {/* @ts-ignore — raw div host for imperative <video> */}
         {React.createElement("div", {
           ref: hostRef,
@@ -274,10 +293,18 @@ function SlideVideo({ uri, poster }: { uri: string; poster?: string }) {
   }
 
   // ─── NATIVE BRANCH (iOS / Android) ────────────────────────────────────
-  return <NativeSlideVideo uri={uri} poster={poster} />;
+  return <NativeSlideVideo uri={uri} poster={poster} fullBleed={fullBleed} />;
 }
 
-function NativeSlideVideo({ uri, poster }: { uri: string; poster?: string }) {
+function NativeSlideVideo({
+  uri,
+  poster,
+  fullBleed = false,
+}: {
+  uri: string;
+  poster?: string;
+  fullBleed?: boolean;
+}) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
@@ -285,7 +312,7 @@ function NativeSlideVideo({ uri, poster }: { uri: string; poster?: string }) {
   });
 
   return (
-    <View style={styles.media}>
+    <View style={fullBleed ? styles.mediaFull : styles.media}>
       <VideoView
         player={player}
         style={StyleSheet.absoluteFillObject as any}
@@ -374,6 +401,12 @@ const styles = StyleSheet.create({
   media: {
     width: 140,
     height: "100%",
+    backgroundColor: "#E5E7EB",
+  },
+  mediaFull: {
+    width: "100%",
+    height: "100%",
+    minHeight: 160,
     backgroundColor: "#E5E7EB",
   },
   dotsRow: {
