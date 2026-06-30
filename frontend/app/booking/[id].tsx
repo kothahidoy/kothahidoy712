@@ -52,8 +52,7 @@ export default function BookingDetail() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const all = await dataService.listBookings();
-    const b = all.find((x) => x.id === id) ?? null;
+    const b = await dataService.getBookingById(id);
     setBooking(b);
     setRating(b?.rating ?? 0);
   }, [id]);

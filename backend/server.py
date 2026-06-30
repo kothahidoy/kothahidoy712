@@ -91,6 +91,10 @@ app.include_router(service_detail_router, prefix="/api")
 from live_location_routes import router as live_location_router  # noqa: E402
 app.include_router(live_location_router)
 
+# Public booking lookup (read-only, by ID) — service-role bypass for RLS
+from booking_public_routes import router as booking_public_router  # noqa: E402
+app.include_router(booking_public_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

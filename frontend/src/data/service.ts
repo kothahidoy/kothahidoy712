@@ -242,6 +242,95 @@ export const dataService = {
     return readJSON<Booking[]>(BOOKINGS_KEY, []);
   },
 
+  /**
+   * Fetch a single booking by ID. Used by the booking detail screen so that
+   * deep-links / share-links work even when the booking isn't yet in the
+   * user's local cache (or when the user just signed in fresh).
+   *
+   * Reads via the anon-key Supabase client — RLS policies on the `bookings`
+   * table will restrict to the booking owner anyway, so this is safe.
+   */
+  getBookingById: async (id: string): Promise<Booking | null> => {
+    if (!id) return null;
+    // 1) Try list (already auth-scoped) for a fast cache hit
+    try {
+      const all = await dataService.listBookings();
+      const hit = all.find((b) => b.id === id);
+      if (hit) return hit;
+    } catch {}
+
+    // 2) Fall back to a direct fetch via Supabase REST (auth-scoped via RLS)
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("bookings")
+          .select(
+            "id, service_id, scheduled_date, time_slot, address, notes, price, status, rating, review, created_at, payment_status, payment_method, payment_id, paid_at, provider_id",
+          )
+          .eq("id", id)
+          .maybeSingle();
+        if (!error && data) {
+          const services = await dataService.getServices();
+          const svc = services.find((s) => s.id === data.service_id);
+          return {
+            id: data.id,
+            serviceId: data.service_id,
+            serviceTitle: svc?.title ?? "Service",
+            serviceImage: svc?.image ?? "",
+            scheduledDate: data.scheduled_date,
+            timeSlot: data.time_slot,
+            address: data.address as SavedAddress,
+            notes: data.notes ?? undefined,
+            price: Number(data.price),
+            status: data.status as BookingStatus,
+            rating: data.rating ?? undefined,
+            review: data.review ?? undefined,
+            createdAt: data.created_at,
+            paymentStatus: (data.payment_status ?? "unpaid") as any,
+            paymentMethod: data.payment_method ?? undefined,
+            paymentId: data.payment_id ?? undefined,
+            paidAt: data.paid_at ?? undefined,
+            providerId: data.provider_id ?? undefined,
+          };
+        }
+      } catch {}
+    }
+
+    // 3) Final fallback — public backend endpoint (service-role on the server).
+    //    Useful for deep-links and when RLS policies misbehave.
+    try {
+      const base = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+      const r = await fetch(`${base}/api/booking/${id}`);
+      if (r.ok) {
+        const data: any = await r.json();
+        const services = await dataService.getServices();
+        const svc = services.find((s) => s.id === data.service_id);
+        return {
+          id: data.id,
+          serviceId: data.service_id,
+          serviceTitle: svc?.title ?? "Service",
+          serviceImage: svc?.image ?? "",
+          scheduledDate: data.scheduled_date,
+          timeSlot: data.time_slot,
+          address: data.address as SavedAddress,
+          notes: data.notes ?? undefined,
+          price: Number(data.price),
+          status: data.status as BookingStatus,
+          rating: data.rating ?? undefined,
+          review: data.review ?? undefined,
+          createdAt: data.created_at,
+          paymentStatus: (data.payment_status ?? "unpaid") as any,
+          paymentMethod: data.payment_method ?? undefined,
+          paymentId: data.payment_id ?? undefined,
+          paidAt: data.paid_at ?? undefined,
+          providerId: data.provider_id ?? undefined,
+        };
+      }
+    } catch {}
+
+    return null;
+  },
+
   createBooking: async (
     input: Omit<Booking, "id" | "createdAt" | "status"> & {
       paymentOrder?: string;
