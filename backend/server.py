@@ -87,6 +87,10 @@ app.include_router(cms_router)
 from service_detail_routes import router as service_detail_router  # noqa: E402
 app.include_router(service_detail_router, prefix="/api")
 
+# Live location (Phase 2): provider GPS upload + customer fetch
+from live_location_routes import router as live_location_router  # noqa: E402
+app.include_router(live_location_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

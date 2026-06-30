@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -21,6 +21,7 @@ import {
   Phone,
   Play,
 } from "lucide-react-native";
+import * as Location from "expo-location";
 
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { providerService } from "@/src/data/providerService";
@@ -28,6 +29,9 @@ import { dataService } from "@/src/data/service";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, Provider } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
+
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+const LOCATION_UPLOAD_INTERVAL_MS = 30 * 1000; // 30 seconds
 
 export default function JobDetail() {
   const router = useRouter();
@@ -61,6 +65,71 @@ export default function JobDetail() {
       loadData();
     }, [loadData])
   );
+
+  // ─────────────────────────────────────────────────────────────
+  // Live location upload while job is in_progress
+  // ─────────────────────────────────────────────────────────────
+  const lastUploadRef = useRef<number>(0);
+  const [liveSharing, setLiveSharing] = useState(false);
+
+  useEffect(() => {
+    if (!provider || !job) return;
+    if (job.status !== "in_progress") {
+      setLiveSharing(false);
+      return;
+    }
+
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const uploadOnce = async () => {
+      if (cancelled) return;
+      try {
+        // Permission gate (idempotent)
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setLiveSharing(false);
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+        const res = await fetch(
+          `${API_BASE}/api/provider/${provider.id}/location`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              heading: pos.coords.heading ?? null,
+              speed: pos.coords.speed ?? null,
+              accuracy: pos.coords.accuracy ?? null,
+              booking_id: job.id,
+            }),
+          }
+        );
+        if (res.ok) {
+          lastUploadRef.current = Date.now();
+          setLiveSharing(true);
+        }
+      } catch (e) {
+        // network blip — keep trying on next tick
+        console.warn("[live-location] upload failed", e);
+      }
+    };
+
+    // Fire immediately + every 30s
+    uploadOnce();
+    intervalId = setInterval(uploadOnce, LOCATION_UPLOAD_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      setLiveSharing(false);
+    };
+  }, [provider, job]);
 
   const handleStartJob = async () => {
     if (!provider || !job) return;
@@ -211,6 +280,21 @@ export default function JobDetail() {
                 {isInProgress ? "In Progress" : "Assigned"}
               </Text>
             </View>
+            {isInProgress && (
+              <View style={styles.liveSharePill}>
+                <View
+                  style={[
+                    styles.liveDot,
+                    { backgroundColor: liveSharing ? "#16A34A" : "#9CA3AF" },
+                  ]}
+                />
+                <Text style={styles.liveShareText}>
+                  {liveSharing
+                    ? "Sharing live location with customer"
+                    : "Waiting for GPS permission…"}
+                </Text>
+              </View>
+            )}
             <Text style={styles.svcTitle}>{job.serviceTitle}</Text>
 
             <View style={styles.metaRow}>
@@ -360,6 +444,21 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   statusText: { fontSize: 11, fontWeight: "800" },
+  liveSharePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    alignSelf: "flex-start",
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    marginTop: 6,
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  liveShareText: { fontSize: 11, fontWeight: "700", color: "#065F46" },
   svcTitle: {
     fontSize: 18,
     fontWeight: "800",
