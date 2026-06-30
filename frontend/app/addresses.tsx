@@ -33,6 +33,7 @@ export default function Addresses() {
   const router = useRouter();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [detecting, setDetecting] = useState(false);
 
   const load = useCallback(async () => {
     setAddresses(await dataService.listAddresses());
@@ -43,6 +44,51 @@ export default function Addresses() {
       load();
     }, [load]),
   );
+
+  /** One-tap detect + save: requests permission, reverse-geocodes, saves as
+   *  "Home" address. Used on empty-state CTA. */
+  const detectAndSave = useCallback(async () => {
+    setDetecting(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        notify("Permission denied", "Please enable location to use this feature.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      let line = "";
+      let cityName = CITIES[0];
+      try {
+        const places = await Location.reverseGeocodeAsync({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        const p = places?.[0];
+        if (p) {
+          line = [p.name, p.street, p.district].filter(Boolean).join(", ");
+          if (p.city && CITIES.includes(p.city)) cityName = p.city;
+        }
+      } catch {
+        /* no reverse-geocode (e.g. web on old browser) — still save coords */
+      }
+      await dataService.saveAddress({
+        label: "Home",
+        addressLine: line || `Lat ${pos.coords.latitude.toFixed(4)}, Lng ${pos.coords.longitude.toFixed(4)}`,
+        city: cityName,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        isDefault: addresses.length === 0,
+      });
+      await load();
+      notify("Saved", "Current location saved as your Home address.");
+    } catch (e: any) {
+      notify("Could not detect", e?.message || "Try entering address manually.");
+    } finally {
+      setDetecting(false);
+    }
+  }, [addresses.length, load]);
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
@@ -68,6 +114,18 @@ export default function Addresses() {
             <Text style={styles.emptySub}>
               Save your home, office and other locations for faster booking.
             </Text>
+            <TouchableOpacity
+              style={styles.useCurrentBtn}
+              onPress={detectAndSave}
+              disabled={detecting}
+              activeOpacity={0.85}
+              testID="ad-use-current-btn"
+            >
+              <Navigation size={16} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.useCurrentBtnText}>
+                {detecting ? "Detecting location…" : "Use my current location"}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           addresses.map((a) => (
@@ -326,6 +384,21 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingHorizontal: 40,
     lineHeight: 19,
+  },
+  useCurrentBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 18,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+  },
+  useCurrentBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   card: {
     flexDirection: "row",

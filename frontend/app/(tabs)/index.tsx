@@ -34,6 +34,7 @@ import { ServiceCard } from "@/src/components/ServiceCard";
 import HeroPromoCarousel, { HomePromoSlide } from "@/src/components/HeroPromoCarousel";
 import { useSession } from "@/src/context/SessionContext";
 import { useCart } from "@/src/context/CartContext";
+import { useLiveLocation } from "@/src/hooks/useLiveLocation";
 import { dataService } from "@/src/data/service";
 import { colors, radius, shadow } from "@/src/theme";
 import {
@@ -367,6 +368,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useSession();
   const { itemCount } = useCart();
+  const live = useLiveLocation(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [popular, setPopular] = useState<Service[]>([]);
   const [topRated, setTopRated] = useState<Service[]>([]);
@@ -514,6 +516,15 @@ export default function HomeScreen() {
   const cityLabel = profile?.city ?? "Durgapur";
   const firstName = (profile?.name ?? "there").split(" ")[0];
 
+  // Live location: prefer detected address, else profile city, else default
+  const liveLabel = live.location?.label
+    ? live.location.label
+    : live.loading
+    ? "Detecting your location…"
+    : live.permissionDenied
+    ? "Tap to enable location"
+    : `${cityLabel} — Set your area`;
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScrollView
@@ -527,21 +538,29 @@ export default function HomeScreen() {
         >
           {/* Top Row: Location & Cart */}
           <View style={styles.heroTopRow}>
-            <View style={styles.heroLocationRow}>
+            <TouchableOpacity
+              style={styles.heroLocationRow}
+              activeOpacity={0.7}
+              onPress={live.refresh}
+              testID="home-location-tap"
+            >
               <View style={styles.heroLocationDot} />
-              <View>
+              <View style={{ flex: 1 }}>
                 <View style={styles.heroTimeRow}>
                   <Clock size={12} color="#FFFFFF" />
-                  <Text style={styles.heroTimeText}>In 19 minutes</Text>
+                  <Text style={styles.heroTimeText}>
+                    {live.loading ? "Locating…" : "In 19 minutes"}
+                  </Text>
                 </View>
                 <View style={styles.heroAddressRow}>
+                  <MapPin size={12} color="#FFFFFF" style={{ opacity: 0.85, marginRight: 4 }} />
                   <Text style={styles.heroAddressText} numberOfLines={1}>
-                    {cityLabel} - Block B, Sector 122...
+                    {liveLabel}
                   </Text>
                   <ChevronRight size={14} color="#FFFFFF" style={{ opacity: 0.7 }} />
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.heroCartBtn} 
               testID="home-cart-btn"
@@ -913,9 +932,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heroLocationRow: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
+    paddingRight: 12,
   },
   heroLocationDot: {
     width: 10,
