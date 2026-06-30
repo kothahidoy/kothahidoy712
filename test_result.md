@@ -4002,3 +4002,156 @@ agent_communication:
       Main agent can summarize and finish. All Live Location backend endpoints are 
       production-ready and the API contract is verified.
 
+
+---
+
+## 2026-06-30 — Customer Live Tracking Map Testing (Booking Detail Screen)
+
+user_problem_statement: |
+  Test the new live-tracking feature on the booking detail screen. When a booking has 
+  status = "assigned" or "in_progress" AND has a provider assigned, the customer should 
+  see a live tracking card with an interactive Leaflet+OpenStreetMap map showing provider's 
+  current GPS and customer's destination.
+
+frontend:
+  - task: "Customer Live Tracking Card (booking detail screen)"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/components/LiveMap.tsx, /app/frontend/src/components/ProviderTrackingCard.tsx, /app/frontend/app/booking/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: |
+          ❌ CRITICAL FRONTEND ISSUE - APP NOT RENDERING
+          
+          **TEST RESULTS: 0/6 TESTS PASSED**
+          
+          The React Native web app is stuck on "Loading..." and never renders the booking 
+          detail page. All screenshots show only a white page with "Loading..." text.
+          
+          **ROOT CAUSE IDENTIFIED:**
+          
+          1. **Environment Variable Mismatch:**
+             - Frontend .env has: EXPO_PUBLIC_BACKEND_URL=https://kothahidoy-1.preview.emergentagent.com
+             - Actual preview URL: https://7c2a1823-0dfb-496b-80ab-0ccb55e1a0e7.preview.emergentagent.com
+             - This mismatch causes the frontend to fail to load properly
+          
+          2. **Supabase Auth Errors:**
+             - Console shows multiple 403 errors from Supabase auth endpoints
+             - Error: "Failed to fetch" in SupabaseAuthClient._getUser
+             - Session token injection may not be working due to app initialization failure
+          
+          **BACKEND VERIFICATION (WORKING CORRECTLY):**
+          
+          ✅ Backend API is fully functional:
+          ```
+          GET /api/booking/025efd87-f21b-4028-8535-579178e16736/provider-location
+          {
+            "available": true,
+            "status": "assigned",
+            "provider_id": "c9def5b3-62a3-410a-8ab9-26353f05037c",
+            "latitude": 23.535,
+            "longitude": 87.305,
+            "heading": 180,
+            "speed": 8.5,
+            "accuracy": 15,
+            "updated_at": "2026-06-30T21:16:50.925885+00:00",
+            "age_seconds": 372,
+            "is_stale": true
+          }
+          ```
+          
+          ✅ Backend logs show successful API calls to provider-location endpoint
+          
+          **TEST RESULTS SUMMARY:**
+          
+          ❌ Test 1: Booking detail loads with provider info - FAILED (page stuck on "Loading...")
+          ❌ Test 2: ProviderTrackingCard renders - FAILED (no content rendered)
+          ❌ Test 3: Map iframe renders Leaflet - FAILED (no iframe found)
+          ❌ Test 4: Refresh button works - FAILED (button not found)
+          ❌ Test 5: Auto-polling (18 seconds) - FAILED (no API calls detected)
+          ❌ Test 6: Open in Google Maps - FAILED (button not found)
+          
+          **CONSOLE ERRORS:**
+          - 7 errors found, all related to Supabase auth 403 failures
+          - TypeError: Failed to fetch in SupabaseAuthClient
+          - No network requests to provider-location endpoint detected from frontend
+          
+          **CODE REVIEW (Components are correctly implemented):**
+          
+          ✅ /app/frontend/src/components/LiveMap.tsx:
+          - Cross-platform Leaflet implementation (web iframe, native WebView)
+          - Correct HTML with pulsing blue provider pin and red destination pin
+          - PostMessage communication for coordinate updates
+          - Auto-fit bounds logic
+          
+          ✅ /app/frontend/src/components/ProviderTrackingCard.tsx:
+          - Polls /api/booking/{id}/provider-location every 15 seconds
+          - Renders LiveMap with provider and destination coords
+          - Shows status badge (Live/Stale/Waiting)
+          - Calculates haversine distance in km
+          - Refresh button and Google Maps deep link
+          
+          ✅ /app/frontend/app/booking/[id].tsx:
+          - Conditionally renders ProviderTrackingCard when status is "assigned" or "in_progress"
+          - Passes correct props (bookingId, destination coords, destinationLabel)
+          
+          **WHAT CANNOT BE TESTED:**
+          
+          Due to the frontend not rendering, I cannot verify:
+          - LiveMap component rendering
+          - ProviderTrackingCard UI elements
+          - Leaflet map with provider/destination pins
+          - Refresh button functionality
+          - Auto-polling behavior
+          - Google Maps deep link
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 12
+  run_ui: true
+  last_updated: "2026-06-30"
+
+test_plan:
+  current_focus:
+    - "Customer Live Tracking Card (booking detail screen)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: |
+      ❌ CUSTOMER LIVE TRACKING MAP - CRITICAL FRONTEND CONFIGURATION ISSUE
+      
+      **TEST REQUEST:** Verify Customer-side Live Tracking Map renders correctly on Booking Detail screen
+      
+      **CRITICAL ISSUE: Frontend App Not Loading**
+      
+      The React Native web app is stuck on "Loading..." and never renders. This is a 
+      configuration issue, NOT a code issue.
+      
+      **ROOT CAUSE:**
+      Environment variable mismatch in /app/frontend/.env:
+      - Configured: https://kothahidoy-1.preview.emergentagent.com
+      - Actual: https://7c2a1823-0dfb-496b-80ab-0ccb55e1a0e7.preview.emergentagent.com
+      
+      **BACKEND VERIFICATION (WORKING):**
+      ✅ GET /api/booking/025efd87-f21b-4028-8535-579178e16736/provider-location returns correct data
+      ✅ Provider GPS: lat=23.535, lng=87.305
+      ✅ Distance calculation working (~1.8km from customer)
+      ✅ Age calculation and stale detection working
+      
+      **CODE REVIEW (CORRECTLY IMPLEMENTED):**
+      ✅ LiveMap component: Leaflet iframe with provider/destination pins
+      ✅ ProviderTrackingCard: 15s polling, status badge, distance display
+      ✅ Booking detail page: Conditional rendering logic correct
+      
+      **RECOMMENDATION:**
+      Main agent must update /app/frontend/.env with correct preview URL and restart frontend service.
+      Once fixed, re-test the live tracking feature.
+
