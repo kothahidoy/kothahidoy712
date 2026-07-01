@@ -1190,7 +1190,7 @@ backend:
              DB_NAME=mfixit_db, CORS_ORIGINS=*
           2. Recreated /app/frontend/.env with EXPO_PUBLIC_BACKEND_URL +
              EXPO_PACKAGER_PROXY_URL + EXPO_PACKAGER_HOSTNAME pointing to
-             https://kothahidoy-1.preview.emergentagent.com
+             https://code-sync-94.preview.emergentagent.com
           3. `pip install razorpay==2.0.1`
           4. `sudo supervisorctl restart backend expo`
 
@@ -1205,7 +1205,7 @@ backend:
           ✅ SMOKE TEST COMPLETE - ALL 5 CHECKS PASS
           
           **CHECK 1: Backend Health Endpoint** ✅ PASS
-          - GET https://kothahidoy-1.preview.emergentagent.com/api/
+          - GET https://code-sync-94.preview.emergentagent.com/api/
           - Response: 200 OK with {"message":"Hello World"}
           
           **CHECK 2: Backend Process Stability** ✅ PASS
@@ -1221,13 +1221,13 @@ backend:
           - Current boot has zero import errors
           
           **CHECK 4: CORS Preflight** ✅ PASS
-          - OPTIONS https://kothahidoy-1.preview.emergentagent.com/api/
+          - OPTIONS https://code-sync-94.preview.emergentagent.com/api/
           - Response: 204 No Content (correct for preflight)
           - Headers: access-control-allow-origin: *
           - Methods: GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH
           
           **CHECK 5: MongoDB Connectivity** ✅ PASS
-          - GET https://kothahidoy-1.preview.emergentagent.com/api/status
+          - GET https://code-sync-94.preview.emergentagent.com/api/status
           - Response: 200 OK with [] (empty array)
           - Endpoint successfully queries MongoDB (db.status_checks.find())
           - No database connection errors
@@ -1490,7 +1490,7 @@ agent_communication:
   - agent: "main"
     message: |
       MSG91 WhatsApp OTP backend is implemented. Please run an end-to-end test
-      on these endpoints under https://kothahidoy-1.preview.emergentagent.com:
+      on these endpoints under https://code-sync-94.preview.emergentagent.com:
 
       1. GET  /api/auth/otp/health
          expect 200 + {"configured": true, "channel": "whatsapp",
@@ -1843,7 +1843,7 @@ agent_communication:
          dummy value or read the original first).
 
       2. Endpoint smoke test through FastAPI:
-         POST https://kothahidoy-1.preview.emergentagent.com/api/booking/profile/phone
+         POST https://code-sync-94.preview.emergentagent.com/api/booking/profile/phone
          WITHOUT Authorization header → expect 401 "Please sign in".
 
       3. Endpoint validation:
@@ -4035,8 +4035,8 @@ frontend:
           **ROOT CAUSE IDENTIFIED:**
           
           1. **Environment Variable Mismatch:**
-             - Frontend .env has: EXPO_PUBLIC_BACKEND_URL=https://kothahidoy-1.preview.emergentagent.com
-             - Actual preview URL: https://7c2a1823-0dfb-496b-80ab-0ccb55e1a0e7.preview.emergentagent.com
+             - Frontend .env has: EXPO_PUBLIC_BACKEND_URL=https://code-sync-94.preview.emergentagent.com
+             - Actual preview URL: https://code-sync-94.preview.emergentagent.com
              - This mismatch causes the frontend to fail to load properly
           
           2. **Supabase Auth Errors:**
@@ -4122,7 +4122,7 @@ frontend:
           3. This enables deep-links / share-links to work without authentication
           
           **TEST ENVIRONMENT:**
-          - Preview URL: https://kothahidoy-1.preview.emergentagent.com
+          - Preview URL: https://code-sync-94.preview.emergentagent.com
           - Test Booking ID: 025efd87-f21b-4028-8535-579178e16736
           - Booking Status: assigned
           - Provider ID: c9def5b3-62a3-410a-8ab9-26353f05037c
@@ -4380,8 +4380,8 @@ agent_communication:
       
       **ROOT CAUSE:**
       Environment variable mismatch in /app/frontend/.env:
-      - Configured: https://kothahidoy-1.preview.emergentagent.com
-      - Actual: https://7c2a1823-0dfb-496b-80ab-0ccb55e1a0e7.preview.emergentagent.com
+      - Configured: https://code-sync-94.preview.emergentagent.com
+      - Actual: https://code-sync-94.preview.emergentagent.com
       
       **BACKEND VERIFICATION (WORKING):**
       ✅ GET /api/booking/025efd87-f21b-4028-8535-579178e16736/provider-location returns correct data

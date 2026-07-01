@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 
 # Base URL from review request
-BASE_URL = "https://7c2a1823-0dfb-496b-80ab-0ccb55e1a0e7.preview.emergentagent.com"
+BASE_URL = "https://code-sync-94.preview.emergentagent.com"
 
 # Pre-seeded test data from review request
 BOOKING_ID = "03b14877-3cdc-4e30-8e00-b18184d5e440"
