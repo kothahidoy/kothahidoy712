@@ -125,15 +125,13 @@ export default function EmailScreen() {
             <>
               <Text style={styles.title}>Check your email 📬</Text>
               <Text style={styles.subtitle}>
-                We&apos;ve sent a sign-in link + a 6-digit code to{" "}
+                We&apos;ve sent a 6-digit OTP to{" "}
                 <Text style={styles.email}>{email}</Text>.
               </Text>
               <View style={styles.tipBox}>
                 <Text style={styles.tipText}>
-                  ✨ <Text style={{ fontWeight: "700" }}>Easiest:</Text> click
-                  the &quot;Sign in to Mfixit&quot; button in the email.{"\n\n"}
-                  🔢 <Text style={{ fontWeight: "700" }}>Or:</Text> type the
-                  6-digit code from the email below.
+                  🔢 <Text style={{ fontWeight: "700" }}>Enter the OTP</Text>{" "}
+                  from your email below to sign in.
                 </Text>
               </View>
 
@@ -177,8 +175,8 @@ export default function EmailScreen() {
             <>
               <Text style={styles.title}>Sign in with email</Text>
               <Text style={styles.subtitle}>
-                We&apos;ll email you a magic link. Click it once and you&apos;re
-                in — no password, no code.
+                We&apos;ll email you an OTP. Enter the code to sign in
+                securely — no password needed.
               </Text>
 
               <TextInput
@@ -207,7 +205,7 @@ export default function EmailScreen() {
               <View style={styles.spacer} />
 
               <PrimaryButton
-                label="Send magic link"
+                label="Send OTP on email"
                 onPress={onSendLink}
                 disabled={!isValid}
                 loading={loading}
