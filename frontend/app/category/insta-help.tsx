@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Image,
   ScrollView,
@@ -30,6 +30,63 @@ import {
 import { colors, radius } from "@/src/theme";
 import { HeroMediaBanner, HeroMediaItem } from "@/src/components/HeroMediaBanner";
 import { useCategoryCMS } from "@/src/hooks/useCategoryCMS";
+
+// ─────────────────────────────────────────────────────────────────────
+// Admin-editable InstaHelp CMS config (see /api/admin/cms/instahelp)
+// ─────────────────────────────────────────────────────────────────────
+type CmsTimeSlot = { id: string; duration: string; price: number; original_price: number; discount: string; enabled: boolean };
+type CmsTaskCategory = { id: string; name: string; image: string; inclusions: string[]; exclusions: string[]; enabled: boolean };
+type CmsTimeEstimate = { id: string; icon: string; title: string; subtitle: string; time: string; enabled: boolean };
+type CmsFAQ = { id: string; question: string; answer: string; enabled: boolean };
+
+type InstaHelpCfg = {
+  title: string;
+  rating_text: string;
+  header_enabled: boolean;
+
+  time_slots_enabled: boolean;
+  time_slots: CmsTimeSlot[];
+
+  earliest_slot_enabled: boolean;
+  earliest_slot_text: string;
+
+  super_saver_enabled: boolean;
+  super_saver_badge: string;
+  super_saver_title: string;
+  super_saver_price: string;
+  super_saver_validity: string;
+  super_saver_cta: string;
+  super_saver_pack_label: string;
+  super_saver_bg_color: string;
+
+  task_categories_enabled: boolean;
+  task_categories_title: string;
+  task_categories_note_enabled: boolean;
+  task_categories_note: string;
+  task_categories: CmsTaskCategory[];
+
+  time_estimates_enabled: boolean;
+  time_estimates_title: string;
+  time_estimates_note: string;
+  time_estimates: CmsTimeEstimate[];
+
+  exclusions_enabled: boolean;
+  exclusions_title: string;
+  excluded_items: string[];
+
+  cover_enabled: boolean;
+  cover_title: string;
+  cover_description: string;
+
+  faq_enabled: boolean;
+  faq_title: string;
+  faqs: CmsFAQ[];
+};
+
+const INSTAHELP_API_BASE = (() => {
+  if (typeof window !== "undefined") return "";
+  return process.env.EXPO_PUBLIC_BACKEND_URL || "";
+})();
 
 // Hero banner media — swipeable images + tap-to-play video.
 const HERO_MEDIA: HeroMediaItem[] = [
@@ -271,9 +328,84 @@ export default function InstaHelpServiceScreen() {
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<typeof TASK_CATEGORIES[0] | null>(null);
+  const [selectedTask, setSelectedTask] = useState<CmsTaskCategory | null>(null);
 
-  const handleTaskPress = (task: typeof TASK_CATEGORIES[0]) => {
+  // ── Fetch admin-editable InstaHelp CMS config ────────────────
+  const [cfg, setCfg] = useState<InstaHelpCfg | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${INSTAHELP_API_BASE}/api/admin/cms/instahelp`, {
+          headers: { "Cache-Control": "no-cache" },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as InstaHelpCfg;
+        if (!cancelled && data && typeof data === "object") {
+          setCfg(data);
+        }
+      } catch {
+        /* keep null → falls back to hardcoded defaults below */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Derived arrays: prefer CMS config, fall back to hardcoded defaults.
+  const timeSlots = useMemo<CmsTimeSlot[]>(() => {
+    const src = cfg?.time_slots?.filter((s) => s.enabled);
+    if (src && src.length) return src;
+    return TIME_OPTIONS.map((o) => ({
+      id: o.id,
+      duration: o.duration,
+      price: o.price,
+      original_price: o.originalPrice,
+      discount: o.discount,
+      enabled: true,
+    }));
+  }, [cfg]);
+
+  const taskCategories = useMemo<CmsTaskCategory[]>(() => {
+    const src = cfg?.task_categories?.filter((t) => t.enabled);
+    if (src && src.length) return src;
+    return TASK_CATEGORIES.map((t) => ({
+      id: t.id,
+      name: t.name,
+      image: t.image,
+      inclusions: t.inclusions,
+      exclusions: t.exclusions,
+      enabled: true,
+    }));
+  }, [cfg]);
+
+  const timeEstimates = useMemo<CmsTimeEstimate[]>(() => {
+    const src = cfg?.time_estimates?.filter((e) => e.enabled);
+    if (src && src.length) return src;
+    return TIME_ESTIMATES.map((e) => ({
+      id: e.id,
+      icon: e.icon,
+      title: e.title,
+      subtitle: e.subtitle,
+      time: e.time,
+      enabled: true,
+    }));
+  }, [cfg]);
+
+  const excludedItems = useMemo<string[]>(() => {
+    const src = cfg?.excluded_items;
+    if (src && src.length) return src;
+    return EXCLUDED_ITEMS;
+  }, [cfg]);
+
+  const faqs = useMemo<CmsFAQ[]>(() => {
+    const src = cfg?.faqs?.filter((f) => f.enabled);
+    if (src && src.length) return src;
+    return FAQS.map((f) => ({ ...f, enabled: true }));
+  }, [cfg]);
+
+  const handleTaskPress = (task: CmsTaskCategory) => {
     setSelectedTask(task);
     setShowTaskDetails(true);
   };
@@ -298,7 +430,7 @@ export default function InstaHelpServiceScreen() {
 
   const getCartTotal = () => {
     return Object.entries(cart).reduce((total, [id, qty]) => {
-      const option = TIME_OPTIONS.find(o => o.id === id);
+      const option = timeSlots.find((o) => o.id === id);
       return total + (option?.price || 0) * qty;
     }, 0);
   };
@@ -334,13 +466,17 @@ export default function InstaHelpServiceScreen() {
         </View>
 
         {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>InstaHelp</Text>
-          <View style={styles.ratingRow}>
-            <Star size={16} color="#000000" fill="#000000" />
-            <Text style={styles.ratingText}>{brandRating} ({brandReviewsLabel})</Text>
+        {(cfg?.header_enabled ?? true) ? (
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>{cfg?.title || "InstaHelp"}</Text>
+            <View style={styles.ratingRow}>
+              <Star size={16} color="#000000" fill="#000000" />
+              <Text style={styles.ratingText}>
+                {cfg?.rating_text || `${brandRating} (${brandReviewsLabel})`}
+              </Text>
+            </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Dotted separator */}
         <View style={styles.dottedSeparator} />
@@ -379,201 +515,265 @@ export default function InstaHelpServiceScreen() {
         </View>
 
         {/* Time-based pricing cards */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pricingContainer}
-        >
-          {TIME_OPTIONS.map((option) => (
-            <View key={option.id} style={styles.pricingCard}>
-              <Text style={styles.durationText}>{option.duration}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceText}>₹{option.price}</Text>
-                <Text style={styles.originalPriceText}>₹{option.originalPrice}</Text>
-              </View>
-              <View style={styles.discountBadge}>
-                <View style={styles.discountDot} />
-                <Text style={styles.discountText}>{option.discount}</Text>
-              </View>
-              
-              {/* Add Button */}
-              {!cart[option.id] ? (
-                <TouchableOpacity 
-                  style={styles.addButton}
-                  onPress={() => handleAddToCart(option.id)}
-                >
-                  <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.quantityRow}>
+        {(cfg?.time_slots_enabled ?? true) ? (
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pricingContainer}
+          >
+            {timeSlots.map((option) => (
+              <View key={option.id} style={styles.pricingCard}>
+                <Text style={styles.durationText}>{option.duration}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceText}>₹{option.price}</Text>
+                  <Text style={styles.originalPriceText}>₹{option.original_price}</Text>
+                </View>
+                {option.discount ? (
+                  <View style={styles.discountBadge}>
+                    <View style={styles.discountDot} />
+                    <Text style={styles.discountText}>{option.discount}</Text>
+                  </View>
+                ) : null}
+                
+                {/* Add Button */}
+                {!cart[option.id] ? (
                   <TouchableOpacity 
-                    style={styles.qtyBtn}
-                    onPress={() => handleRemoveFromCart(option.id)}
-                  >
-                    <Text style={styles.qtyBtnText}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.qtyText}>{cart[option.id]}</Text>
-                  <TouchableOpacity 
-                    style={styles.qtyBtn}
+                    style={styles.addButton}
                     onPress={() => handleAddToCart(option.id)}
                   >
-                    <Text style={styles.qtyBtnText}>+</Text>
+                    <Text style={styles.addButtonText}>Add</Text>
                   </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
+                ) : (
+                  <View style={styles.quantityRow}>
+                    <TouchableOpacity 
+                      style={styles.qtyBtn}
+                      onPress={() => handleRemoveFromCart(option.id)}
+                    >
+                      <Text style={styles.qtyBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.qtyText}>{cart[option.id]}</Text>
+                    <TouchableOpacity 
+                      style={styles.qtyBtn}
+                      onPress={() => handleAddToCart(option.id)}
+                    >
+                      <Text style={styles.qtyBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
 
-        {/* Earliest available slot */}
-        <View style={styles.slotContainer}>
-          <Clock size={18} color="#6B7280" />
-          <Text style={styles.slotText}>Earliest available slot : Today, 9:15 AM</Text>
-        </View>
+        {/* Earliest available slot (OFF by default — admin can turn on) */}
+        {cfg?.earliest_slot_enabled ? (
+          <View style={styles.slotContainer}>
+            <Clock size={18} color="#6B7280" />
+            <Text style={styles.slotText}>
+              {cfg?.earliest_slot_text || "Earliest available slot : Today, 9:15 AM"}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Super Saver Pack Banner */}
-        <View style={styles.saverBanner}>
-          <View style={styles.extraOffBadge}>
-            <Text style={styles.extraOffText}>EXTRA 80% OFF</Text>
-          </View>
-          <View style={styles.saverContent}>
-            <View style={styles.saverLeft}>
-              <View style={styles.saverPriceRow}>
-                <Text style={styles.saverTitle}>3-visits pack at </Text>
-                <Text style={styles.saverOriginalPrice}>₹245</Text>
+        {(cfg?.super_saver_enabled ?? true) ? (
+          <View
+            style={[
+              styles.saverBanner,
+              cfg?.super_saver_bg_color ? { backgroundColor: cfg.super_saver_bg_color } : null,
+            ]}
+          >
+            <View style={styles.extraOffBadge}>
+              <Text style={styles.extraOffText}>
+                {cfg?.super_saver_badge || "EXTRA 80% OFF"}
+              </Text>
+            </View>
+            <View style={styles.saverContent}>
+              <View style={styles.saverLeft}>
+                <Text style={styles.saverTitle}>
+                  {cfg?.super_saver_title || "3-visits pack at ₹245"}
+                </Text>
+                <Text style={styles.saverPrice}>
+                  {cfg?.super_saver_price || "₹49/visit"}
+                </Text>
+                <Text style={styles.saverValidity}>
+                  {cfg?.super_saver_validity || "Valid till 1 month"}
+                </Text>
+                <TouchableOpacity style={styles.bookBtn}>
+                  <Text style={styles.bookBtnText}>
+                    {cfg?.super_saver_cta || "Book"}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.saverPrice}>₹49/visit</Text>
-              <Text style={styles.saverValidity}>Valid till 1 month</Text>
-              <TouchableOpacity style={styles.bookBtn}>
-                <Text style={styles.bookBtnText}>Book</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.saverRight}>
-              <Text style={styles.superSaverText}>SUPER{'\n'}SAVER{'\n'}PACK</Text>
+              <View style={styles.saverRight}>
+                <Text style={styles.superSaverText}>
+                  {(cfg?.super_saver_pack_label || "SUPER SAVER PACK")
+                    .split(" ")
+                    .join("\n")}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Divider */}
         <View style={styles.sectionDivider} />
 
         {/* One help who can do it all */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>One help who can do it all</Text>
-          <View style={styles.taskGrid}>
-            {TASK_CATEGORIES.map((task) => (
-              <TouchableOpacity 
-                key={task.id} 
-                style={styles.taskCard}
-                onPress={() => handleTaskPress(task)}
-              >
-                <View style={styles.taskHeader}>
-                  <Text style={styles.taskName}>{task.name}</Text>
-                  <View style={styles.taskArrow}>
-                    <ChevronRight size={14} color="#6B7280" />
+        {(cfg?.task_categories_enabled ?? true) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {cfg?.task_categories_title || "One help who can do it all"}
+            </Text>
+            <View style={styles.taskGrid}>
+              {taskCategories.map((task) => (
+                <TouchableOpacity 
+                  key={task.id} 
+                  style={styles.taskCard}
+                  onPress={() => handleTaskPress(task)}
+                >
+                  <View style={styles.taskHeader}>
+                    <Text style={styles.taskName}>{task.name}</Text>
+                    <View style={styles.taskArrow}>
+                      <ChevronRight size={14} color="#6B7280" />
+                    </View>
                   </View>
+                  <Image
+                    source={{ uri: task.image }}
+                    style={styles.taskImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Info note */}
+            {(cfg?.task_categories_note_enabled ?? true) ? (
+              <View style={styles.infoNote}>
+                <Info size={16} color="#6B7280" />
+                <Text style={styles.infoNoteText}>
+                  {cfg?.task_categories_note ||
+                    "Please provide cleaning equipment & supplies to the help"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Divider */}
+        {(cfg?.time_estimates_enabled ?? true) ? (
+          <View style={styles.sectionDivider} />
+        ) : null}
+
+        {/* How long does it take */}
+        {(cfg?.time_estimates_enabled ?? true) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {cfg?.time_estimates_title || "How long does it take?"}
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {cfg?.time_estimates_note ||
+                "These approximate time for a 3BHK home, you can ask the help to customise as per your need"}
+            </Text>
+            
+            {timeEstimates.map((estimate, index) => (
+              <View key={estimate.id}>
+                <View style={styles.estimateRow}>
+                  <View style={styles.estimateIcon}>
+                    {estimate.icon === "kitchen" && <Text style={styles.iconText}>🍳</Text>}
+                    {estimate.icon === "bathroom" && <Text style={styles.iconText}>🚽</Text>}
+                    {estimate.icon === "mopping" && <Text style={styles.iconText}>🧹</Text>}
+                    {estimate.icon !== "kitchen" &&
+                      estimate.icon !== "bathroom" &&
+                      estimate.icon !== "mopping" && (
+                        <Text style={styles.iconText}>⏱️</Text>
+                      )}
+                  </View>
+                  <View style={styles.estimateContent}>
+                    <Text style={styles.estimateTitle}>{estimate.title}</Text>
+                    {estimate.subtitle ? (
+                      <Text style={styles.estimateSubtitle}>{estimate.subtitle}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.estimateTime}>{estimate.time}</Text>
                 </View>
-                <Image
-                  source={{ uri: task.image }}
-                  style={styles.taskImage}
-                  resizeMode="cover"
-                />
+                {index < timeEstimates.length - 1 && <View style={styles.estimateDivider} />}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Divider */}
+        {(cfg?.exclusions_enabled ?? true) ? (
+          <View style={styles.sectionDivider} />
+        ) : null}
+
+        {/* What's excluded */}
+        {(cfg?.exclusions_enabled ?? true) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {cfg?.exclusions_title || "What's excluded"}
+            </Text>
+            {excludedItems.map((item, index) => (
+              <View key={index} style={styles.excludedRow}>
+                <X size={16} color="#DC2626" />
+                <Text style={styles.excludedText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Mfixit Cover */}
+        {(cfg?.cover_enabled ?? true) ? (
+          <View style={styles.coverSection}>
+            <View style={styles.coverContent}>
+              <Text style={styles.coverTitle}>
+                {cfg?.cover_title || "Stay stress free with Mfixit cover"}
+              </Text>
+              <Text style={styles.coverSubtitle}>
+                {cfg?.cover_description ||
+                  "Up to ₹10,000 cover if any damage happens during the job"}
+              </Text>
+            </View>
+            <View style={styles.coverIcon}>
+              <Shield size={40} color="#FFFFFF" fill="#16A34A" />
+              <Check size={20} color="#FFFFFF" style={styles.coverCheck} />
+            </View>
+          </View>
+        ) : null}
+
+        {/* Divider */}
+        {(cfg?.faq_enabled ?? true) ? (
+          <View style={styles.sectionDivider} />
+        ) : null}
+
+        {/* FAQs */}
+        {(cfg?.faq_enabled ?? true) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {cfg?.faq_title || "Frequently asked questions"}
+            </Text>
+            {faqs.map((faq) => (
+              <TouchableOpacity 
+                key={faq.id} 
+                style={styles.faqItem}
+                onPress={() => toggleFaq(faq.id)}
+              >
+                <View style={styles.faqHeader}>
+                  <Text style={styles.faqQuestion}>{faq.question}</Text>
+                  {expandedFaq === faq.id ? (
+                    <ChevronUp size={20} color="#6B7280" />
+                  ) : (
+                    <ChevronDown size={20} color="#6B7280" />
+                  )}
+                </View>
+                {expandedFaq === faq.id && (
+                  <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                )}
               </TouchableOpacity>
             ))}
           </View>
-          
-          {/* Info note */}
-          <View style={styles.infoNote}>
-            <Info size={16} color="#6B7280" />
-            <Text style={styles.infoNoteText}>
-              Please provide cleaning equipment & supplies to the help
-            </Text>
-          </View>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.sectionDivider} />
-
-        {/* How long does it take */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How long does it take?</Text>
-          <Text style={styles.sectionSubtitle}>
-            These approximate time for a 3BHK home, you can ask the help to customise as per your need
-          </Text>
-          
-          {TIME_ESTIMATES.map((estimate, index) => (
-            <View key={estimate.id}>
-              <View style={styles.estimateRow}>
-                <View style={styles.estimateIcon}>
-                  {estimate.icon === "kitchen" && <Text style={styles.iconText}>🍳</Text>}
-                  {estimate.icon === "bathroom" && <Text style={styles.iconText}>🚽</Text>}
-                  {estimate.icon === "mopping" && <Text style={styles.iconText}>🧹</Text>}
-                </View>
-                <View style={styles.estimateContent}>
-                  <Text style={styles.estimateTitle}>{estimate.title}</Text>
-                  <Text style={styles.estimateSubtitle}>{estimate.subtitle}</Text>
-                </View>
-                <Text style={styles.estimateTime}>{estimate.time}</Text>
-              </View>
-              {index < TIME_ESTIMATES.length - 1 && <View style={styles.estimateDivider} />}
-            </View>
-          ))}
-        </View>
-
-        {/* Divider */}
-        <View style={styles.sectionDivider} />
-
-        {/* What's excluded */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What's excluded</Text>
-          {EXCLUDED_ITEMS.map((item, index) => (
-            <View key={index} style={styles.excludedRow}>
-              <X size={16} color="#DC2626" />
-              <Text style={styles.excludedText}>{item}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Mfixit Cover */}
-        <View style={styles.coverSection}>
-          <View style={styles.coverContent}>
-            <Text style={styles.coverTitle}>Stay stress free with Mfixit cover</Text>
-            <Text style={styles.coverSubtitle}>
-              Up to ₹10,000 cover if any damage happens during the job
-            </Text>
-          </View>
-          <View style={styles.coverIcon}>
-            <Shield size={40} color="#FFFFFF" fill="#16A34A" />
-            <Check size={20} color="#FFFFFF" style={styles.coverCheck} />
-          </View>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.sectionDivider} />
-
-        {/* FAQs */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequently asked questions</Text>
-          {FAQS.map((faq) => (
-            <TouchableOpacity 
-              key={faq.id} 
-              style={styles.faqItem}
-              onPress={() => toggleFaq(faq.id)}
-            >
-              <View style={styles.faqHeader}>
-                <Text style={styles.faqQuestion}>{faq.question}</Text>
-                {expandedFaq === faq.id ? (
-                  <ChevronUp size={20} color="#6B7280" />
-                ) : (
-                  <ChevronDown size={20} color="#6B7280" />
-                )}
-              </View>
-              {expandedFaq === faq.id && (
-                <Text style={styles.faqAnswer}>{faq.answer}</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+        ) : null}
 
         <View style={{ height: getCartItemCount() > 0 ? 100 : 40 }} />
       </ScrollView>

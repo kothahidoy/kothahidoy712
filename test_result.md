@@ -4655,3 +4655,307 @@ agent_communication:
       Welcome Screen CMS feature is production-ready. All endpoints working correctly. 
       Frontend consumption verified. Main agent can summarize and finish.
 
+
+
+---
+
+## 2026-07-01 — InstaHelp CMS Testing
+
+user_problem_statement: |
+  Test the new InstaHelp CMS backend endpoints and end-to-end frontend consumption.
+  
+  **Preview URL:** https://ac7b332f-60e9-4e5e-a6ff-9db4d52b5b36.preview.emergentagent.com
+  **Backend API base:** same origin, prefix `/api/admin/cms/instahelp`
+  
+  **Backend endpoints to test:**
+  1. `GET /api/admin/cms/instahelp` — should return the config JSON (with defaults if never saved)
+  2. `PUT /api/admin/cms/instahelp` — accept the FULL JSON body and save it
+  
+  **Test scenarios:**
+  - **Scenario A — Defaults:** GET the endpoint, verify `earliest_slot_enabled === false` (OFF by default per user request), verify all list sizes
+  - **Scenario B — PUT modified config + verify page reflects it:** PUT with overrides, verify response `ok: true`, load page and confirm UI changes
+  - **Scenario C — Restore defaults:** PUT with default config, verify defaults restored, verify page shows original design
+
+backend:
+  - task: "InstaHelp CMS Endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/instahelp_cms_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Implemented InstaHelp CMS endpoints:
+          - GET /api/admin/cms/instahelp (fetch current config with defaults)
+          - PUT /api/admin/cms/instahelp (save config to Supabase Storage)
+          
+          Config stored as JSON file in cms-media bucket (instahelp-config.json).
+          Supports ~40 editable fields including:
+          - Header (title, rating_text, header_enabled)
+          - Time slots (4 slots with price, duration, discount, enabled flags)
+          - Earliest slot text (OFF by default: earliest_slot_enabled = false)
+          - Super Saver Pack banner (enabled, badge, title, price, validity, CTA, bg_color)
+          - Task categories (6 categories with inclusions, exclusions, enabled flags)
+          - Time estimates (3 estimates with icon, title, subtitle, time)
+          - Excluded items (list of 4 items)
+          - Cover section (enabled, title, description)
+          - FAQs (5 FAQs with question, answer, enabled flags)
+          
+          All fields have both value AND enabled flag for granular control.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ ALL TESTS PASSED - INSTAHELP CMS WORKING PERFECTLY
+          
+          **TEST RESULTS: 52/52 TESTS PASSED (100% SUCCESS RATE)**
+          
+          **SCENARIO A: GET Defaults** ✅ 10/10 PASS
+          - GET /api/admin/cms/instahelp: 200 OK
+          - ✅ earliest_slot_enabled === false (OFF by default per user request)
+          - ✅ time_slots has 4 items (1hr, 1.5hr, 2hr, 3hr)
+          - ✅ task_categories has 6 items (Kitchen, Meal prep, Mopping, Bathroom, Laundry, Packing)
+          - ✅ time_estimates has 3 items
+          - ✅ excluded_items has 4 items (Removal of hard stains, Cleaning of any heavy appliances, Cooking meals, Hand-washing clothes)
+          - ✅ faqs has 5 items
+          - ✅ super_saver_enabled === true (ON by default)
+          - ✅ cover_enabled === true (ON by default)
+          - ✅ title === 'InstaHelp'
+          - ✅ All time_slots have required fields (id, duration, price, original_price)
+          
+          **SCENARIO B: PUT Modified Config** ✅ 20/20 PASS
+          - PUT /api/admin/cms/instahelp with test overrides: 200 OK
+          - Response: {"ok": true, "url": "...", "config": {...}}
+          - ✅ Response has ok: true
+          - ✅ Response has url field
+          - ✅ Response has config field
+          
+          **Backend Verification (GET after PUT):**
+          - ✅ title === 'TEST InstaHelp'
+          - ✅ earliest_slot_enabled === true
+          - ✅ earliest_slot_text === 'TEST slot text'
+          - ✅ super_saver_enabled === false
+          - ✅ super_saver_bg_color === '#DC2626' (red)
+          - ✅ task_categories_title === 'TEST TILES TITLE'
+          - ✅ time_slots[0].price === 999
+          - ✅ time_slots[0].duration === 'TEST 1 hour'
+          - ✅ time_slots[1].enabled === false (1.5hr hidden)
+          - ✅ task_categories[0].enabled === false (Kitchen hidden)
+          - ✅ excluded_items === ['TEST X1', 'TEST X2']
+          - ✅ cover_enabled === false
+          - ✅ faqs[0].question === 'TEST FAQ Q?'
+          - ✅ faqs[1].enabled === false (second FAQ hidden)
+          
+          **Frontend UI Verification (Scenario B):**
+          - ✅ Page title reads 'TEST InstaHelp'
+          - ✅ 'TEST slot text' is visible under time slots
+          - ✅ Purple 'Super Saver' banner is HIDDEN
+          - ✅ Section 'TEST TILES TITLE' is visible
+          - ✅ First slot shows 'TEST 1 hour ₹999'
+          - ✅ '1.5 hours' slot is HIDDEN
+          - ✅ 'Kitchen & utensil cleaning' tile is HIDDEN
+          - ✅ 'What's excluded' shows 'TEST X1' and 'TEST X2'
+          - ✅ 'Stay stress free' cover section is HIDDEN
+          - ✅ First FAQ question is 'TEST FAQ Q?'
+          - ✅ Second FAQ is HIDDEN (only 4 FAQs visible)
+          
+          **SCENARIO C: Restore Defaults** ✅ 22/22 PASS
+          - PUT /api/admin/cms/instahelp with default config: 200 OK
+          - Response: {"ok": true}
+          
+          **Backend Verification (GET after restore):**
+          - ✅ title === 'InstaHelp'
+          - ✅ earliest_slot_enabled === false (OFF by default - KEY REQUIREMENT)
+          - ✅ super_saver_enabled === true
+          - ✅ super_saver_bg_color === '#7C3AED' (purple)
+          - ✅ task_categories_title === 'One help who can do it all'
+          - ✅ All 4 time_slots enabled
+          - ✅ All 6 task_categories enabled
+          - ✅ excluded_items has 4 default items
+          - ✅ cover_enabled === true
+          - ✅ All 5 faqs enabled
+          - ✅ faqs[0].question restored to default
+          - ✅ No TEST values remain in config
+          
+          **Frontend UI Verification (Scenario C):**
+          - ✅ Page title reads 'InstaHelp' (TEST removed)
+          - ✅ 'Earliest available slot' bar is NOT shown (correct default)
+          - ✅ Purple 'Super Saver' banner is VISIBLE
+          - ✅ Section title is 'One help who can do it all' (TEST removed)
+          - ✅ First slot shows '1 hour ₹79' (TEST removed)
+          - ✅ '1.5 hours' slot is VISIBLE
+          - ✅ 'Kitchen & utensil cleaning' tile is VISIBLE
+          - ✅ 'What's excluded' shows default items (TEST removed)
+          - ✅ 'Stay stress free' cover section is VISIBLE
+          - ✅ First FAQ question restored (TEST removed)
+          - ✅ Second FAQ is VISIBLE (all 5 FAQs enabled)
+          
+          **BACKEND LOGS VERIFICATION:**
+          - All PUT requests: POST to Supabase Storage returned 200 OK
+          - All GET requests: 200 OK with config JSON
+          - No 500 errors or exceptions
+          - Supabase Storage integration working correctly
+          - Config file: cms-media/instahelp-config.json
+          - Public URL: https://xuxetkeqxuwgphqrdzvy.supabase.co/storage/v1/object/public/cms-media/instahelp-config.json
+          
+          **KEY FEATURES VERIFIED:**
+          1. ✅ GET endpoint returns defaults if no config saved
+          2. ✅ PUT endpoint accepts full config payload
+          3. ✅ Updates persist to Supabase Storage
+          4. ✅ Frontend fetches and renders CMS config
+          5. ✅ All enable/disable toggles working
+          6. ✅ earliest_slot_enabled defaults to false (per user request)
+          7. ✅ super_saver_enabled defaults to true
+          8. ✅ cover_enabled defaults to true
+          9. ✅ All list sizes correct (4 slots, 6 categories, 3 estimates, 4 exclusions, 5 FAQs)
+          10. ✅ Color customization working (purple, red, etc.)
+          11. ✅ Defaults can be restored
+          12. ✅ UI reflects changes immediately after page refresh
+          13. ✅ No TEST values remain after restore
+          
+          **SCREENSHOTS:**
+          - test-scenario-b-full-page.png: Full page with modified config
+          - test-scenario-b-final.png: Close-up of modified sections
+          - test-scenario-c-restored.png: Full page with restored defaults
+          
+          **NO CRITICAL ISSUES FOUND**
+          **NO MINOR ISSUES FOUND**
+          
+          **RECOMMENDATION:**
+          InstaHelp CMS feature is production-ready. All backend endpoints working correctly. 
+          Frontend consumption verified. All test scenarios passed with 100% success rate.
+
+frontend:
+  - task: "InstaHelp Screen - CMS Integration"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/category/insta-help.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ INSTAHELP FRONTEND CMS INTEGRATION VERIFIED
+          
+          **FRONTEND CONSUMPTION TESTED:**
+          - InstaHelp page fetches config from backend on load
+          - All editable fields render correctly:
+            ✓ Header (title, rating_text)
+            ✓ Time slots with enable/disable support
+            ✓ Earliest slot text (conditional rendering based on enabled flag)
+            ✓ Super Saver Pack banner with custom bg_color
+            ✓ Task categories with enable/disable support
+            ✓ Time estimates with icon support
+            ✓ Excluded items list
+            ✓ Cover section with enable/disable support
+            ✓ FAQs with enable/disable support
+          - Enable/disable toggles working (tested hiding slots, categories, FAQs, cover, super saver)
+          - Color customization working (tested red bg_color for super saver)
+          - Updates render immediately after page refresh
+          - Fallback to defaults if config fetch fails
+          
+          **SCREENSHOTS:**
+          - test-scenario-b-full-page.png: Modified config with TEST values
+          - test-scenario-b-final.png: Close-up of modified sections
+          - test-scenario-c-restored.png: Restored defaults
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 14
+  run_ui: true
+  last_updated: "2026-07-01"
+
+test_plan:
+  current_focus:
+    - "InstaHelp CMS Endpoints"
+    - "InstaHelp Screen - CMS Integration"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: |
+      🎉 INSTAHELP CMS - COMPREHENSIVE TEST COMPLETE - ALL TESTS PASSED 🎉
+      
+      **TEST REQUEST:** Test the new InstaHelp CMS backend endpoints and end-to-end frontend consumption
+      
+      **TEST RESULTS: 52/52 TESTS PASSED (100% SUCCESS RATE)**
+      
+      **COMPREHENSIVE TEST SUMMARY:**
+      
+      ✅ **SCENARIO A: GET Defaults** - 10/10 PASS
+      - GET /api/admin/cms/instahelp returns correct defaults
+      - earliest_slot_enabled === false (OFF by default per user request) ✓
+      - All list sizes correct (4 slots, 6 categories, 3 estimates, 4 exclusions, 5 FAQs) ✓
+      - All default values verified ✓
+      
+      ✅ **SCENARIO B: PUT Modified Config + Frontend Verification** - 20/20 PASS
+      - PUT /api/admin/cms/instahelp with test overrides: 200 OK
+      - Response: {"ok": true, "url": "...", "config": {...}}
+      - Backend verification: All 14 overrides saved correctly
+      - Frontend UI verification: All 11 UI changes reflected on page
+        • Page title: "TEST InstaHelp" ✓
+        • Earliest slot text: "TEST slot text" visible ✓
+        • Super Saver banner: HIDDEN ✓
+        • Section title: "TEST TILES TITLE" ✓
+        • First slot: "TEST 1 hour ₹999" ✓
+        • 1.5hr slot: HIDDEN ✓
+        • Kitchen tile: HIDDEN ✓
+        • Excluded items: "TEST X1", "TEST X2" ✓
+        • Cover section: HIDDEN ✓
+        • First FAQ: "TEST FAQ Q?" ✓
+        • Second FAQ: HIDDEN ✓
+      
+      ✅ **SCENARIO C: Restore Defaults + Frontend Verification** - 22/22 PASS
+      - PUT /api/admin/cms/instahelp with default config: 200 OK
+      - Backend verification: All 12 defaults restored correctly
+      - Frontend UI verification: All 11 UI elements restored to original design
+        • Page title: "InstaHelp" (TEST removed) ✓
+        • Earliest slot bar: NOT shown (correct default) ✓
+        • Super Saver banner: VISIBLE (purple) ✓
+        • Section title: "One help who can do it all" ✓
+        • First slot: "1 hour ₹79" ✓
+        • 1.5hr slot: VISIBLE ✓
+        • Kitchen tile: VISIBLE ✓
+        • Excluded items: 4 default items ✓
+        • Cover section: VISIBLE ✓
+        • First FAQ: restored to default ✓
+        • Second FAQ: VISIBLE ✓
+      
+      **BACKEND LOGS:**
+      - All PUT requests: POST to Supabase Storage returned 200 OK
+      - All GET requests: 200 OK with config JSON
+      - No 500 errors or exceptions
+      - Supabase Storage integration working correctly
+      
+      **KEY FEATURES VERIFIED:**
+      1. ✅ GET endpoint returns defaults if no config saved
+      2. ✅ PUT endpoint accepts full config payload
+      3. ✅ Updates persist to Supabase Storage
+      4. ✅ Frontend fetches and renders CMS config
+      5. ✅ All enable/disable toggles working
+      6. ✅ earliest_slot_enabled defaults to false (per user request)
+      7. ✅ Color customization working
+      8. ✅ Defaults can be restored
+      9. ✅ UI reflects changes immediately
+      10. ✅ No TEST values remain after restore
+      
+      **SCREENSHOTS:**
+      - test-scenario-b-full-page.png: Full page with modified config (193 KB)
+      - test-scenario-b-final.png: Close-up of modified sections (51 KB)
+      - test-scenario-c-restored.png: Full page with restored defaults (158 KB)
+      
+      **NO CRITICAL ISSUES FOUND**
+      **NO MINOR ISSUES FOUND**
+      
+      **RECOMMENDATION:**
+      InstaHelp CMS feature is production-ready. All backend endpoints working correctly. 
+      Frontend consumption verified. All test scenarios passed with 100% success rate. 
+      Main agent can summarize and finish.
+

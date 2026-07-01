@@ -99,6 +99,9 @@ app.include_router(booking_public_router)
 from welcome_cms_routes import router as welcome_cms_router  # noqa: E402
 app.include_router(welcome_cms_router)
 
+from instahelp_cms_routes import router as instahelp_cms_router  # noqa: E402
+app.include_router(instahelp_cms_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

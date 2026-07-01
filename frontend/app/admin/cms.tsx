@@ -40,6 +40,7 @@ import {
   Upload,
   Video,
   X,
+  Zap,
 } from "lucide-react-native";
 import { colors, radius, shadow } from "@/src/theme";
 import { useSession } from "@/src/context/SessionContext";
@@ -52,7 +53,7 @@ const API = (() => {
   return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
 })();
 
-type TabKey = "welcome" | "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
+type TabKey = "welcome" | "instahelp" | "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
 
 // ─────────────────────────────────────────────────────────────────────
 //  HTTP helpers
@@ -1790,6 +1791,374 @@ function WelcomeTab() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+//  INSTAHELP SCREEN CMS – complete editor for /category/insta-help
+// ─────────────────────────────────────────────────────────────────────
+type IH_TimeSlot = { id: string; duration: string; price: number; original_price: number; discount: string; enabled: boolean };
+type IH_TaskCategory = { id: string; name: string; image: string; inclusions: string[]; exclusions: string[]; enabled: boolean };
+type IH_TimeEstimate = { id: string; icon: string; title: string; subtitle: string; time: string; enabled: boolean };
+type IH_FAQ = { id: string; question: string; answer: string; enabled: boolean };
+
+type InstaHelpCfg = {
+  title: string; rating_text: string; header_enabled: boolean;
+  time_slots_enabled: boolean; time_slots: IH_TimeSlot[];
+  earliest_slot_enabled: boolean; earliest_slot_text: string;
+  super_saver_enabled: boolean; super_saver_badge: string; super_saver_title: string;
+  super_saver_price: string; super_saver_validity: string; super_saver_cta: string;
+  super_saver_pack_label: string; super_saver_bg_color: string;
+  task_categories_enabled: boolean; task_categories_title: string;
+  task_categories_note_enabled: boolean; task_categories_note: string;
+  task_categories: IH_TaskCategory[];
+  time_estimates_enabled: boolean; time_estimates_title: string; time_estimates_note: string;
+  time_estimates: IH_TimeEstimate[];
+  exclusions_enabled: boolean; exclusions_title: string; excluded_items: string[];
+  cover_enabled: boolean; cover_title: string; cover_description: string;
+  faq_enabled: boolean; faq_title: string; faqs: IH_FAQ[];
+};
+
+const genId = () => `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+function TextArrayEditor({
+  items,
+  onChange,
+  placeholder = "Add item…",
+  addLabel = "+ Add",
+}: {
+  items: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+  addLabel?: string;
+}) {
+  return (
+    <View style={{ gap: 8 }}>
+      {items.map((it, idx) => (
+        <View key={idx} style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <TextInput
+            style={[fieldStyles.input, { flex: 1 }]}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textSubtle}
+            value={it}
+            onChangeText={(v) => {
+              const copy = [...items];
+              copy[idx] = v;
+              onChange(copy);
+            }}
+          />
+          <TouchableOpacity
+            onPress={() => onChange(items.filter((_, i) => i !== idx))}
+            style={{ padding: 8, backgroundColor: "#FEE2E2", borderRadius: 8 }}
+          >
+            <Trash2 size={16} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
+      ))}
+      <TouchableOpacity
+        style={{ paddingVertical: 10, alignItems: "center", backgroundColor: "#F3F4F6", borderRadius: 8 }}
+        onPress={() => onChange([...items, ""])}
+      >
+        <Text style={{ color: colors.textMain, fontWeight: "600" }}>{addLabel}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function InstaHelpTab() {
+  const [cfg, setCfg] = useState<InstaHelpCfg | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<InstaHelpCfg>("GET", "/instahelp");
+      setCfg(data);
+    } catch (e: any) {
+      notify("Load failed", e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const set = <K extends keyof InstaHelpCfg>(key: K, value: InstaHelpCfg[K]) => {
+    setCfg((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const save = async () => {
+    if (!cfg) return;
+    try {
+      setSaving(true);
+      await http("PUT", "/instahelp", cfg);
+      notify("Saved", "InstaHelp screen updated. Refresh the app to see changes.");
+    } catch (e: any) {
+      notify("Save failed", e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading || !cfg) return <ActivityIndicator style={{ marginTop: 32 }} />;
+
+  // ─── Time slot handlers ──────────────────────────────
+  const addSlot = () => set("time_slots", [
+    ...cfg.time_slots,
+    { id: genId(), duration: "New slot", price: 0, original_price: 0, discount: "", enabled: true },
+  ]);
+  const updateSlot = (idx: number, patch: Partial<IH_TimeSlot>) => {
+    const copy = [...cfg.time_slots];
+    copy[idx] = { ...copy[idx], ...patch };
+    set("time_slots", copy);
+  };
+  const removeSlot = async (idx: number) => {
+    const ok = await confirmAsync("Delete slot?", "This time slot will be removed.");
+    if (ok) set("time_slots", cfg.time_slots.filter((_, i) => i !== idx));
+  };
+
+  // ─── Task category handlers ──────────────────────────
+  const addTask = () => set("task_categories", [
+    ...cfg.task_categories,
+    { id: genId(), name: "New task", image: "", inclusions: [], exclusions: [], enabled: true },
+  ]);
+  const updateTask = (idx: number, patch: Partial<IH_TaskCategory>) => {
+    const copy = [...cfg.task_categories];
+    copy[idx] = { ...copy[idx], ...patch };
+    set("task_categories", copy);
+  };
+  const removeTask = async (idx: number) => {
+    const ok = await confirmAsync("Delete task?", `Remove "${cfg.task_categories[idx].name}"?`);
+    if (ok) set("task_categories", cfg.task_categories.filter((_, i) => i !== idx));
+  };
+
+  // ─── Time estimate handlers ──────────────────────────
+  const addEstimate = () => set("time_estimates", [
+    ...cfg.time_estimates,
+    { id: genId(), icon: "clock", title: "New task", subtitle: "", time: "10 mins", enabled: true },
+  ]);
+  const updateEstimate = (idx: number, patch: Partial<IH_TimeEstimate>) => {
+    const copy = [...cfg.time_estimates];
+    copy[idx] = { ...copy[idx], ...patch };
+    set("time_estimates", copy);
+  };
+  const removeEstimate = async (idx: number) => {
+    const ok = await confirmAsync("Delete estimate?", "");
+    if (ok) set("time_estimates", cfg.time_estimates.filter((_, i) => i !== idx));
+  };
+
+  // ─── FAQ handlers ────────────────────────────────────
+  const addFAQ = () => set("faqs", [
+    ...cfg.faqs,
+    { id: genId(), question: "New question?", answer: "New answer.", enabled: true },
+  ]);
+  const updateFAQ = (idx: number, patch: Partial<IH_FAQ>) => {
+    const copy = [...cfg.faqs];
+    copy[idx] = { ...copy[idx], ...patch };
+    set("faqs", copy);
+  };
+  const removeFAQ = async (idx: number) => {
+    const ok = await confirmAsync("Delete FAQ?", "");
+    if (ok) set("faqs", cfg.faqs.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={{ padding: 12, backgroundColor: "#EFF6FF", borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE" }}>
+        <Text style={{ fontSize: 13, color: "#1E3A8A", fontWeight: "700", marginBottom: 4 }}>
+          InstaHelp screen editor
+        </Text>
+        <Text style={{ fontSize: 12, color: "#1E40AF", lineHeight: 17 }}>
+          Toggle each section on/off, edit any text, add/remove time slots,
+          task tiles, FAQs, and update the hero task images. Save to publish.
+        </Text>
+      </View>
+
+      {/* ── Header ─────────────────────────────── */}
+      <SectionCard title="Header" subtitle="Page title + rating badge under the hero.">
+        <ToggleRow label="Show header" value={cfg.header_enabled} onChange={(v) => set("header_enabled", v)} />
+        <Field label="Title" value={cfg.title} onChange={(v: string) => set("title", v)} />
+        <Field label="Rating text" value={cfg.rating_text} onChange={(v: string) => set("rating_text", v)} />
+      </SectionCard>
+
+      {/* ── Time slots ─────────────────────────── */}
+      <SectionCard title="Time slots (1hr / 2hr etc.)" subtitle="Add, edit or delete the horizontal pricing cards.">
+        <ToggleRow label="Show time slots" value={cfg.time_slots_enabled} onChange={(v) => set("time_slots_enabled", v)} />
+        {cfg.time_slots.map((slot, idx) => (
+          <View key={slot.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontWeight: "700", color: colors.textMain }}>{slot.duration || "(no name)"}</Text>
+              <TouchableOpacity onPress={() => removeSlot(idx)} style={{ padding: 6, backgroundColor: "#FEE2E2", borderRadius: 8 }}>
+                <Trash2 size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+            <ToggleRow label="Enabled" value={slot.enabled} onChange={(v) => updateSlot(idx, { enabled: v })} />
+            <Field label="Duration label" value={slot.duration} onChange={(v: string) => updateSlot(idx, { duration: v })} />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Field label="Price (rupees)" value={String(slot.price)} keyboardType="number-pad" onChange={(v: string) => updateSlot(idx, { price: parseInt(v || "0", 10) || 0 })} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field label="Original price" value={String(slot.original_price)} keyboardType="number-pad" onChange={(v: string) => updateSlot(idx, { original_price: parseInt(v || "0", 10) || 0 })} />
+              </View>
+            </View>
+            <Field label="Discount badge" value={slot.discount} onChange={(v: string) => updateSlot(idx, { discount: v })} placeholder="e.g. 68% OFF" />
+          </View>
+        ))}
+        <TouchableOpacity style={btn.add} onPress={addSlot}>
+          <Plus size={14} color="#fff" />
+          <Text style={btn.addTxt}>Add time slot</Text>
+        </TouchableOpacity>
+      </SectionCard>
+
+      {/* ── Earliest slot text (default OFF) ────── */}
+      <SectionCard title='"Earliest available slot" text' subtitle="Optional bar under the pricing cards. OFF by default.">
+        <ToggleRow label="Show earliest-slot text" value={cfg.earliest_slot_enabled} onChange={(v) => set("earliest_slot_enabled", v)} />
+        <Field label="Text" value={cfg.earliest_slot_text} onChange={(v: string) => set("earliest_slot_text", v)} />
+      </SectionCard>
+
+      {/* ── Super Saver Pack ─────────────────────── */}
+      <SectionCard title="3-visits Super Saver Pack banner" subtitle="Purple banner promoting the multi-visit pack.">
+        <ToggleRow label="Show banner" value={cfg.super_saver_enabled} onChange={(v) => set("super_saver_enabled", v)} />
+        <Field label="Badge (top-left, e.g. EXTRA 80% OFF)" value={cfg.super_saver_badge} onChange={(v: string) => set("super_saver_badge", v)} />
+        <Field label="Title (e.g. 3-visits pack at rupees 245)" value={cfg.super_saver_title} onChange={(v: string) => set("super_saver_title", v)} />
+        <Field label="Price (e.g. rupees 49/visit)" value={cfg.super_saver_price} onChange={(v: string) => set("super_saver_price", v)} />
+        <Field label="Validity text" value={cfg.super_saver_validity} onChange={(v: string) => set("super_saver_validity", v)} />
+        <Field label="CTA button text" value={cfg.super_saver_cta} onChange={(v: string) => set("super_saver_cta", v)} />
+        <Field label="Pack label (right-side, e.g. SUPER SAVER PACK)" value={cfg.super_saver_pack_label} onChange={(v: string) => set("super_saver_pack_label", v)} />
+        <ColorField label="Background color" value={cfg.super_saver_bg_color} onChange={(v) => set("super_saver_bg_color", v)} />
+      </SectionCard>
+
+      {/* ── Task categories ─────────────────────── */}
+      <SectionCard title="One help who can do it all — tiles" subtitle="Grid of tappable tiles. Each opens a modal with inclusions/exclusions.">
+        <ToggleRow label="Show section" value={cfg.task_categories_enabled} onChange={(v) => set("task_categories_enabled", v)} />
+        <Field label="Section title" value={cfg.task_categories_title} onChange={(v: string) => set("task_categories_title", v)} />
+        <ToggleRow label="Show bottom info note" value={cfg.task_categories_note_enabled} onChange={(v) => set("task_categories_note_enabled", v)} />
+        <Field label="Info note text" value={cfg.task_categories_note} onChange={(v: string) => set("task_categories_note", v)} />
+
+        {cfg.task_categories.map((task, idx) => (
+          <View key={task.id} style={{ padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 10, backgroundColor: "#FAFAFA" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontWeight: "700", color: colors.textMain, flex: 1 }}>{task.name || "(untitled)"}</Text>
+              <TouchableOpacity onPress={() => removeTask(idx)} style={{ padding: 6, backgroundColor: "#FEE2E2", borderRadius: 8 }}>
+                <Trash2 size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+            <ToggleRow label="Enabled" value={task.enabled} onChange={(v) => updateTask(idx, { enabled: v })} />
+            <Field label="Tile name" value={task.name} onChange={(v: string) => updateTask(idx, { name: v })} />
+            <MediaPicker
+              label="Tile image"
+              value={task.image}
+              onChange={(u) => updateTask(idx, { image: u })}
+              mediaType="image"
+            />
+            <View>
+              <Text style={fieldStyles.label}>Inclusions (shown in modal)</Text>
+              <View style={{ height: 6 }} />
+              <TextArrayEditor
+                items={task.inclusions}
+                onChange={(items) => updateTask(idx, { inclusions: items })}
+                placeholder="e.g. Crockery & lunch boxes"
+                addLabel="+ Add inclusion"
+              />
+            </View>
+            <View>
+              <Text style={fieldStyles.label}>Exclusions (shown in modal)</Text>
+              <View style={{ height: 6 }} />
+              <TextArrayEditor
+                items={task.exclusions}
+                onChange={(items) => updateTask(idx, { exclusions: items })}
+                placeholder="e.g. Hard food stains"
+                addLabel="+ Add exclusion"
+              />
+            </View>
+          </View>
+        ))}
+        <TouchableOpacity style={btn.add} onPress={addTask}>
+          <Plus size={14} color="#fff" />
+          <Text style={btn.addTxt}>Add task tile</Text>
+        </TouchableOpacity>
+      </SectionCard>
+
+      {/* ── Time estimates ─────────────────────── */}
+      <SectionCard title="How long does it take? — list" subtitle="List of tasks with estimated durations.">
+        <ToggleRow label="Show section" value={cfg.time_estimates_enabled} onChange={(v) => set("time_estimates_enabled", v)} />
+        <Field label="Section title" value={cfg.time_estimates_title} onChange={(v: string) => set("time_estimates_title", v)} />
+        <Field label="Section note" value={cfg.time_estimates_note} onChange={(v: string) => set("time_estimates_note", v)} multiline />
+        {cfg.time_estimates.map((est, idx) => (
+          <View key={est.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontWeight: "700", color: colors.textMain, flex: 1 }}>{est.title || "(untitled)"}</Text>
+              <TouchableOpacity onPress={() => removeEstimate(idx)} style={{ padding: 6, backgroundColor: "#FEE2E2", borderRadius: 8 }}>
+                <Trash2 size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+            <ToggleRow label="Enabled" value={est.enabled} onChange={(v) => updateEstimate(idx, { enabled: v })} />
+            <Field label="Icon (kitchen | bathroom | mopping | clock)" value={est.icon} onChange={(v: string) => updateEstimate(idx, { icon: v.trim().toLowerCase() })} />
+            <Field label="Title" value={est.title} onChange={(v: string) => updateEstimate(idx, { title: v })} />
+            <Field label="Subtitle" value={est.subtitle} onChange={(v: string) => updateEstimate(idx, { subtitle: v })} />
+            <Field label="Time (e.g. 25 mins)" value={est.time} onChange={(v: string) => updateEstimate(idx, { time: v })} />
+          </View>
+        ))}
+        <TouchableOpacity style={btn.add} onPress={addEstimate}>
+          <Plus size={14} color="#fff" />
+          <Text style={btn.addTxt}>Add estimate</Text>
+        </TouchableOpacity>
+      </SectionCard>
+
+      {/* ── Excluded items ─────────────────────── */}
+      <SectionCard title="What's excluded — list" subtitle="Bullet list of items NOT included.">
+        <ToggleRow label="Show section" value={cfg.exclusions_enabled} onChange={(v) => set("exclusions_enabled", v)} />
+        <Field label="Section title" value={cfg.exclusions_title} onChange={(v: string) => set("exclusions_title", v)} />
+        <TextArrayEditor
+          items={cfg.excluded_items}
+          onChange={(items) => set("excluded_items", items)}
+          placeholder="e.g. Removal of hard stains"
+          addLabel="+ Add excluded item"
+        />
+      </SectionCard>
+
+      {/* ── Mfixit cover ────────────────────────── */}
+      <SectionCard title="Stay stress free with Mfixit cover — card" subtitle="Green shield card with damage cover promise.">
+        <ToggleRow label="Show cover card" value={cfg.cover_enabled} onChange={(v) => set("cover_enabled", v)} />
+        <Field label="Title" value={cfg.cover_title} onChange={(v: string) => set("cover_title", v)} />
+        <Field label="Description" value={cfg.cover_description} onChange={(v: string) => set("cover_description", v)} multiline />
+      </SectionCard>
+
+      {/* ── FAQs ────────────────────────────────── */}
+      <SectionCard title="Frequently asked questions" subtitle="Accordion list at the bottom of the page.">
+        <ToggleRow label="Show FAQ section" value={cfg.faq_enabled} onChange={(v) => set("faq_enabled", v)} />
+        <Field label="Section title" value={cfg.faq_title} onChange={(v: string) => set("faq_title", v)} />
+        {cfg.faqs.map((f, idx) => (
+          <View key={f.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontWeight: "700", color: colors.textMain, flex: 1 }} numberOfLines={1}>
+                {f.question || "(no question)"}
+              </Text>
+              <TouchableOpacity onPress={() => removeFAQ(idx)} style={{ padding: 6, backgroundColor: "#FEE2E2", borderRadius: 8 }}>
+                <Trash2 size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
+            <ToggleRow label="Enabled" value={f.enabled} onChange={(v) => updateFAQ(idx, { enabled: v })} />
+            <Field label="Question" value={f.question} onChange={(v: string) => updateFAQ(idx, { question: v })} multiline />
+            <Field label="Answer" value={f.answer} onChange={(v: string) => updateFAQ(idx, { answer: v })} multiline />
+          </View>
+        ))}
+        <TouchableOpacity style={btn.add} onPress={addFAQ}>
+          <Plus size={14} color="#fff" />
+          <Text style={btn.addTxt}>Add FAQ</Text>
+        </TouchableOpacity>
+      </SectionCard>
+
+      {/* ── Save row ───────────────────────────── */}
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
+        <TouchableOpacity style={btn.save} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Save size={16} color="#fff" />}
+          <Text style={btn.saveTxt}>{saving ? "Saving…" : "Save InstaHelp screen"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+
 function HomeTab() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2181,6 +2550,7 @@ export default function AdminCMS() {
 
   const TABS: { key: TabKey; label: string; icon: any }[] = [
     { key: "welcome",       label: "Welcome",    icon: Sparkles },
+    { key: "instahelp",     label: "InstaHelp",  icon: Zap },
     { key: "home",          label: "Home",       icon: Megaphone },
     { key: "categories",    label: "Categories", icon: Layers },
     { key: "subcategories", label: "Sub-cats",   icon: Layers },
@@ -2214,6 +2584,7 @@ export default function AdminCMS() {
         ) : (
           <>
             {tab === "welcome"       && <WelcomeTab />}
+            {tab === "instahelp"     && <InstaHelpTab />}
             {tab === "home"           && <HomeTab />}
             {tab === "categories"    && <CategoriesTab categories={categories} reload={reload} />}
             {tab === "subcategories" && <SubCategoriesTab categories={categories} />}
