@@ -35,6 +35,7 @@ import {
   PlayCircle,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   Upload,
   Video,
@@ -51,7 +52,7 @@ const API = (() => {
   return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
 })();
 
-type TabKey = "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
+type TabKey = "welcome" | "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
 
 // ─────────────────────────────────────────────────────────────────────
 //  HTTP helpers
@@ -1474,6 +1475,321 @@ function CelebratingProsSection() {
 }
 
 
+
+// ─────────────────────────────────────────────────────────────────────
+//  WELCOME SCREEN CMS – every text/image/toggle/color of /(auth)/welcome
+// ─────────────────────────────────────────────────────────────────────
+type WelcomeCfg = {
+  hero_image_url: string;
+  hero_image_enabled: boolean;
+
+  brand_name: string;
+  brand_subtitle: string;
+  brand_badge_enabled: boolean;
+
+  title_text: string;
+  title_color: string;
+  title_enabled: boolean;
+
+  subtitle_text: string;
+  subtitle_color: string;
+  subtitle_enabled: boolean;
+
+  description_text: string;
+  description_color: string;
+  description_enabled: boolean;
+
+  trust_1_text: string;
+  trust_1_enabled: boolean;
+  trust_2_text: string;
+  trust_2_enabled: boolean;
+  trust_3_text: string;
+  trust_3_enabled: boolean;
+  trust_text_color: string;
+
+  sit_back_text: string;
+  sit_back_color: string;
+  sit_back_enabled: boolean;
+
+  google_btn_label: string;
+  google_btn_enabled: boolean;
+
+  phone_btn_label: string;
+  phone_btn_enabled: boolean;
+
+  email_btn_label: string;
+  email_btn_enabled: boolean;
+
+  explore_btn_label: string;
+  explore_btn_color: string;
+  explore_btn_enabled: boolean;
+
+  provider_btn_label: string;
+  provider_btn_enabled: boolean;
+};
+
+const WELCOME_DEFAULT: WelcomeCfg = {
+  hero_image_url: "https://images.unsplash.com/photo-1646640381839-02748ae8ddf0?crop=entropy&cs=srgb&fm=jpg&w=900&q=85",
+  hero_image_enabled: true,
+  brand_name: "Mfixit",
+  brand_subtitle: "Verified pros · 24×7",
+  brand_badge_enabled: true,
+  title_text: "AC, Plumbing, Cleaning\nFixed in 30 Minutes",
+  title_color: "#FFFFFF",
+  title_enabled: true,
+  subtitle_text: "Same-day service. No hidden charges.",
+  subtitle_color: "#2563EB",
+  subtitle_enabled: true,
+  description_text: "Book a verified pro in 60 seconds — trusted by your neighbors.",
+  description_color: "#CBD5E1",
+  description_enabled: true,
+  trust_1_text: "10,000+ happy homes in Durgapur",
+  trust_1_enabled: true,
+  trust_2_text: "4.8 average rating",
+  trust_2_enabled: true,
+  trust_3_text: "30-day service warranty",
+  trust_3_enabled: true,
+  trust_text_color: "#FFFFFF",
+  sit_back_text: "Sit back, we'll take care of it 👍",
+  sit_back_color: "#2563EB",
+  sit_back_enabled: true,
+  google_btn_label: "Continue with Google",
+  google_btn_enabled: true,
+  phone_btn_label: "Continue with Phone",
+  phone_btn_enabled: true,
+  email_btn_label: "Continue with Email",
+  email_btn_enabled: true,
+  explore_btn_label: "Explore services without signing in",
+  explore_btn_color: "#2563EB",
+  explore_btn_enabled: true,
+  provider_btn_label: "Provider Login",
+  provider_btn_enabled: true,
+};
+
+const COLOR_PRESETS = [
+  "#FFFFFF", "#0F172A", "#1E293B", "#2563EB", "#3B82F6",
+  "#60A5FA", "#F59E0B", "#EF4444", "#10B981", "#8B5CF6",
+  "#CBD5E1", "#94A3B8", "#E11D48", "#0EA5E9", "#22C55E",
+];
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={fieldStyles.label}>{label}</Text>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+        <View
+          style={{
+            width: 40, height: 40, borderRadius: 8,
+            backgroundColor: value || "#000",
+            borderWidth: 1, borderColor: colors.border,
+          }}
+        />
+        <TextInput
+          style={[fieldStyles.input, { flex: 1 }]}
+          placeholder="#RRGGBB"
+          placeholderTextColor={colors.textSubtle}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          value={value || ""}
+          onChangeText={(v) => onChange(v.trim())}
+        />
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+        {COLOR_PRESETS.map((c) => (
+          <TouchableOpacity
+            key={c}
+            onPress={() => onChange(c)}
+            style={{
+              width: 28, height: 28, borderRadius: 14,
+              backgroundColor: c,
+              borderWidth: value?.toUpperCase() === c ? 3 : 1,
+              borderColor: value?.toUpperCase() === c ? colors.primary : colors.border,
+            }}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function SectionCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 14,
+        gap: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <View style={{ gap: 2 }}>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.textMain }}>{title}</Text>
+        {subtitle ? (
+          <Text style={{ fontSize: 11, color: colors.textSubtle }}>{subtitle}</Text>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function WelcomeTab() {
+  const [cfg, setCfg] = useState<WelcomeCfg>(WELCOME_DEFAULT);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<WelcomeCfg>("GET", "/welcome-screen");
+      setCfg({ ...WELCOME_DEFAULT, ...(data || {}) });
+    } catch (e: any) {
+      notify("Load failed", e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const set = <K extends keyof WelcomeCfg>(key: K, value: WelcomeCfg[K]) =>
+    setCfg((p) => ({ ...p, [key]: value }));
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      await http("PUT", "/welcome-screen", cfg);
+      notify("Saved", "Welcome screen updated. Reopen the app / refresh to see changes.");
+    } catch (e: any) {
+      notify("Save failed", e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = async () => {
+    const ok = await confirmAsync("Reset Welcome screen?", "This will restore all default text, colors and toggles. You'll still need to press Save.");
+    if (!ok) return;
+    setCfg(WELCOME_DEFAULT);
+  };
+
+  if (loading) return <ActivityIndicator style={{ marginTop: 32 }} />;
+
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={{ padding: 12, backgroundColor: "#EFF6FF", borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE" }}>
+        <Text style={{ fontSize: 13, color: "#1E3A8A", fontWeight: "700", marginBottom: 4 }}>
+          Welcome screen editor
+        </Text>
+        <Text style={{ fontSize: 12, color: "#1E40AF", lineHeight: 17 }}>
+          Toggle any section on/off, edit text, change colors and swap the hero image.
+          Save to publish — customers see the update on next app open / refresh.
+        </Text>
+      </View>
+
+      {/* ─── Hero banner image ───────────────────────────────── */}
+      <SectionCard title="Hero banner image" subtitle="Big background photo behind the title.">
+        <ToggleRow label="Show hero image" value={cfg.hero_image_enabled} onChange={(v) => set("hero_image_enabled", v)} />
+        <MediaPicker
+          label="Image"
+          value={cfg.hero_image_url}
+          onChange={(u) => set("hero_image_url", u)}
+          mediaType="image"
+        />
+      </SectionCard>
+
+      {/* ─── Brand badge ─────────────────────────────────────── */}
+      <SectionCard title="Brand badge" subtitle="Top-left pill: name + subtitle.">
+        <ToggleRow label="Show brand badge" value={cfg.brand_badge_enabled} onChange={(v) => set("brand_badge_enabled", v)} />
+        <Field label="Brand name" value={cfg.brand_name} onChange={(v: string) => set("brand_name", v)} />
+        <Field label="Brand subtitle" value={cfg.brand_subtitle} onChange={(v: string) => set("brand_subtitle", v)} />
+      </SectionCard>
+
+      {/* ─── Title ───────────────────────────────────────────── */}
+      <SectionCard title="Main title" subtitle="Big headline. Use \n for line breaks.">
+        <ToggleRow label="Show title" value={cfg.title_enabled} onChange={(v) => set("title_enabled", v)} />
+        <Field label="Title text" value={cfg.title_text} onChange={(v: string) => set("title_text", v)} multiline />
+        <ColorField label="Title color" value={cfg.title_color} onChange={(v) => set("title_color", v)} />
+      </SectionCard>
+
+      {/* ─── Subtitle (blue line) ───────────────────────────── */}
+      <SectionCard title="Subtitle" subtitle="The one-liner under the title.">
+        <ToggleRow label="Show subtitle" value={cfg.subtitle_enabled} onChange={(v) => set("subtitle_enabled", v)} />
+        <Field label="Subtitle text" value={cfg.subtitle_text} onChange={(v: string) => set("subtitle_text", v)} />
+        <ColorField label="Subtitle color" value={cfg.subtitle_color} onChange={(v) => set("subtitle_color", v)} />
+      </SectionCard>
+
+      {/* ─── Description ────────────────────────────────────── */}
+      <SectionCard title="Description" subtitle="Grey descriptive paragraph.">
+        <ToggleRow label="Show description" value={cfg.description_enabled} onChange={(v) => set("description_enabled", v)} />
+        <Field label="Description text" value={cfg.description_text} onChange={(v: string) => set("description_text", v)} multiline />
+        <ColorField label="Description color" value={cfg.description_color} onChange={(v) => set("description_color", v)} />
+      </SectionCard>
+
+      {/* ─── Trust items ────────────────────────────────────── */}
+      <SectionCard title="Trust badges" subtitle="Up to 3 bullet points with icons.">
+        <ToggleRow label="Show badge #1" value={cfg.trust_1_enabled} onChange={(v) => set("trust_1_enabled", v)} />
+        <Field label="Badge #1 text" value={cfg.trust_1_text} onChange={(v: string) => set("trust_1_text", v)} />
+        <ToggleRow label="Show badge #2" value={cfg.trust_2_enabled} onChange={(v) => set("trust_2_enabled", v)} />
+        <Field label="Badge #2 text" value={cfg.trust_2_text} onChange={(v: string) => set("trust_2_text", v)} />
+        <ToggleRow label="Show badge #3" value={cfg.trust_3_enabled} onChange={(v) => set("trust_3_enabled", v)} />
+        <Field label="Badge #3 text" value={cfg.trust_3_text} onChange={(v: string) => set("trust_3_text", v)} />
+        <ColorField label="Badge text color" value={cfg.trust_text_color} onChange={(v) => set("trust_text_color", v)} />
+      </SectionCard>
+
+      {/* ─── Sit back banner ────────────────────────────────── */}
+      <SectionCard title='"Sit back" banner' subtitle="Blue banner just above the buttons.">
+        <ToggleRow label="Show sit-back banner" value={cfg.sit_back_enabled} onChange={(v) => set("sit_back_enabled", v)} />
+        <Field label="Banner text" value={cfg.sit_back_text} onChange={(v: string) => set("sit_back_text", v)} />
+        <ColorField label="Banner text color" value={cfg.sit_back_color} onChange={(v) => set("sit_back_color", v)} />
+      </SectionCard>
+
+      {/* ─── Google button ──────────────────────────────────── */}
+      <SectionCard title="Continue with Google" subtitle="Enable to show the Google sign-in button.">
+        <ToggleRow label="Show Google button" value={cfg.google_btn_enabled} onChange={(v) => set("google_btn_enabled", v)} />
+        <Field label="Button label" value={cfg.google_btn_label} onChange={(v: string) => set("google_btn_label", v)} />
+      </SectionCard>
+
+      {/* ─── Phone button ───────────────────────────────────── */}
+      <SectionCard title="Continue with Phone" subtitle="Enable to show phone OTP sign-in.">
+        <ToggleRow label="Show Phone button" value={cfg.phone_btn_enabled} onChange={(v) => set("phone_btn_enabled", v)} />
+        <Field label="Button label" value={cfg.phone_btn_label} onChange={(v: string) => set("phone_btn_label", v)} />
+      </SectionCard>
+
+      {/* ─── Email button ───────────────────────────────────── */}
+      <SectionCard title="Continue with Email" subtitle="Enable to show email sign-in.">
+        <ToggleRow label="Show Email button" value={cfg.email_btn_enabled} onChange={(v) => set("email_btn_enabled", v)} />
+        <Field label="Button label" value={cfg.email_btn_label} onChange={(v: string) => set("email_btn_label", v)} />
+      </SectionCard>
+
+      {/* ─── Explore without signing in ─────────────────────── */}
+      <SectionCard title='"Explore without signing in"' subtitle="Skip-to-app link.">
+        <ToggleRow label="Show explore link" value={cfg.explore_btn_enabled} onChange={(v) => set("explore_btn_enabled", v)} />
+        <Field label="Link label" value={cfg.explore_btn_label} onChange={(v: string) => set("explore_btn_label", v)} />
+        <ColorField label="Link color" value={cfg.explore_btn_color} onChange={(v) => set("explore_btn_color", v)} />
+      </SectionCard>
+
+      {/* ─── Provider login ─────────────────────────────────── */}
+      <SectionCard title="Provider login" subtitle="Dark button at the bottom (for service providers).">
+        <ToggleRow label="Show Provider Login" value={cfg.provider_btn_enabled} onChange={(v) => set("provider_btn_enabled", v)} />
+        <Field label="Button label" value={cfg.provider_btn_label} onChange={(v: string) => set("provider_btn_label", v)} />
+      </SectionCard>
+
+      {/* ─── Save / Reset row ───────────────────────────────── */}
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
+        <TouchableOpacity style={btn.cancel} onPress={resetToDefaults} disabled={saving}>
+          <Text style={btn.cancelTxt}>Reset defaults</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={btn.save} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Save size={16} color="#fff" />}
+          <Text style={btn.saveTxt}>{saving ? "Saving…" : "Save welcome screen"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function HomeTab() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1864,6 +2180,7 @@ export default function AdminCMS() {
   }
 
   const TABS: { key: TabKey; label: string; icon: any }[] = [
+    { key: "welcome",       label: "Welcome",    icon: Sparkles },
     { key: "home",          label: "Home",       icon: Megaphone },
     { key: "categories",    label: "Categories", icon: Layers },
     { key: "subcategories", label: "Sub-cats",   icon: Layers },
@@ -1896,6 +2213,7 @@ export default function AdminCMS() {
           <ActivityIndicator />
         ) : (
           <>
+            {tab === "welcome"       && <WelcomeTab />}
             {tab === "home"           && <HomeTab />}
             {tab === "categories"    && <CategoriesTab categories={categories} reload={reload} />}
             {tab === "subcategories" && <SubCategoriesTab categories={categories} />}
