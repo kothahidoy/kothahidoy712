@@ -24,6 +24,9 @@ import { providerService } from "@/src/data/providerService";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus, Provider } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
+import { useNotifications } from "@/src/hooks/useNotifications";
+import { NotificationBell } from "@/src/components/NotificationBell";
+import { BellRing } from "lucide-react-native";
 
 const STATUS_TINTS: Record<string, { bg: string; fg: string; label: string }> = {
   assigned: { bg: colors.primaryLight, fg: colors.primary, label: "Assigned" },
@@ -36,6 +39,13 @@ export default function ProviderJobs() {
   const [jobs, setJobs] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Provider notifications — bell rings until they hit "Ready to accept".
+  const notif = useNotifications({
+    targetType: "provider",
+    targetId: provider?.id,
+    loopBell: true,
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -60,6 +70,12 @@ export default function ProviderJobs() {
       loadData();
     }, [loadData])
   );
+
+  // Refresh job list whenever a new provider notification arrives.
+  const notifLen = notif.list.length;
+  useEffect(() => {
+    if (notifLen > 0) loadData();
+  }, [notifLen, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -118,15 +134,49 @@ export default function ProviderJobs() {
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={handleLogout}
-          hitSlop={12}
-          testID="provider-logout-btn"
-        >
-          <LogOut size={20} color={colors.error} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <NotificationBell
+            list={notif.list}
+            unseen={notif.unseen}
+            ringing={notif.ringing}
+            onMarkSeen={notif.markSeen}
+            onMarkAllSeen={notif.markAllSeen}
+            onStopRing={notif.stopRing}
+            color="#111"
+            title="Your alerts"
+          />
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={handleLogout}
+            hitSlop={12}
+            testID="provider-logout-btn"
+          >
+            <LogOut size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Ringing "Ready to accept" banner — appears whenever bell is looping */}
+      {notif.ringing ? (
+        <View style={styles.ringBar}>
+          <BellRing size={20} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ringTitle}>New job assigned!</Text>
+            <Text style={styles.ringSub}>Tap Ready to stop the ring and view the job.</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.readyBtn}
+            onPress={() => {
+              notif.acknowledgeLatest();
+              notif.stopRing();
+              loadData();
+            }}
+            testID="provider-ready-btn"
+          >
+            <Text style={styles.readyBtnText}>Ready</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
@@ -284,6 +334,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  ringBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#DC2626",
+    ...shadow.md,
+  },
+  ringTitle: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  ringSub: { color: "rgba(255,255,255,0.85)", fontSize: 11, marginTop: 2 },
+  readyBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+  },
+  readyBtnText: { color: "#DC2626", fontWeight: "800", fontSize: 13 },
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,

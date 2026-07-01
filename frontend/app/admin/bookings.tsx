@@ -31,6 +31,8 @@ import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus, Provider, Service } from "@/src/types";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
+import { useNotifications } from "@/src/hooks/useNotifications";
+import { NotificationBell } from "@/src/components/NotificationBell";
 
 const STATUSES: { id: BookingStatus | "all"; label: string }[] = [
   { id: "all", label: "All" },
@@ -56,6 +58,9 @@ export default function AdminBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
+
+  // Admin notifications — rings until acknowledged.
+  const notif = useNotifications({ targetType: "admin", loopBell: true });
   
   // Provider assignment modal state
   const [assignModalVisible, setAssignModalVisible] = useState(false);
@@ -122,6 +127,13 @@ export default function AdminBookings() {
       load();
     }, [load]),
   );
+
+  // Auto-refresh bookings whenever a new notification arrives (new booking,
+  // status change, provider assignment reply, etc.).
+  const notifCount = notif.list.length;
+  useEffect(() => {
+    if (notifCount > 0) load();
+  }, [notifCount, load]);
 
   const filtered = filter === "all"
     ? bookings
@@ -241,6 +253,16 @@ export default function AdminBookings() {
           <Text style={styles.crumb}>Admin</Text>
           <Text style={styles.title}>All bookings · {bookings.length}</Text>
         </View>
+        <NotificationBell
+          list={notif.list}
+          unseen={notif.unseen}
+          ringing={notif.ringing}
+          onMarkSeen={notif.markSeen}
+          onMarkAllSeen={notif.markAllSeen}
+          onStopRing={notif.stopRing}
+          color="#111"
+          title="Admin notifications"
+        />
       </View>
 
       <ScrollView
