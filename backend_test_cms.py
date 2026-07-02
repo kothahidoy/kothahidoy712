@@ -9,7 +9,7 @@ import io
 from pathlib import Path
 
 # Use the public backend URL from frontend/.env
-BASE_URL = "https://code-sync-94.preview.emergentagent.com/api"
+BASE_URL = "https://code-import-hub-9.preview.emergentagent.com/api"
 
 def print_section(title):
     print("\n" + "="*80)

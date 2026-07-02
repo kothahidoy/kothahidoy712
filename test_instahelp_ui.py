@@ -8,7 +8,7 @@ import asyncio
 import sys
 from playwright.async_api import async_playwright, Page
 
-PREVIEW_URL = "https://ac7b332f-60e9-4e5e-a6ff-9db4d52b5b36.preview.emergentagent.com"
+PREVIEW_URL = "https://code-import-hub-9.preview.emergentagent.com"
 PAGE_URL = f"{PREVIEW_URL}/category/insta-help"
 
 async def test_scenario_b_ui(page: Page):
@@ -216,7 +216,7 @@ async def test_scenario_c_ui(page: Page):
     print("\nRestoring defaults via API...")
     import requests
     
-    BACKEND_URL = "https://ac7b332f-60e9-4e5e-a6ff-9db4d52b5b36.preview.emergentagent.com"
+    BACKEND_URL = "https://code-import-hub-9.preview.emergentagent.com"
     API_BASE = f"{BACKEND_URL}/api/admin/cms/instahelp"
     
     defaults = {

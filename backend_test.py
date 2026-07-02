@@ -4,7 +4,7 @@ InstaHelp CMS Backend Testing
 ─────────────────────────────────────────────────────────────────────
 Test the new InstaHelp CMS backend endpoints and verify frontend consumption.
 
-Preview URL: https://ac7b332f-60e9-4e5e-a6ff-9db4d52b5b36.preview.emergentagent.com
+Preview URL: https://code-import-hub-9.preview.emergentagent.com
 Backend API: /api/admin/cms/instahelp
 """
 import requests
@@ -13,7 +13,7 @@ import sys
 from typing import Dict, Any
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://ac7b332f-60e9-4e5e-a6ff-9db4d52b5b36.preview.emergentagent.com"
+BACKEND_URL = "https://code-import-hub-9.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api/admin/cms/instahelp"
 
 def print_test(name: str, passed: bool, details: str = ""):
