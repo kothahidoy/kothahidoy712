@@ -5136,3 +5136,215 @@ agent_communication:
         
         **RECOMMENDATION:**
         Auth fix is production-ready. Main agent can summarize and finish.
+
+backend:
+  - task: "Booking insert failed — FK violation bookings_service_id_fkey when frontend catalog uses hardcoded service ids (e.g. tv-install)"
+    implemented: true
+    working: true
+    file: "backend/booking_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: |
+            After the previous auth fix, the user attempted to book "TV
+            installation & mounting" (₹399) from the AC/Appliance category
+            and hit the alert:
+              "Booking failed
+               Booking insert failed: {"code":"23503","details":"Key
+               (service_id)=(tv-install) is not present in table \"services\".",
+               ...,"message":"insert or update on table \"bookings\" violates
+               foreign key constraint \"bookings_service_id_fkey\""}"
+            i.e. auth was fine (uid resolved) but the FK on bookings.service_id
+            rejected the row because the frontend catalog in
+            /app/frontend/app/ac-appliance/index.tsx etc. hardcodes ids
+            like "tv-install", "switch-repair", "fan-install" while the
+            Supabase `services` table only has `svc-ac-7`, `svc-clean-1`, …
+        - working: "NA"
+          agent: "main"
+          comment: |
+            **Root cause:** frontend catalog and Supabase services table are
+            not in sync. Rather than shipping a large seed migration (dozens
+            of services × 9 categories) or dropping the FK (bad for integrity),
+            the backend now auto-upserts any missing services on-demand using
+            title/price/category the cart item already carries.
+
+            **Files touched:** /app/backend/booking_routes.py,
+            /app/frontend/app/booking/checkout.tsx,
+            /app/frontend/src/data/bookingFlow.ts.
+
+            **Changes:**
+            1. Added `category: Optional[str]` field to Pydantic `BookingItem`
+               so the cart item's route slug travels to the backend.
+            2. Added `_ROUTE_TO_CATEGORY` mapping (cleaning/pest-control →
+               cleaning-pest, etc.) and a `_DEFAULT_CATEGORY_ID` fallback.
+            3. Added `_ensure_services_exist(client, items)` — queries
+               `public.services?id=in.(…)`, and for every id missing from the
+               table, POSTs an upsert row with `id`, `category_id` (from the
+               route slug), `title`, `starting_price`, `duration_mins=45`,
+               `image`, `is_active=true`. Uses `Prefer:
+               resolution=merge-duplicates` so parallel bookings for the same
+               new id don't conflict.
+            4. `create_booking` now calls `_ensure_services_exist` inside its
+               httpx client block before doing anything else.
+            5. Frontend now passes `it.category` on each cart item.
+
+            **Local smoke test (main agent):**
+            POST /api/booking/create with `service_id="tv-install"` (which
+            didn't exist in `services`), `category="ac-appliance"`,
+            price=399 → 200 OK, booking `825e71c2-…` inserted; a
+            `tv-install` row now exists in `services` with
+            `category_id="ac-appliance"`. Test row + auto-provisioned
+            service were cleaned up so the testing agent sees a fresh
+            state.
+
+            **Please retest end-to-end:**
+              a. POST /api/booking/create with `service_id="tv-install"`,
+                 `category="ac-appliance"`, price=399 → 200. Verify
+                 (i) booking row created, (ii) `public.services` now has a
+                 `tv-install` row with `category_id="ac-appliance"`,
+                 (iii) a `new_booking` notification exists for the booking id.
+              b. POST /api/booking/create with `service_id="chimney-clean"`,
+                 `category="cleaning"` (route slug that needs mapping) →
+                 200. Verify inserted service row has
+                 `category_id="cleaning-pest"` (not "cleaning").
+              c. POST /api/booking/create with `service_id="svc-ac-7"`
+                 (already seeded) → 200. Verify NO duplicate service row
+                 was created and price/title were not overwritten.
+              d. POST /api/booking/create with 2 items where one exists and
+                 one is new → 200. Both should end up in `services`.
+              e. Regression: existing profile/phone endpoint still returns
+                 200 with a valid JWT (per previous fix), 401 without.
+
+            Please clean up any test bookings and auto-provisioned services
+            you create so the dashboard stays tidy.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ ALL 6 TEST CASES PASSED - FK VIOLATION FIX WORKING PERFECTLY
+            
+            **COMPREHENSIVE REGRESSION TEST RESULTS:**
+            
+            **✅ Case (a): Ad-hoc service auto-upsert - PASS**
+            - POST /api/booking/create with service_id="tv-install" (new service)
+            - Status: 200 OK
+            - Booking created: 871f8e0b-be64-4d93-870f-5445df1c1694
+            - Service 'tv-install' auto-created in DB with correct fields:
+              * id: tv-install
+              * category_id: ac-appliance (correct)
+              * title: TV installation & mounting (correct)
+              * starting_price: 399.0 (correct)
+              * duration_mins: 45 (correct)
+              * is_active: true (correct)
+            - Notification created with kind='new_booking' ✅
+            
+            **✅ Case (b): Route slug mapping - PASS**
+            - POST /api/booking/create with category="cleaning" (should map to "cleaning-pest")
+            - Status: 200 OK
+            - Booking created: df6fc9ac-876b-4526-b9a2-a6a25b5c4585
+            - Service 'chimney-clean' auto-created with category_id='cleaning-pest' ✅
+            - Category mapping working correctly: 'cleaning' → 'cleaning-pest'
+            
+            **✅ Case (c): Existing service protection - PASS**
+            - Queried existing service 'svc-ac-7' before test:
+              * title: Chimney & Hob Service
+              * starting_price: 449.0
+              * category_id: ac-appliance
+            - POST /api/booking/create with service_id="svc-ac-7" but malicious payload:
+              * price: 999999 (attempt to overwrite)
+              * title: "HACKED" (attempt to overwrite)
+              * category: "electrician" (attempt to overwrite)
+            - Status: 200 OK
+            - Booking created: fd17f772-5ccf-4c49-899a-73f693a09c40
+            - Service 'svc-ac-7' UNCHANGED after booking:
+              * title: Chimney & Hob Service (preserved ✅)
+              * starting_price: 449.0 (preserved ✅)
+              * category_id: ac-appliance (preserved ✅)
+            - Existing services are protected from overwrite ✅
+            
+            **✅ Case (d): Mixed batch (existing + new) - PASS**
+            - POST /api/booking/create with 2 items:
+              * svc-ac-7 (existing service)
+              * switch-repair (new service, category="electrician")
+            - Status: 200 OK
+            - Booking created: 724d4f98-fe9a-4ce6-9195-128a2d12edd1
+            - Both services exist in DB:
+              * svc-ac-7: exists (existing service preserved) ✅
+              * switch-repair: auto-created with category_id='electrician' ✅
+            
+            **✅ Case (e): Regression check - PASS**
+            - POST /api/booking/profile/phone with valid token: 200 OK ✅
+            - POST /api/booking/profile/phone without auth: 401 Unauthorized ✅
+            - Phone update endpoint still working after FK fix changes
+            
+            **✅ Case (f): Basic sanity - PASS**
+            - GET /api/ → 200 OK with {"message":"Hello World"} ✅
+            
+            **CLEANUP COMPLETED:**
+            - Deleted 4 test bookings and their notifications
+            - Deleted 3 auto-provisioned services (tv-install, chimney-clean, switch-repair)
+            - Database left in clean state
+            
+            **BACKEND LOGS VERIFICATION:**
+            - No errors or exceptions found in backend logs
+            - All API requests returned expected status codes
+            - Auto-upsert logic working silently without warnings
+            
+            **KEY FINDINGS:**
+            1. ✅ Auto-upsert logic prevents FK violations for new service IDs
+            2. ✅ Category mapping (_ROUTE_TO_CATEGORY) working correctly
+            3. ✅ Existing services protected from overwrite (merge-duplicates strategy)
+            4. ✅ Mixed batches (existing + new services) handled correctly
+            5. ✅ Notifications created for all bookings
+            6. ✅ No regression on existing endpoints (phone update, basic sanity)
+            
+            **NO CRITICAL ISSUES FOUND**
+            
+            The FK violation bug is COMPLETELY FIXED. The auto-upsert logic in
+            _ensure_services_exist() successfully prevents FK violations while
+            maintaining data integrity by protecting existing service records.
+
+agent_communication:
+    - agent: "main"
+      message: |
+        Second fix on the booking flow: services auto-provisioning. The
+        frontend catalog uses hardcoded ids ("tv-install", "switch-repair",
+        …) that don't exist in Supabase's `services` table, so
+        bookings_service_id_fkey was rejecting inserts. Backend now
+        upserts missing services on the fly using the cart item's
+        category slug + title + price. Please verify the 5 cases listed
+        in the backend task above.
+    - agent: "testing"
+      message: |
+        🎉 FK VIOLATION FIX REGRESSION TEST - ALL TESTS PASSED 🎉
+        
+        **COMPREHENSIVE TEST RESULTS: 6/6 PASS**
+        
+        ✅ Case (a): Ad-hoc service auto-upsert - Service 'tv-install' auto-created with correct fields
+        ✅ Case (b): Route slug mapping - 'cleaning' correctly mapped to 'cleaning-pest'
+        ✅ Case (c): Existing service protection - 'svc-ac-7' NOT overwritten (merge-duplicates working)
+        ✅ Case (d): Mixed batch - Both existing and new services handled correctly
+        ✅ Case (e): Regression check - Phone update endpoint still working (200 with auth, 401 without)
+        ✅ Case (f): Basic sanity - GET /api/ returns 200 OK
+        
+        **KEY VERIFICATION:**
+        - All bookings created successfully (200 OK)
+        - Auto-provisioned services have correct category_id, title, price, duration_mins=45, is_active=true
+        - Notifications created for all bookings (kind='new_booking')
+        - Existing services protected from overwrite
+        - Category mapping (_ROUTE_TO_CATEGORY) working correctly
+        - No errors in backend logs
+        
+        **CLEANUP COMPLETED:**
+        - Deleted 4 test bookings + notifications
+        - Deleted 3 auto-provisioned services (tv-install, chimney-clean, switch-repair)
+        
+        **NO CRITICAL ISSUES FOUND**
+        
+        The FK violation bug is COMPLETELY FIXED. Users can now book services with
+        hardcoded IDs from the frontend catalog without encountering FK constraint
+        violations. The auto-upsert logic maintains data integrity while providing
+        flexibility for the frontend catalog.
+

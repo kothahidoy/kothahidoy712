@@ -81,6 +81,7 @@ export default function CheckoutScreen() {
           price: it.service_price || 0,
           title: it.service_title,
           image: it.service_image,
+          category: it.category,
         })),
         address: {
           addressLine: selectedAddr.addressLine,

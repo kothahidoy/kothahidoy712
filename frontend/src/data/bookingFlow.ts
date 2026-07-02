@@ -159,7 +159,7 @@ export const bookingApi = {
   },
 
   async createBooking(payload: {
-    items: { service_id: string; quantity: number; price: number; title?: string; image?: string }[];
+    items: { service_id: string; quantity: number; price: number; title?: string; image?: string; category?: string }[];
     address: any;
     slot_date: string;
     slot_time: string;

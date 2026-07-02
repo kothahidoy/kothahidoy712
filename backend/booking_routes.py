@@ -361,6 +361,7 @@ class BookingItem(BaseModel):
     price: float
     title: Optional[str] = None
     image: Optional[str] = None
+    category: Optional[str] = None  # frontend route slug (ac-appliance, cleaning, …)
 
 
 class BookingCreate(BaseModel):
@@ -373,6 +374,90 @@ class BookingCreate(BaseModel):
     tip_amount: float = 0.0
     plus_plan_id: Optional[str] = None  # if user is also subscribing to Plus
     notes: Optional[str] = None
+
+
+# ─── Route-slug → DB category_id mapping ──────────────────────────────
+# Frontend category screens use route slugs like "cleaning" or "pest-control"
+# whereas Supabase has canonical ids ("cleaning-pest"). We keep the mapping in
+# one place so auto-provisioning of ad-hoc services picks the correct
+# category FK.
+_ROUTE_TO_CATEGORY = {
+    "ac-appliance": "ac-appliance",
+    "electrician": "electrician",
+    "plumber": "plumber",
+    "carpenter": "carpenter",
+    "painting": "painting",
+    "cleaning": "cleaning-pest",
+    "pest-control": "cleaning-pest",
+    "cleaning-pest": "cleaning-pest",
+    "salon-women": "salon-women",
+    "salon-men": "salon-men",
+    "insta-help": "insta-help",
+    "instahelp": "insta-help",
+}
+
+# One-time cached default category so we always have a valid FK if we can't
+# infer one from the route slug.
+_DEFAULT_CATEGORY_ID = "ac-appliance"
+
+
+async def _ensure_services_exist(client: httpx.AsyncClient, items: List[BookingItem]) -> None:
+    """
+    The frontend catalog uses hardcoded service ids like "tv-install" that may
+    not yet exist in `public.services`. Rather than dropping the FK on
+    bookings.service_id (which would sacrifice data integrity), we upsert
+    every missing service on-demand using the title/price/category the
+    frontend already sent as part of the cart item.
+    """
+    if not items:
+        return
+    uniq: Dict[str, BookingItem] = {}
+    for it in items:
+        uniq.setdefault(it.service_id, it)
+    ids = list(uniq.keys())
+
+    # Which of these ids already exist?
+    q_ids = ",".join(f'"{i}"' for i in ids)
+    try:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/services?id=in.({q_ids})&select=id",
+            headers=_sb_headers(),
+        )
+        existing = {row["id"] for row in (r.json() if r.status_code == 200 else [])}
+    except Exception:
+        existing = set()
+
+    missing = [uniq[i] for i in ids if i not in existing]
+    if not missing:
+        return
+
+    rows_to_insert = []
+    for it in missing:
+        cat = _ROUTE_TO_CATEGORY.get((it.category or "").lower(), _DEFAULT_CATEGORY_ID)
+        rows_to_insert.append({
+            "id": it.service_id,
+            "category_id": cat,
+            "title": (it.title or it.service_id.replace("-", " ").title())[:200],
+            "starting_price": max(float(it.price or 0), 0),
+            "duration_mins": 45,
+            "image": it.image,
+            "is_active": True,
+        })
+
+    try:
+        ir = await client.post(
+            f"{SUPABASE_URL}/rest/v1/services",
+            headers={**_sb_headers(), "Prefer": "return=minimal,resolution=merge-duplicates"},
+            json=rows_to_insert,
+        )
+        if ir.status_code >= 400:
+            import logging
+            logging.getLogger("booking.services").warning(
+                "auto-upsert services failed %s %s", ir.status_code, ir.text[:300],
+            )
+    except Exception as exc:
+        import logging
+        logging.getLogger("booking.services").warning("auto-upsert error: %s", exc)
 
 
 @router.post("/create")
@@ -390,6 +475,10 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
     plus_discount = 0.0
 
     async with httpx.AsyncClient(timeout=15.0) as client:
+        # Make sure every service_id in the cart exists in public.services so
+        # the bookings_service_id_fkey doesn't blow up on ad-hoc catalog ids.
+        await _ensure_services_exist(client, payload.items)
+
         # Validate coupon
         if payload.coupon_code:
             cr = await client.get(
