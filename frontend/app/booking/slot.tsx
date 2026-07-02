@@ -9,14 +9,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, X, CreditCard } from "lucide-react-native";
+import { ChevronLeft, X, Zap, CalendarClock } from "lucide-react-native";
 
 import { colors, radius, shadow } from "@/src/theme";
 import { bookingApi, SlotDate, TimeSlot } from "@/src/data/bookingFlow";
 
+type Mode = "instant" | "scheduled";
+
 export default function SlotPickerScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ from?: string }>();
+  useLocalSearchParams<{ from?: string }>();
+
+  const [mode, setMode] = useState<Mode>("instant");
 
   const [dates, setDates] = useState<SlotDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -71,7 +75,6 @@ export default function SlotPickerScreen() {
       if (apiSlots.length > 0) {
         setSlots(apiSlots);
       } else {
-        // synthesize from fallback list
         setSlots(
           fallbackSlots.map((t, i) => ({
             id: `local-${i}`,
@@ -85,7 +88,36 @@ export default function SlotPickerScreen() {
     })();
   }, [selectedDate, fallbackSlots]);
 
+  // Compute an "ASAP" slot for instant bookings: today's date + next :30 or :00
+  // rounded up (e.g. 12:47 → 01:00 PM, 01:12 → 01:30 PM).
+  const asapSlot = useMemo(() => {
+    const now = new Date();
+    const mins = now.getMinutes();
+    const bump = mins < 30 ? 30 - mins : 60 - mins;
+    now.setMinutes(mins + bump, 0, 0);
+    const label = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return {
+      date: new Date().toISOString().slice(0, 10),
+      time: label.replace(/^0/, ""), // "01:30 PM" → "1:30 PM" style; we keep leading zero to match slot format
+    };
+  }, []);
+
   const handleProceed = () => {
+    if (mode === "instant") {
+      router.push({
+        pathname: "/booking/checkout",
+        params: {
+          slot_date: asapSlot.date,
+          slot_time: asapSlot.time,
+          instant: "1",
+        },
+      });
+      return;
+    }
     if (!selectedDate || !selectedTime) return;
     router.push({
       pathname: "/booking/checkout",
@@ -93,7 +125,7 @@ export default function SlotPickerScreen() {
     });
   };
 
-  const canProceed = !!selectedDate && !!selectedTime;
+  const canProceed = mode === "instant" || (!!selectedDate && !!selectedTime);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -111,72 +143,103 @@ export default function SlotPickerScreen() {
       <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 140 }}>
         <Text style={styles.heroQuestion}>When should the professional arrive?</Text>
 
-        {/* Schedule for later card */}
-        <View style={styles.scheduleCard}>
-          <View style={styles.scheduleHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scheduleTitle}>Schedule for later</Text>
-              <Text style={styles.scheduleSubtitle}>Select your preferred day & time</Text>
+        {/* ─── Book Now (Instant) card ─── */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setMode("instant")}
+          style={[styles.modeCard, mode === "instant" && styles.modeCardActive]}
+          testID="slot-instant-card"
+        >
+          <View style={[styles.modeIconWrap, mode === "instant" && styles.modeIconWrapActive]}>
+            <Zap size={22} color={mode === "instant" ? "#fff" : PURPLE} fill={mode === "instant" ? "#fff" : "transparent"} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.modeTitleRow}>
+              <Text style={styles.modeTitle}>Book Now</Text>
+              <View style={styles.instantBadge}>
+                <Text style={styles.instantBadgeText}>INSTANT</Text>
+              </View>
             </View>
-            <View style={[styles.radioOuter, styles.radioOuterActive]}>
-              <View style={styles.radioInner} />
-            </View>
+            <Text style={styles.modeSubtitle}>
+              Nearest available pro will reach you in ~30–60 mins
+            </Text>
           </View>
-
-          {/* Date pills */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.datesRow}
-          >
-            {dates.map((d) => {
-              const active = d.date === selectedDate;
-              return (
-                <TouchableOpacity
-                  key={d.date}
-                  style={[styles.dateCard, active && styles.dateCardActive]}
-                  onPress={() => setSelectedDate(d.date)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.dateDay, active && styles.dateDayActive]}>{d.day_name}</Text>
-                  <Text style={[styles.dateNum, active && styles.dateNumActive]}>{d.day_num}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Info badge */}
-          <View style={styles.infoBox}>
-            <CreditCard size={18} color={colors.textMain} />
-            <Text style={styles.infoText}>Online payment only for selected date</Text>
+          <View style={[styles.radioOuter, mode === "instant" && styles.radioOuterActive]}>
+            {mode === "instant" ? <View style={styles.radioInner} /> : null}
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Time slots */}
-        <Text style={styles.sectionTitle}>Select start time of service</Text>
-
-        {loadingSlots ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
-        ) : (
-          <View style={styles.slotsGrid}>
-            {slots.map((s) => {
-              const active = s.time === selectedTime;
-              return (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.slotPill, active && styles.slotPillActive]}
-                  onPress={() => setSelectedTime(s.time)}
-                  activeOpacity={0.8}
-                  disabled={!s.available}
-                >
-                  <Text style={[styles.slotPillText, active && styles.slotPillTextActive]}>
-                    {s.time}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* ─── Schedule for later card ─── */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setMode("scheduled")}
+          style={[styles.modeCard, mode === "scheduled" && styles.modeCardActive]}
+          testID="slot-scheduled-card"
+        >
+          <View style={[styles.modeIconWrap, mode === "scheduled" && styles.modeIconWrapActive]}>
+            <CalendarClock size={22} color={mode === "scheduled" ? "#fff" : PURPLE} />
           </View>
-        )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modeTitle}>Schedule for later</Text>
+            <Text style={styles.modeSubtitle}>Pick a preferred day & time slot</Text>
+          </View>
+          <View style={[styles.radioOuter, mode === "scheduled" && styles.radioOuterActive]}>
+            {mode === "scheduled" ? <View style={styles.radioInner} /> : null}
+          </View>
+        </TouchableOpacity>
+
+        {/* Scheduled sub-panel — only visible when Scheduled selected */}
+        {mode === "scheduled" ? (
+          <View style={styles.scheduledPanel}>
+            {/* Date pills */}
+            <Text style={styles.subLabel}>Choose a day</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.datesRow}
+            >
+              {dates.map((d) => {
+                const active = d.date === selectedDate;
+                return (
+                  <TouchableOpacity
+                    key={d.date}
+                    style={[styles.dateCard, active && styles.dateCardActive]}
+                    onPress={() => setSelectedDate(d.date)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.dateDay, active && styles.dateDayActive]}>{d.day_name}</Text>
+                    <Text style={[styles.dateNum, active && styles.dateNumActive]}>{d.day_num}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Time slots */}
+            <Text style={[styles.subLabel, { marginTop: 18 }]}>Select start time</Text>
+            {loadingSlots ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+            ) : (
+              <View style={styles.slotsGrid}>
+                {slots.map((s) => {
+                  const active = s.time === selectedTime;
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={[styles.slotPill, active && styles.slotPillActive]}
+                      onPress={() => setSelectedTime(s.time)}
+                      activeOpacity={0.8}
+                      disabled={!s.available}
+                    >
+                      <Text style={[styles.slotPillText, active && styles.slotPillTextActive]}>
+                        {s.time}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -188,7 +251,7 @@ export default function SlotPickerScreen() {
           activeOpacity={0.9}
         >
           <Text style={[styles.ctaText, !canProceed && styles.ctaTextDisabled]}>
-            Proceed to checkout
+            {mode === "instant" ? "Book instant service" : "Proceed to checkout"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -219,15 +282,47 @@ const styles = StyleSheet.create({
 
   heroQuestion: { fontSize: 22, fontWeight: "800", color: colors.textMain, marginTop: 18, marginBottom: 16 },
 
-  scheduleCard: {
-    borderWidth: 1.5, borderColor: PURPLE,
+  // ─── Mode selector cards ───
+  modeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 22,
+    padding: 14,
+    backgroundColor: "#fff",
+    marginBottom: 12,
   },
-  scheduleHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  scheduleTitle: { fontSize: 16, fontWeight: "700", color: colors.textMain },
-  scheduleSubtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  modeCardActive: {
+    borderColor: PURPLE,
+    backgroundColor: PURPLE_LIGHT,
+  },
+  modeIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1, borderColor: PURPLE,
+    alignItems: "center", justifyContent: "center",
+  },
+  modeIconWrapActive: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  modeTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  modeTitle: { fontSize: 16, fontWeight: "800", color: colors.textMain },
+  modeSubtitle: { fontSize: 13, color: colors.textMuted, marginTop: 3 },
+  instantBadge: {
+    backgroundColor: PURPLE,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  instantBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
 
   radioOuter: {
     width: 22, height: 22, borderRadius: 11,
@@ -236,6 +331,18 @@ const styles = StyleSheet.create({
   },
   radioOuterActive: { borderColor: PURPLE, backgroundColor: PURPLE },
   radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" },
+
+  // ─── Scheduled panel ───
+  scheduledPanel: {
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  subLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMain,
+    marginBottom: 10,
+  },
 
   datesRow: { gap: 10, paddingRight: 12 },
   dateCard: {
@@ -250,16 +357,6 @@ const styles = StyleSheet.create({
   dateDayActive: { color: PURPLE },
   dateNum: { fontSize: 22, fontWeight: "800", color: colors.textMain, marginTop: 4 },
   dateNumActive: { color: PURPLE },
-
-  infoBox: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: 10, marginTop: 16,
-  },
-  infoText: { fontSize: 13, color: colors.textBody, flex: 1, lineHeight: 18 },
-
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: colors.textMain, marginBottom: 14 },
 
   slotsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   slotPill: {
@@ -284,7 +381,7 @@ const styles = StyleSheet.create({
   cta: {
     backgroundColor: PURPLE,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     alignItems: "center",
   },
   ctaDisabled: { backgroundColor: "#E2E8F0" },

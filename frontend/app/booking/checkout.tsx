@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Calendar, Clock, Home, CheckCircle2, CreditCard, Banknote } from "lucide-react-native";
+import { ArrowLeft, Calendar, Clock, Home, CheckCircle2, CreditCard, Banknote, Zap } from "lucide-react-native";
 
 import { colors, radius, shadow } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
@@ -28,7 +28,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { items, total, clearCart } = useCart();
   const { profile } = useSession();
-  const params = useLocalSearchParams<{ slot_date?: string; slot_time?: string; coupon?: string; tip?: string; plus_plan?: string }>();
+  const params = useLocalSearchParams<{ slot_date?: string; slot_time?: string; coupon?: string; tip?: string; plus_plan?: string; instant?: string }>();
 
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddrId, setSelectedAddrId] = useState<string | null>(null);
@@ -49,6 +49,7 @@ export default function CheckoutScreen() {
   const couponCode = (params.coupon as string) || "";
   const tipAmount = Number(params.tip || 0);
   const plusPlanId = (params.plus_plan as string) || "";
+  const isInstant = params.instant === "1";
 
   const selectedAddr = useMemo(() => addresses.find((a) => a.id === selectedAddrId) || null, [addresses, selectedAddrId]);
 
@@ -137,12 +138,31 @@ export default function CheckoutScreen() {
         {/* Slot block */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Service slot</Text>
-          <View style={styles.slotInfoRow}>
-            <Calendar size={18} color={PURPLE} />
-            <Text style={styles.slotInfoText}>{formattedDate}</Text>
-            <Clock size={18} color={PURPLE} />
-            <Text style={styles.slotInfoText}>{params.slot_time}</Text>
-          </View>
+          {isInstant ? (
+            <View style={styles.instantRow}>
+              <View style={styles.instantIconWrap}>
+                <Zap size={20} color="#fff" fill="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.instantTitleRow}>
+                  <Text style={styles.instantTitle}>Book Now — Instant service</Text>
+                  <View style={styles.instantBadge}>
+                    <Text style={styles.instantBadgeText}>INSTANT</Text>
+                  </View>
+                </View>
+                <Text style={styles.instantSub}>
+                  Nearest pro will reach you in ~30–60 mins
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.slotInfoRow}>
+              <Calendar size={18} color={PURPLE} />
+              <Text style={styles.slotInfoText}>{formattedDate}</Text>
+              <Clock size={18} color={PURPLE} />
+              <Text style={styles.slotInfoText}>{params.slot_time}</Text>
+            </View>
+          )}
           <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()}>
             <Text style={styles.changeLink}>Change slot</Text>
           </TouchableOpacity>
@@ -271,6 +291,31 @@ const styles = StyleSheet.create({
   slotInfoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" },
   slotInfoText: { fontSize: 14, color: colors.textMain, fontWeight: "600", marginRight: 8 },
   changeLink: { color: PURPLE, fontWeight: "700", fontSize: 13 },
+
+  // Instant booking banner
+  instantRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: PURPLE_LIGHT,
+    borderWidth: 1,
+    borderColor: PURPLE,
+    marginBottom: 8,
+  },
+  instantIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: PURPLE,
+    alignItems: "center", justifyContent: "center",
+  },
+  instantTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  instantTitle: { fontSize: 15, fontWeight: "800", color: colors.textMain },
+  instantBadge: {
+    backgroundColor: PURPLE, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999,
+  },
+  instantBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  instantSub: { fontSize: 12, color: colors.textMuted, marginTop: 3 },
 
   addrCard: {
     flexDirection: "row", alignItems: "center", gap: 10,

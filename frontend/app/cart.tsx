@@ -137,13 +137,9 @@ export default function CartScreen() {
       notify("Empty cart", "Add services to your cart first");
       return;
     }
-    if (!profile?.phone) {
-      // Force phone collection before checkout
-      setPhoneInput("");
-      setNameInput(profile?.name || "");
-      setPhoneModalOpen(true);
-      return;
-    }
+    // Phone number is optional — user can add it later from their profile
+    // or when the professional needs to reach them. We proceed straight
+    // to slot selection.
     router.push({
       pathname: "/booking/slot",
       params: {
@@ -376,7 +372,7 @@ export default function CartScreen() {
               <Phone size={18} color={AMBER} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.phoneMissingTitle}>Add your phone number</Text>
-                <Text style={styles.phoneMissingDesc}>Required so the professional can contact you</Text>
+                <Text style={styles.phoneMissingDesc}>Optional — helps the professional reach you faster</Text>
               </View>
               <Text style={styles.changeLink}>Add</Text>
             </TouchableOpacity>
@@ -624,7 +620,7 @@ export default function CartScreen() {
               <View style={{ padding: 20 }}>
                 {!hasPhone && (
                   <Text style={styles.phoneModalDesc}>
-                    A valid phone number is required so the professional can contact you.
+                    Optional — add your phone so the professional can reach you if needed.
                   </Text>
                 )}
                 <Text style={styles.phoneInputLabel}>Full name</Text>
