@@ -138,10 +138,47 @@ export const providerService = {
     const filtered = bookings.filter(
       (b) =>
         b.providerId === providerId &&
-        ["assigned", "in_progress"].includes(b.status)
+        ["assigned", "on_the_way", "in_progress"].includes(b.status)
     );
     console.log("[providerService.listJobs] Filtered jobs:", filtered.length);
     return filtered;
+  },
+
+  /**
+   * Ready-to-accept: assigned -> on_the_way
+   * Fires DB trigger `trg_status_change` which auto-creates a customer
+   * notification ("Provider on the way").
+   */
+  markOnTheWay: async (
+    providerId: string,
+    bookingId: string,
+  ): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "on_the_way" })
+        .eq("id", bookingId)
+        .eq("provider_id", providerId)
+        .in("status", ["assigned", "confirmed"]);
+      if (error) {
+        console.warn("[providerService.markOnTheWay] supabase error", error);
+        return false;
+      }
+      return true;
+    }
+
+    // Demo mode fallback
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    const idx = bookings.findIndex(
+      (b) =>
+        b.id === bookingId &&
+        b.providerId === providerId &&
+        (b.status === "assigned" || b.status === "confirmed"),
+    );
+    if (idx === -1) return false;
+    bookings[idx].status = "on_the_way" as BookingStatus;
+    await writeJSON(BOOKINGS_KEY, bookings);
+    return true;
   },
 
   /**

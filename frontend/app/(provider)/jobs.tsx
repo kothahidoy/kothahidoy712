@@ -30,6 +30,7 @@ import { BellRing } from "lucide-react-native";
 
 const STATUS_TINTS: Record<string, { bg: string; fg: string; label: string }> = {
   assigned: { bg: colors.primaryLight, fg: colors.primary, label: "Assigned" },
+  on_the_way: { bg: "#FEF3C7", fg: "#B45309", label: "On the way" },
   in_progress: { bg: colors.warningLight, fg: "#B45309", label: "In Progress" },
 };
 
@@ -166,9 +167,29 @@ export default function ProviderJobs() {
           </View>
           <TouchableOpacity
             style={styles.readyBtn}
-            onPress={() => {
-              notif.acknowledgeLatest();
+            onPress={async () => {
+              // Phase 1 in-app flow (b):
+              //   1) stop the ring (acknowledge notification)
+              //   2) update booking status assigned → on_the_way
+              //      (DB trigger auto-notifies the customer:
+              //       "Provider on the way")
+              const latest = notif.list.find(
+                (n) => n.kind === "assigned" && !n.acknowledged,
+              );
+              await notif.acknowledgeLatest();
               notif.stopRing();
+              if (latest?.booking_id && provider?.id) {
+                const ok = await providerService.markOnTheWay(
+                  provider.id,
+                  latest.booking_id,
+                );
+                if (!ok) {
+                  console.warn(
+                    "[Ready] failed to move booking to on_the_way",
+                    latest.booking_id,
+                  );
+                }
+              }
               loadData();
             }}
             testID="provider-ready-btn"
