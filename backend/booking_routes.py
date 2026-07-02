@@ -34,23 +34,104 @@ def _sb_headers():
 
 
 async def _user_id_from_token(authorization: Optional[str]) -> Optional[str]:
+    """
+    Resolve the app's `public.users.id` from a Supabase access token.
+
+    Strategy (in order):
+      1. Verify the JWT locally with SUPABASE_JWT_SECRET (fast, no network).
+      2. If verification fails, fall back to Supabase Auth's /auth/v1/user
+         endpoint (works with any token GoTrue would accept).
+      3. Given the auth.uid() (`sub` claim), look up `public.users` by
+         `auth_user_id`. If none exists (e.g. a fresh email/Google login
+         that never got a row inserted), auto-provision one and return it.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         return None
-    token = authorization[7:]
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(
-            f"{SUPABASE_URL}/auth/v1/user",
-            headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {token}"},
-        )
-        if r.status_code != 200:
-            return None
-        auth_user_id = r.json().get("id")
-        ur = await client.get(
-            f"{SUPABASE_URL}/rest/v1/users?auth_user_id=eq.{auth_user_id}&select=id,phone,name",
-            headers=_sb_headers(),
-        )
-        if ur.status_code == 200 and ur.json():
-            return ur.json()[0]["id"]
+    token = authorization[7:].strip()
+    if not token:
+        return None
+
+    import logging
+    log = logging.getLogger("booking.auth")
+
+    auth_user_id: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+    # 1) Local JWT verification (fast path)
+    try:
+        from jose import jwt as jose_jwt
+        jwt_secret = os.environ.get("SUPABASE_JWT_SECRET", "")
+        if jwt_secret:
+            payload = jose_jwt.decode(
+                token, jwt_secret, algorithms=["HS256"], audience="authenticated"
+            )
+            auth_user_id = payload.get("sub")
+            email = payload.get("email")
+            phone = payload.get("phone")
+            log.info("_user_id_from_token: local JWT ok sub=%s email=%s", auth_user_id, email)
+    except Exception as exc:
+        log.info("_user_id_from_token: local JWT decode failed (%s); falling back to /auth/v1/user", exc)
+
+    # 2) Network fallback: ask GoTrue
+    if not auth_user_id:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.get(
+                    f"{SUPABASE_URL}/auth/v1/user",
+                    headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {token}"},
+                )
+                if r.status_code == 200:
+                    body = r.json()
+                    auth_user_id = body.get("id")
+                    email = email or body.get("email")
+                    phone = phone or body.get("phone")
+                    log.info("_user_id_from_token: /auth/v1/user ok sub=%s", auth_user_id)
+                else:
+                    log.warning("_user_id_from_token: /auth/v1/user %s %s", r.status_code, r.text[:200])
+        except Exception as exc:
+            log.error("_user_id_from_token: /auth/v1/user request failed: %s", exc)
+
+    if not auth_user_id:
+        return None
+
+    # 3) Look up public.users by auth_user_id; auto-provision if missing.
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            ur = await client.get(
+                f"{SUPABASE_URL}/rest/v1/users?auth_user_id=eq.{auth_user_id}&select=id",
+                headers=_sb_headers(),
+            )
+            if ur.status_code == 200 and ur.json():
+                uid = ur.json()[0]["id"]
+                log.info("_user_id_from_token: users.id=%s (matched)", uid)
+                return uid
+
+            # No row yet — auto-provision so the customer can proceed.
+            role = "customer"
+            insert_body: Dict[str, Any] = {
+                "auth_user_id": auth_user_id,
+                "role": role,
+            }
+            if email:
+                insert_body["email"] = email
+            if phone:
+                insert_body["phone"] = phone
+            ir = await client.post(
+                f"{SUPABASE_URL}/rest/v1/users",
+                headers={**_sb_headers(), "Prefer": "return=representation"},
+                json=insert_body,
+            )
+            if ir.status_code in (200, 201) and ir.json():
+                uid = ir.json()[0]["id"]
+                log.info("_user_id_from_token: users.id=%s (auto-provisioned)", uid)
+                return uid
+            log.warning(
+                "_user_id_from_token: could not auto-provision users row %s %s",
+                ir.status_code, ir.text[:200],
+            )
+    except Exception as exc:
+        log.error("_user_id_from_token: users lookup failed: %s", exc)
     return None
 
 
@@ -378,11 +459,18 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
             "service_id": primary.service_id,
             "scheduled_date": payload.slot_date,
             "time_slot": payload.slot_time,
-            "address_line": payload.address.get("addressLine") or payload.address.get("address_line", ""),
-            "city": payload.address.get("city", ""),
-            "landmark": payload.address.get("landmark"),
-            "latitude": payload.address.get("latitude"),
-            "longitude": payload.address.get("longitude"),
+            # `bookings.address` is a JSONB column in this project — pack the
+            # whole address dict into it rather than trying to write to
+            # non-existent flat columns (address_line, city, latitude…).
+            "address": {
+                "addressLine": payload.address.get("addressLine") or payload.address.get("address_line", ""),
+                "city": payload.address.get("city", ""),
+                "landmark": payload.address.get("landmark"),
+                "latitude": payload.address.get("latitude"),
+                "longitude": payload.address.get("longitude"),
+                "label": payload.address.get("label"),
+                "id": payload.address.get("id"),
+            },
             "notes": payload.notes,
             "price": grand_total,
             "status": "pending",

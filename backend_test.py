@@ -1,657 +1,411 @@
 #!/usr/bin/env python3
 """
-InstaHelp CMS Backend Testing
-─────────────────────────────────────────────────────────────────────
-Test the new InstaHelp CMS backend endpoints and verify frontend consumption.
+Regression test for auth fix in /app/backend/booking_routes.py
 
-Preview URL: https://code-import-hub-9.preview.emergentagent.com
-Backend API: /api/admin/cms/instahelp
+Bug being fixed:
+- User logged in via email OTP was seeing 401 errors on POST /api/booking/profile/phone
+  and POST /api/booking/create
+- Root cause: _user_id_from_token() was flaky, and booking creation used flat address columns
+
+Fix:
+- _user_id_from_token() now verifies JWT locally + auto-provisions users
+- POST /api/booking/create now packs address into JSONB column
 """
+import time
 import requests
-import json
-import sys
-from typing import Dict, Any
+from jose import jwt
 
-# Get backend URL from frontend .env
-BACKEND_URL = "https://code-import-hub-9.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api/admin/cms/instahelp"
+# Test configuration
+BACKEND_URL = "https://80fb5554-c4b4-4eb1-8649-fef8ec889902.preview.emergentagent.com"
+JWT_SECRET = "n73w6AhIgLG06aaNkTHXHgXNUOSX2nq5AHktvEfx0VddrCw0uUlbO2EXUY5UD7nABJXRRYaEMn3cRDtip3PIeQ=="
+TEST_USER_EMAIL = "mstarifakhatun42443@gmail.com"
+TEST_USER_AUTH_ID = "0f56b3ef-d031-4db7-90a9-f2e001b48cca"
+TEST_USER_PUBLIC_ID = "83758fe8-143d-4b1e-bcd0-9fdc085ccdd6"
 
-def print_test(name: str, passed: bool, details: str = ""):
-    """Print test result with color"""
-    status = "✅ PASS" if passed else "❌ FAIL"
-    print(f"{status}: {name}")
-    if details:
-        print(f"  {details}")
-    print()
+# Colors for output
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
 
-def test_scenario_a_defaults():
-    """
-    Scenario A — Defaults:
-    - GET the endpoint
-    - Verify earliest_slot_enabled === false (OFF by default per user request)
-    - Verify all list sizes and defaults are sensible
-    """
-    print("=" * 70)
-    print("SCENARIO A: GET Defaults")
-    print("=" * 70)
-    
-    try:
-        response = requests.get(API_BASE, timeout=10)
-        print(f"GET {API_BASE}")
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code != 200:
-            print_test("GET /api/admin/cms/instahelp", False, f"Expected 200, got {response.status_code}")
-            return None
-        
-        config = response.json()
-        print(f"Response keys: {list(config.keys())[:10]}...")
-        print()
-        
-        # Test 1: earliest_slot_enabled should be false by default
-        earliest_enabled = config.get("earliest_slot_enabled")
-        print_test(
-            "earliest_slot_enabled === false (OFF by default)",
-            earliest_enabled is False,
-            f"Value: {earliest_enabled}"
-        )
-        
-        # Test 2: Verify time_slots list size (should be 4)
-        time_slots = config.get("time_slots", [])
-        print_test(
-            "time_slots has 4 items",
-            len(time_slots) == 4,
-            f"Count: {len(time_slots)}, IDs: {[s.get('id') for s in time_slots]}"
-        )
-        
-        # Test 3: Verify task_categories list size (should be 6)
-        task_categories = config.get("task_categories", [])
-        print_test(
-            "task_categories has 6 items",
-            len(task_categories) == 6,
-            f"Count: {len(task_categories)}, Names: {[c.get('name') for c in task_categories]}"
-        )
-        
-        # Test 4: Verify time_estimates list size (should be 3)
-        time_estimates = config.get("time_estimates", [])
-        print_test(
-            "time_estimates has 3 items",
-            len(time_estimates) == 3,
-            f"Count: {len(time_estimates)}"
-        )
-        
-        # Test 5: Verify excluded_items list size (should be 4)
-        excluded_items = config.get("excluded_items", [])
-        print_test(
-            "excluded_items has 4 items",
-            len(excluded_items) == 4,
-            f"Count: {len(excluded_items)}, Items: {excluded_items}"
-        )
-        
-        # Test 6: Verify faqs list size (should be 5)
-        faqs = config.get("faqs", [])
-        print_test(
-            "faqs has 5 items",
-            len(faqs) == 5,
-            f"Count: {len(faqs)}"
-        )
-        
-        # Test 7: Verify super_saver_enabled is true by default
-        super_saver_enabled = config.get("super_saver_enabled")
-        print_test(
-            "super_saver_enabled === true (ON by default)",
-            super_saver_enabled is True,
-            f"Value: {super_saver_enabled}"
-        )
-        
-        # Test 8: Verify cover_enabled is true by default
-        cover_enabled = config.get("cover_enabled")
-        print_test(
-            "cover_enabled === true (ON by default)",
-            cover_enabled is True,
-            f"Value: {cover_enabled}"
-        )
-        
-        # Test 9: Verify default title
-        title = config.get("title")
-        print_test(
-            "title === 'InstaHelp'",
-            title == "InstaHelp",
-            f"Value: '{title}'"
-        )
-        
-        # Test 10: Verify all time slots have correct structure
-        all_slots_valid = all(
-            s.get("id") and s.get("duration") and "price" in s and "original_price" in s
-            for s in time_slots
-        )
-        print_test(
-            "All time_slots have required fields (id, duration, price, original_price)",
-            all_slots_valid,
-            f"Sample slot: {time_slots[0] if time_slots else 'N/A'}"
-        )
-        
-        return config
-        
-    except Exception as e:
-        print_test("GET /api/admin/cms/instahelp", False, f"Exception: {str(e)}")
-        return None
+def generate_token():
+    """Generate a valid JWT token for testing"""
+    now = int(time.time())
+    token = jwt.encode({
+        "iss": "https://xuxetkeqxuwgphqrdzvy.supabase.co/auth/v1",
+        "sub": TEST_USER_AUTH_ID,
+        "aud": "authenticated",
+        "role": "authenticated",
+        "exp": now + 3600,
+        "iat": now,
+        "email": TEST_USER_EMAIL,
+        "app_metadata": {"provider": "email"},
+        "user_metadata": {},
+    }, JWT_SECRET, algorithm="HS256")
+    return token
 
+def print_test_header(test_name):
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}TEST: {test_name}{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}")
 
-def test_scenario_b_put_and_verify(original_config: Dict[str, Any]):
-    """
-    Scenario B — PUT modified config + verify page reflects it:
-    - PUT with overrides
-    - Verify response ok: true
-    - Load frontend page and verify changes
-    """
-    print("=" * 70)
-    print("SCENARIO B: PUT Modified Config")
-    print("=" * 70)
-    
-    if not original_config:
-        print("⚠️  Skipping Scenario B: No original config from Scenario A")
-        return False
-    
-    # Build modified config based on original
-    modified = original_config.copy()
-    
-    # Apply test overrides
-    modified["title"] = "TEST InstaHelp"
-    modified["earliest_slot_enabled"] = True
-    modified["earliest_slot_text"] = "TEST slot text"
-    modified["super_saver_enabled"] = False
-    modified["super_saver_bg_color"] = "#DC2626"
-    modified["task_categories_title"] = "TEST TILES TITLE"
-    
-    # Modify first time slot
-    if modified.get("time_slots") and len(modified["time_slots"]) > 0:
-        modified["time_slots"][0]["price"] = 999
-        modified["time_slots"][0]["duration"] = "TEST 1 hour"
-    
-    # Hide second time slot (1.5hr)
-    if modified.get("time_slots") and len(modified["time_slots"]) > 1:
-        modified["time_slots"][1]["enabled"] = False
-    
-    # Hide first task category (Kitchen)
-    if modified.get("task_categories") and len(modified["task_categories"]) > 0:
-        modified["task_categories"][0]["enabled"] = False
-    
-    # Set excluded_items to test values
-    modified["excluded_items"] = ["TEST X1", "TEST X2"]
-    
-    # Hide cover
-    modified["cover_enabled"] = False
-    
-    # Modify first FAQ
-    if modified.get("faqs") and len(modified["faqs"]) > 0:
-        modified["faqs"][0]["question"] = "TEST FAQ Q?"
-    
-    # Hide second FAQ
-    if modified.get("faqs") and len(modified["faqs"]) > 1:
-        modified["faqs"][1]["enabled"] = False
-    
-    try:
-        # PUT the modified config
-        response = requests.put(
-            API_BASE,
-            json=modified,
-            headers={"Content-Type": "application/json"},
-            timeout=15
-        )
-        
-        print(f"PUT {API_BASE}")
-        print(f"Status: {response.status_code}")
-        
-        if response.status_code != 200:
-            print_test("PUT /api/admin/cms/instahelp", False, f"Expected 200, got {response.status_code}: {response.text[:200]}")
-            return False
-        
-        result = response.json()
-        print(f"Response: {json.dumps(result, indent=2)[:300]}...")
-        print()
-        
-        # Test 1: Response has ok: true
-        print_test(
-            "Response has ok: true",
-            result.get("ok") is True,
-            f"ok: {result.get('ok')}"
-        )
-        
-        # Test 2: Response has url field
-        print_test(
-            "Response has url field",
-            "url" in result,
-            f"url: {result.get('url', 'N/A')[:80]}..."
-        )
-        
-        # Test 3: Response has config field
-        print_test(
-            "Response has config field",
-            "config" in result,
-            f"config keys: {list(result.get('config', {}).keys())[:5]}..."
-        )
-        
-        # Verify the changes were saved by doing a GET
-        print("\n--- Verifying changes with GET ---")
-        verify_response = requests.get(API_BASE, timeout=10)
-        
-        if verify_response.status_code != 200:
-            print_test("GET after PUT", False, f"Expected 200, got {verify_response.status_code}")
-            return False
-        
-        saved_config = verify_response.json()
-        
-        # Test 4: title changed to "TEST InstaHelp"
-        print_test(
-            "title === 'TEST InstaHelp'",
-            saved_config.get("title") == "TEST InstaHelp",
-            f"Value: '{saved_config.get('title')}'"
-        )
-        
-        # Test 5: earliest_slot_enabled is now true
-        print_test(
-            "earliest_slot_enabled === true",
-            saved_config.get("earliest_slot_enabled") is True,
-            f"Value: {saved_config.get('earliest_slot_enabled')}"
-        )
-        
-        # Test 6: earliest_slot_text changed
-        print_test(
-            "earliest_slot_text === 'TEST slot text'",
-            saved_config.get("earliest_slot_text") == "TEST slot text",
-            f"Value: '{saved_config.get('earliest_slot_text')}'"
-        )
-        
-        # Test 7: super_saver_enabled is now false
-        print_test(
-            "super_saver_enabled === false",
-            saved_config.get("super_saver_enabled") is False,
-            f"Value: {saved_config.get('super_saver_enabled')}"
-        )
-        
-        # Test 8: super_saver_bg_color changed to red
-        print_test(
-            "super_saver_bg_color === '#DC2626'",
-            saved_config.get("super_saver_bg_color") == "#DC2626",
-            f"Value: '{saved_config.get('super_saver_bg_color')}'"
-        )
-        
-        # Test 9: task_categories_title changed
-        print_test(
-            "task_categories_title === 'TEST TILES TITLE'",
-            saved_config.get("task_categories_title") == "TEST TILES TITLE",
-            f"Value: '{saved_config.get('task_categories_title')}'"
-        )
-        
-        # Test 10: First time slot price changed to 999
-        first_slot = saved_config.get("time_slots", [{}])[0]
-        print_test(
-            "time_slots[0].price === 999",
-            first_slot.get("price") == 999,
-            f"Value: {first_slot.get('price')}"
-        )
-        
-        # Test 11: First time slot duration changed
-        print_test(
-            "time_slots[0].duration === 'TEST 1 hour'",
-            first_slot.get("duration") == "TEST 1 hour",
-            f"Value: '{first_slot.get('duration')}'"
-        )
-        
-        # Test 12: Second time slot disabled
-        second_slot = saved_config.get("time_slots", [{}, {}])[1] if len(saved_config.get("time_slots", [])) > 1 else {}
-        print_test(
-            "time_slots[1].enabled === false",
-            second_slot.get("enabled") is False,
-            f"Value: {second_slot.get('enabled')}"
-        )
-        
-        # Test 13: First task category disabled
-        first_category = saved_config.get("task_categories", [{}])[0]
-        print_test(
-            "task_categories[0].enabled === false (Kitchen hidden)",
-            first_category.get("enabled") is False,
-            f"Value: {first_category.get('enabled')}, Name: '{first_category.get('name')}'"
-        )
-        
-        # Test 14: excluded_items changed to test values
-        excluded = saved_config.get("excluded_items", [])
-        print_test(
-            "excluded_items === ['TEST X1', 'TEST X2']",
-            excluded == ["TEST X1", "TEST X2"],
-            f"Value: {excluded}"
-        )
-        
-        # Test 15: cover_enabled is now false
-        print_test(
-            "cover_enabled === false",
-            saved_config.get("cover_enabled") is False,
-            f"Value: {saved_config.get('cover_enabled')}"
-        )
-        
-        # Test 16: First FAQ question changed
-        first_faq = saved_config.get("faqs", [{}])[0]
-        print_test(
-            "faqs[0].question === 'TEST FAQ Q?'",
-            first_faq.get("question") == "TEST FAQ Q?",
-            f"Value: '{first_faq.get('question')}'"
-        )
-        
-        # Test 17: Second FAQ disabled
-        second_faq = saved_config.get("faqs", [{}, {}])[1] if len(saved_config.get("faqs", [])) > 1 else {}
-        print_test(
-            "faqs[1].enabled === false",
-            second_faq.get("enabled") is False,
-            f"Value: {second_faq.get('enabled')}"
-        )
-        
-        print("\n✅ All backend PUT tests passed! Config saved successfully.")
-        print(f"\n📝 Next: Load {BACKEND_URL}/category/insta-help and verify UI reflects changes")
-        
-        return True
-        
-    except Exception as e:
-        print_test("PUT /api/admin/cms/instahelp", False, f"Exception: {str(e)}")
-        return False
+def print_result(passed, message):
+    if passed:
+        print(f"{GREEN}✅ PASS:{RESET} {message}")
+    else:
+        print(f"{RED}❌ FAIL:{RESET} {message}")
+    return passed
 
+def print_info(message):
+    print(f"{YELLOW}ℹ️  INFO:{RESET} {message}")
 
-def test_scenario_c_restore_defaults():
-    """
-    Scenario C — Restore defaults:
-    - PUT with default config values
-    - Verify response ok: true
-    - Verify defaults are restored
-    """
-    print("=" * 70)
-    print("SCENARIO C: Restore Defaults")
-    print("=" * 70)
+def print_response(response):
+    print(f"  Status: {response.status_code}")
+    print(f"  Response: {response.text[:500]}")
+
+# Test counters
+total_tests = 0
+passed_tests = 0
+
+def run_test(test_func):
+    global total_tests, passed_tests
+    total_tests += 1
+    if test_func():
+        passed_tests += 1
+
+# ============================================================================
+# TEST 1: POST /api/booking/profile/phone
+# ============================================================================
+def test_profile_phone_no_auth():
+    print_test_header("POST /api/booking/profile/phone - No Authorization Header")
+    url = f"{BACKEND_URL}/api/booking/profile/phone"
+    payload = {"phone": "9876543210", "name": "QA Tester"}
     
-    # Build default config (matching InstaHelpConfig defaults in backend)
-    defaults = {
-        "title": "InstaHelp",
-        "rating_text": "4.85 (3.0 K bookings)",
-        "header_enabled": True,
-        
-        "time_slots_enabled": True,
-        "time_slots": [
-            {"id": "1hr", "duration": "1 hour", "price": 79, "original_price": 245, "discount": "68% OFF", "enabled": True},
-            {"id": "1.5hr", "duration": "1.5 hours", "price": 119, "original_price": 369, "discount": "68% OFF", "enabled": True},
-            {"id": "2hr", "duration": "2 hours", "price": 179, "original_price": 559, "discount": "68% OFF", "enabled": True},
-            {"id": "3hr", "duration": "3 hours", "price": 269, "original_price": 839, "discount": "68% OFF", "enabled": True},
-        ],
-        
-        "earliest_slot_enabled": False,
-        "earliest_slot_text": "Earliest available slot : Today, 9:15 AM",
-        
-        "super_saver_enabled": True,
-        "super_saver_badge": "EXTRA 60% OFF",
-        "super_saver_title": "3-visits pack at ₹245",
-        "super_saver_price": "₹49/visit",
-        "super_saver_validity": "Valid till 1 month",
-        "super_saver_cta": "Book",
-        "super_saver_pack_label": "SUPER SAVER PACK",
-        "super_saver_bg_color": "#7C3AED",
-        
-        "task_categories_enabled": True,
-        "task_categories_title": "One help who can do it all",
-        "task_categories_note_enabled": True,
-        "task_categories_note": "Please provide cleaning equipment & supplies to the help",
-        "task_categories": [
-            {
-                "id": "kitchen",
-                "name": "Kitchen & utensil cleaning",
-                "image": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Crockery & lunch boxes", "Wiping cabinet exterior", "Sink cleaning", "Gas stove wiping"],
-                "exclusions": ["Hard food stains", "Chimney cleaning", "Heavy appliance cleaning"],
-                "enabled": True,
-            },
-            {
-                "id": "meal-prep",
-                "name": "Meal prep & serving",
-                "image": "https://images.unsplash.com/photo-1466637574441-749b8f19452f?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Veggies chopping & salad prep", "Meat marination", "Serving food", "Table setting"],
-                "exclusions": ["Cooking full meals", "Non-veg cooking", "Baking"],
-                "enabled": True,
-            },
-            {
-                "id": "mopping",
-                "name": "Mopping, dusting & wiping",
-                "image": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Dusting & Mopping floor", "Wet wiping furniture", "Bed making", "Organizing items"],
-                "exclusions": ["Wiping walls", "Hard to reach areas", "Ceiling fans"],
-                "enabled": True,
-            },
-            {
-                "id": "bathroom",
-                "name": "Bathroom cleaning",
-                "image": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Toilet seat cleaning", "Sink & Taps", "Floor mopping", "Mirror cleaning"],
-                "exclusions": ["Walls scrubbing", "Hard stains removal", "Ceiling cleaning"],
-                "enabled": True,
-            },
-            {
-                "id": "laundry",
-                "name": "Laundry & Ironing",
-                "image": "https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Machine-wash & drying", "Ironing clothes", "Folding & arranging", "Sorting clothes"],
-                "exclusions": ["Hand-washing delicates", "Dry cleaning items", "Stain removal"],
-                "enabled": True,
-            },
-            {
-                "id": "packing",
-                "name": "Packing & un-packing",
-                "image": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80",
-                "inclusions": ["Move-in / move-out help", "Vacation packing", "Wardrobe organizing", "Labeling boxes"],
-                "exclusions": ["Lifting heavy objects", "Moving full homes", "Furniture assembly"],
-                "enabled": True,
-            },
-        ],
-        
-        "time_estimates_enabled": True,
-        "time_estimates_title": "How long does it take?",
-        "time_estimates_note": "These approximate time for a 3BHK home, you can ask the help to customise as per your need",
-        "time_estimates": [
-            {"id": "kitchen-time", "icon": "kitchen", "title": "Kitchen & Dishwashing", "subtitle": "For 3-4 members", "time": "25 mins", "enabled": True},
-            {"id": "bathroom-time", "icon": "bathroom", "title": "1 Bathroom cleaning", "subtitle": "Mopping & toilet seat cleaning", "time": "15 mins", "enabled": True},
-            {"id": "mopping-time", "icon": "mopping", "title": "Mopping, dusting & wiping", "subtitle": "For 3 bedrooms & living room", "time": "55 mins", "enabled": True},
-        ],
-        
-        "exclusions_enabled": True,
-        "exclusions_title": "What's excluded",
-        "excluded_items": [
-            "Removal of hard stains",
-            "Cleaning of any heavy appliances",
-            "Cooking meals",
-            "Hand-washing clothes",
-        ],
-        
-        "cover_enabled": True,
-        "cover_title": "Stay stress free with Mfixit cover",
-        "cover_description": "Up to ₹10,000 cover if any damage happens during the job",
-        
-        "faq_enabled": True,
-        "faq_title": "Frequently asked questions",
-        "faqs": [
-            {"id": "faq1", "question": "Is the professional trained and verified?", "answer": "Yes, all our professionals undergo thorough background verification and are trained to deliver quality service.", "enabled": True},
-            {"id": "faq2", "question": "Will the professional bring cleaning supplies?", "answer": "No, you need to provide cleaning equipment and supplies. The professional will use your materials.", "enabled": True},
-            {"id": "faq3", "question": "What if the cleaning isn't complete within the selected time?", "answer": "You can extend the service by paying for additional time, or reschedule the remaining tasks.", "enabled": True},
-            {"id": "faq4", "question": "Can I request the same professional for my booking?", "answer": "Yes, you can add preferred professionals to your favorites and request them for future bookings.", "enabled": True},
-            {"id": "faq5", "question": "Can I schedule the service instead of booking instantly?", "answer": "Yes, you can choose 'Later' option and select a convenient time slot for your booking.", "enabled": True},
-        ],
+    response = requests.post(url, json=payload)
+    print_response(response)
+    
+    passed = response.status_code == 401
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "sign in" in data.get("detail", "").lower()
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 401 with 'Please sign in' message")
+
+def test_profile_phone_invalid_token():
+    print_test_header("POST /api/booking/profile/phone - Invalid Bearer Token")
+    url = f"{BACKEND_URL}/api/booking/profile/phone"
+    headers = {"Authorization": "Bearer garbage_invalid_token_12345"}
+    payload = {"phone": "9876543210", "name": "QA Tester"}
+    
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    
+    passed = response.status_code == 401
+    return print_result(passed, "Returns 401 for invalid token")
+
+def test_profile_phone_valid_token():
+    print_test_header("POST /api/booking/profile/phone - Valid Token")
+    token = generate_token()
+    url = f"{BACKEND_URL}/api/booking/profile/phone"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"phone": "9876543210", "name": "QA Tester"}
+    
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    
+    passed = response.status_code == 200
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and data.get("ok") == True
+            passed = passed and data.get("user") is not None
+            if passed:
+                user = data["user"]
+                print_info(f"User ID: {user.get('id')}")
+                print_info(f"Phone: {user.get('phone')}")
+                print_info(f"Name: {user.get('full_name')}")
+        except Exception as e:
+            print_info(f"Error parsing response: {e}")
+            passed = False
+    
+    return print_result(passed, "Returns 200 OK with user object")
+
+def test_profile_phone_short_phone():
+    print_test_header("POST /api/booking/profile/phone - Short Phone Number")
+    token = generate_token()
+    url = f"{BACKEND_URL}/api/booking/profile/phone"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"phone": "12", "name": "QA Tester"}
+    
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    
+    passed = response.status_code == 400
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "valid phone" in data.get("detail", "").lower()
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 400 for short phone number")
+
+# ============================================================================
+# TEST 2: POST /api/booking/create
+# ============================================================================
+def test_booking_create_no_auth():
+    print_test_header("POST /api/booking/create - No Authorization Header")
+    url = f"{BACKEND_URL}/api/booking/create"
+    payload = {
+        "items": [{"service_id": "svc-ac-7", "quantity": 1, "price": 449, "title": "Chimney & Hob Service", "image": ""}],
+        "address": {"id": "a1", "label": "Home", "addressLine": "House 5, X Street", "city": "Durgapur", "landmark": "Near park", "latitude": 22.87, "longitude": 87.53},
+        "slot_date": "2026-07-05",
+        "slot_time": "01:30 PM",
+        "payment_method": "cash",
+        "tip_amount": 0
     }
     
+    response = requests.post(url, json=payload)
+    print_response(response)
+    
+    passed = response.status_code == 401
+    return print_result(passed, "Returns 401 without authorization")
+
+def test_booking_create_empty_items():
+    print_test_header("POST /api/booking/create - Empty Items Array")
+    token = generate_token()
+    url = f"{BACKEND_URL}/api/booking/create"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {
+        "items": [],
+        "address": {"id": "a1", "label": "Home", "addressLine": "House 5, X Street", "city": "Durgapur"},
+        "slot_date": "2026-07-05",
+        "slot_time": "01:30 PM",
+        "payment_method": "cash",
+        "tip_amount": 0
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    
+    passed = response.status_code == 400
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "empty" in data.get("detail", "").lower()
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 400 with 'Cart is empty' message")
+
+def test_booking_create_valid():
+    print_test_header("POST /api/booking/create - Valid Booking")
+    token = generate_token()
+    url = f"{BACKEND_URL}/api/booking/create"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {
+        "items": [{"service_id": "svc-ac-7", "quantity": 1, "price": 449, "title": "Chimney & Hob Service", "image": ""}],
+        "address": {
+            "id": "a1",
+            "label": "Home",
+            "addressLine": "House 5, X Street",
+            "city": "Durgapur",
+            "landmark": "Near park",
+            "latitude": 22.87,
+            "longitude": 87.53
+        },
+        "slot_date": "2026-07-05",
+        "slot_time": "01:30 PM",
+        "payment_method": "cash",
+        "tip_amount": 0
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    print_response(response)
+    
+    passed = response.status_code == 200
+    booking_id = None
+    if passed:
+        try:
+            data = response.json()
+            booking = data.get("booking")
+            passed = passed and booking is not None
+            passed = passed and booking.get("id") is not None
+            passed = passed and booking.get("customer_id") == TEST_USER_PUBLIC_ID
+            passed = passed and booking.get("status") == "pending"
+            
+            # CRITICAL: Verify address is stored as JSONB object, not flat columns
+            address = booking.get("address")
+            passed = passed and isinstance(address, dict)
+            passed = passed and address.get("addressLine") == "House 5, X Street"
+            passed = passed and address.get("city") == "Durgapur"
+            passed = passed and address.get("landmark") == "Near park"
+            
+            if passed:
+                booking_id = booking["id"]
+                print_info(f"Booking ID: {booking_id}")
+                print_info(f"Customer ID: {booking.get('customer_id')}")
+                print_info(f"Status: {booking.get('status')}")
+                print_info(f"Address (JSONB): {address}")
+        except Exception as e:
+            print_info(f"Error parsing response: {e}")
+            passed = False
+    
+    result = print_result(passed, "Returns 200 OK with booking object and JSONB address")
+    
+    # Store booking_id for notification check
+    if booking_id:
+        globals()['last_booking_id'] = booking_id
+    
+    return result
+
+def test_booking_notification_trigger():
+    print_test_header("Notification Trigger - Verify new_booking notification")
+    
+    if 'last_booking_id' not in globals():
+        print_info("Skipping: No booking ID from previous test")
+        return print_result(False, "Cannot verify notification (no booking created)")
+    
+    booking_id = globals()['last_booking_id']
+    print_info(f"Checking notifications for booking_id: {booking_id}")
+    
+    # Query Supabase notifications table via REST API
+    supabase_url = "https://xuxetkeqxuwgphqrdzvy.supabase.co"
+    service_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eGV0a2VxeHV3Z3BocXJkenZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDA1OTc1MiwiZXhwIjoyMDk1NjM1NzUyfQ.6oagP6W7bj7x-j6TxCouTa2Tmhw6U3R5oDwFcO8IJJw"
+    
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+    }
+    
+    url = f"{supabase_url}/rest/v1/notifications?booking_id=eq.{booking_id}&kind=eq.new_booking&target_type=eq.admin"
+    
     try:
-        # PUT the default config
-        response = requests.put(
-            API_BASE,
-            json=defaults,
-            headers={"Content-Type": "application/json"},
-            timeout=15
-        )
+        response = requests.get(url, headers=headers)
+        print_response(response)
         
-        print(f"PUT {API_BASE}")
-        print(f"Status: {response.status_code}")
+        passed = response.status_code == 200
+        if passed:
+            data = response.json()
+            passed = passed and len(data) > 0
+            if passed:
+                notification = data[0]
+                print_info(f"Notification ID: {notification.get('id')}")
+                print_info(f"Kind: {notification.get('kind')}")
+                print_info(f"Target Type: {notification.get('target_type')}")
+            else:
+                print_info("No notification found for this booking")
         
-        if response.status_code != 200:
-            print_test("PUT defaults", False, f"Expected 200, got {response.status_code}: {response.text[:200]}")
-            return False
-        
-        result = response.json()
-        print(f"Response: ok={result.get('ok')}")
-        print()
-        
-        # Test 1: Response has ok: true
-        print_test(
-            "Response has ok: true",
-            result.get("ok") is True,
-            f"ok: {result.get('ok')}"
-        )
-        
-        # Verify the defaults were restored by doing a GET
-        print("\n--- Verifying defaults with GET ---")
-        verify_response = requests.get(API_BASE, timeout=10)
-        
-        if verify_response.status_code != 200:
-            print_test("GET after restore", False, f"Expected 200, got {verify_response.status_code}")
-            return False
-        
-        saved_config = verify_response.json()
-        
-        # Test 2: title restored to "InstaHelp"
-        print_test(
-            "title === 'InstaHelp'",
-            saved_config.get("title") == "InstaHelp",
-            f"Value: '{saved_config.get('title')}'"
-        )
-        
-        # Test 3: earliest_slot_enabled is false (key requirement)
-        print_test(
-            "earliest_slot_enabled === false (OFF by default)",
-            saved_config.get("earliest_slot_enabled") is False,
-            f"Value: {saved_config.get('earliest_slot_enabled')}"
-        )
-        
-        # Test 4: super_saver_enabled is true
-        print_test(
-            "super_saver_enabled === true",
-            saved_config.get("super_saver_enabled") is True,
-            f"Value: {saved_config.get('super_saver_enabled')}"
-        )
-        
-        # Test 5: super_saver_bg_color restored to purple
-        print_test(
-            "super_saver_bg_color === '#7C3AED' (purple)",
-            saved_config.get("super_saver_bg_color") == "#7C3AED",
-            f"Value: '{saved_config.get('super_saver_bg_color')}'"
-        )
-        
-        # Test 6: task_categories_title restored
-        print_test(
-            "task_categories_title === 'One help who can do it all'",
-            saved_config.get("task_categories_title") == "One help who can do it all",
-            f"Value: '{saved_config.get('task_categories_title')}'"
-        )
-        
-        # Test 7: All 4 time slots enabled
-        time_slots = saved_config.get("time_slots", [])
-        all_enabled = all(s.get("enabled", False) for s in time_slots)
-        print_test(
-            "All 4 time_slots enabled",
-            len(time_slots) == 4 and all_enabled,
-            f"Count: {len(time_slots)}, All enabled: {all_enabled}"
-        )
-        
-        # Test 8: All 6 task categories enabled
-        task_categories = saved_config.get("task_categories", [])
-        all_cat_enabled = all(c.get("enabled", False) for c in task_categories)
-        print_test(
-            "All 6 task_categories enabled",
-            len(task_categories) == 6 and all_cat_enabled,
-            f"Count: {len(task_categories)}, All enabled: {all_cat_enabled}"
-        )
-        
-        # Test 9: excluded_items restored to 4 default items
-        excluded = saved_config.get("excluded_items", [])
-        print_test(
-            "excluded_items has 4 default items",
-            len(excluded) == 4 and "Removal of hard stains" in excluded,
-            f"Count: {len(excluded)}, First: '{excluded[0] if excluded else 'N/A'}'"
-        )
-        
-        # Test 10: cover_enabled is true
-        print_test(
-            "cover_enabled === true",
-            saved_config.get("cover_enabled") is True,
-            f"Value: {saved_config.get('cover_enabled')}"
-        )
-        
-        # Test 11: All 5 FAQs enabled
-        faqs = saved_config.get("faqs", [])
-        all_faq_enabled = all(f.get("enabled", False) for f in faqs)
-        print_test(
-            "All 5 faqs enabled",
-            len(faqs) == 5 and all_faq_enabled,
-            f"Count: {len(faqs)}, All enabled: {all_faq_enabled}"
-        )
-        
-        # Test 12: First FAQ question restored
-        first_faq = faqs[0] if faqs else {}
-        print_test(
-            "faqs[0].question restored to default",
-            first_faq.get("question") == "Is the professional trained and verified?",
-            f"Value: '{first_faq.get('question', 'N/A')[:50]}...'"
-        )
-        
-        # Test 13: No TEST values remain
-        config_str = json.dumps(saved_config)
-        has_test_values = "TEST" in config_str
-        print_test(
-            "No TEST values remain in config",
-            not has_test_values,
-            f"Contains 'TEST': {has_test_values}"
-        )
-        
-        print("\n✅ All defaults restored successfully!")
-        print(f"\n📝 Next: Load {BACKEND_URL}/category/insta-help and verify UI shows original design")
-        print("      (EXCEPT earliest_slot_enabled remains false - that's the correct new default)")
-        
-        return True
-        
+        return print_result(passed, "Notification trigger fired successfully")
     except Exception as e:
-        print_test("PUT defaults", False, f"Exception: {str(e)}")
-        return False
+        print_info(f"Error checking notifications: {e}")
+        return print_result(False, "Failed to verify notification")
 
+# ============================================================================
+# TEST 3: Regression Sanity Checks
+# ============================================================================
+def test_root_endpoint():
+    print_test_header("GET /api/ - Root Endpoint")
+    url = f"{BACKEND_URL}/api/"
+    
+    response = requests.get(url)
+    print_response(response)
+    
+    passed = response.status_code == 200
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "message" in data
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 200 with message")
 
+def test_slots_endpoint():
+    print_test_header("GET /api/booking/slots?date=2026-07-05")
+    url = f"{BACKEND_URL}/api/booking/slots?date=2026-07-05"
+    
+    response = requests.get(url)
+    print_response(response)
+    
+    passed = response.status_code == 200
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "slots" in data
+            print_info(f"Slots returned: {len(data.get('slots', []))}")
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 200 with slots array")
+
+def test_slots_dates_endpoint():
+    print_test_header("GET /api/booking/slots/dates?days=7")
+    url = f"{BACKEND_URL}/api/booking/slots/dates?days=7"
+    
+    response = requests.get(url)
+    print_response(response)
+    
+    passed = response.status_code == 200
+    if passed:
+        try:
+            data = response.json()
+            passed = passed and "dates" in data
+            passed = passed and len(data.get("dates", [])) == 7
+            print_info(f"Dates returned: {len(data.get('dates', []))}")
+        except:
+            passed = False
+    
+    return print_result(passed, "Returns 200 with 7 dates")
+
+# ============================================================================
+# MAIN TEST RUNNER
+# ============================================================================
 def main():
-    """Run all test scenarios"""
-    print("\n" + "=" * 70)
-    print("InstaHelp CMS Backend Testing")
-    print("=" * 70)
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}REGRESSION TEST: Auth Fix in /app/backend/booking_routes.py{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}")
     print(f"Backend URL: {BACKEND_URL}")
-    print(f"API Endpoint: {API_BASE}")
-    print("=" * 70)
-    print()
+    print(f"Test User: {TEST_USER_EMAIL}")
+    print(f"User ID: {TEST_USER_PUBLIC_ID}")
     
-    # Scenario A: Test defaults
-    original_config = test_scenario_a_defaults()
+    # Test 1: POST /api/booking/profile/phone
+    run_test(test_profile_phone_no_auth)
+    run_test(test_profile_phone_invalid_token)
+    run_test(test_profile_phone_valid_token)
+    run_test(test_profile_phone_short_phone)
     
-    # Scenario B: Test PUT with modifications
-    if original_config:
-        test_scenario_b_put_and_verify(original_config)
+    # Test 2: POST /api/booking/create
+    run_test(test_booking_create_no_auth)
+    run_test(test_booking_create_empty_items)
+    run_test(test_booking_create_valid)
+    run_test(test_booking_notification_trigger)
     
-    # Scenario C: Restore defaults
-    test_scenario_c_restore_defaults()
+    # Test 3: Regression sanity
+    run_test(test_root_endpoint)
+    run_test(test_slots_endpoint)
+    run_test(test_slots_dates_endpoint)
     
-    print("\n" + "=" * 70)
-    print("Backend Testing Complete")
-    print("=" * 70)
-    print("\n📝 NEXT STEPS:")
-    print(f"1. Load {BACKEND_URL}/category/insta-help in browser")
-    print("2. Verify UI reflects the current config (should show defaults after Scenario C)")
-    print("3. Take screenshots to document the test results")
-    print()
-
+    # Summary
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}TEST SUMMARY{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}")
+    print(f"Total Tests: {total_tests}")
+    print(f"{GREEN}Passed: {passed_tests}{RESET}")
+    print(f"{RED}Failed: {total_tests - passed_tests}{RESET}")
+    
+    if passed_tests == total_tests:
+        print(f"\n{GREEN}🎉 ALL TESTS PASSED! 🎉{RESET}")
+    else:
+        print(f"\n{RED}⚠️  SOME TESTS FAILED{RESET}")
+    
+    return passed_tests == total_tests
 
 if __name__ == "__main__":
-    main()
+    import sys
+    success = main()
+    sys.exit(0 if success else 1)

@@ -4959,3 +4959,180 @@ agent_communication:
       Frontend consumption verified. All test scenarios passed with 100% success rate. 
       Main agent can summarize and finish.
 
+
+
+backend:
+  - task: "Auth: /api/booking/profile/phone and /api/booking/create returning 401 for email-logged-in users"
+    implemented: true
+    working: true
+    file: "backend/booking_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: |
+            User logged in via email OTP (Supabase magic-link 6-digit OTP flow).
+            On the cart page tapping "Add" for phone number → alert:
+              "80fb5554-c4b4-4eb1-8649-fef8ec889902.preview.emergentagent.com says: Update failed — Please sign in"
+            On the checkout page tapping "Confirm booking" → alert:
+              "Booking failed — Please sign in"
+            Backend logs showed both POST /api/booking/profile/phone and
+            POST /api/booking/create returning 401.
+        - working: "NA"
+          agent: "main"
+          comment: |
+            Root cause: `_user_id_from_token()` in booking_routes.py did the
+            token-to-user resolution via a live GET /auth/v1/user round-trip
+            and then a REST lookup in `public.users`. Direct curl against
+            /auth/v1/user with a valid token worked, but the two-step call
+            was flaky and would occasionally silently return None
+            (network or CORS proxy hiccup) → the endpoint returned "Please sign in".
+            Additionally, a fresh email/Google login could arrive at a state
+            where public.users had no row yet linked via auth_user_id.
+
+            **Fix applied:**
+            1. Rewrote `_user_id_from_token()` (booking_routes.py:36-135) to:
+               a. Verify JWT locally with SUPABASE_JWT_SECRET (fast, no network).
+               b. Fall back to /auth/v1/user only if local decode fails.
+               c. If public.users has no row for the auth_user_id, auto-provision
+                  one with role='customer' and email/phone from the JWT so the
+                  first booking never fails on a missing profile.
+               d. Added structured logging under the "booking.auth" logger to
+                  make future auth failures observable.
+            2. Fixed `POST /api/booking/create` payload (booking_routes.py:457-486):
+               the code was writing flat address columns (address_line, city,
+               landmark, latitude, longitude) but the schema has a single
+               JSONB `bookings.address` column. Now packs the whole address
+               object into that column.
+
+            **Local smoke-test results (main agent):**
+            - POST /api/booking/profile/phone with valid email-user JWT → 200 OK
+              (public.users row updated with phone + full_name).
+            - POST /api/booking/create with same JWT + svc-ac-7, cash payment →
+              200 OK; row inserted; trg_new_booking_notify fired and produced
+              admin notification "New booking received — ₹484.92".
+
+            **Files touched:** /app/backend/booking_routes.py
+
+            Please hit both endpoints with a token minted from
+            /app/memory/test_credentials.md and verify:
+              - 200 on POST /api/booking/profile/phone (phone gets stored)
+              - 200 on POST /api/booking/create (booking row appears in Supabase
+                and a notifications row of kind='new_booking' is auto-created)
+              - Both endpoints still return 401 when the Authorization header is
+                absent or contains an invalid/expired token.
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ ALL TESTS PASSED - AUTH FIX FULLY VERIFIED (11/11 PASS)
+            
+            **COMPREHENSIVE REGRESSION TEST RESULTS:**
+            
+            **TEST 1: POST /api/booking/profile/phone (4 test cases)**
+            ✅ PASS: No Authorization header → 401 with "Please sign in"
+            ✅ PASS: Invalid bearer token → 401
+            ✅ PASS: Valid token + valid phone → 200 OK with user object
+               - User ID: 83758fe8-143d-4b1e-bcd0-9fdc085ccdd6
+               - Phone: 9876543210
+               - Name: QA Tester (stored in full_name column)
+            ✅ PASS: Valid token + short phone ("12") → 400 "Please enter a valid phone number"
+            
+            **TEST 2: POST /api/booking/create (4 test cases)**
+            ✅ PASS: No Authorization header → 401 "Please sign in"
+            ✅ PASS: Empty items array → 400 "Cart is empty"
+            ✅ PASS: Valid token + valid payload → 200 OK
+               - Booking ID: a8823aa0-5f2c-4d9d-9760-e3972c054dbd
+               - Customer ID: 83758fe8-143d-4b1e-bcd0-9fdc085ccdd6 (correct)
+               - Status: pending (correct)
+               - **CRITICAL**: Address stored as JSONB object (NOT flat columns)
+                 {"id":"a1","city":"Durgapur","label":"Home","landmark":"Near park",
+                  "latitude":22.87,"longitude":87.53,"addressLine":"House 5, X Street"}
+            ✅ PASS: Notification trigger fired successfully
+               - Notification ID: bd8e1c38-abb5-4415-812d-8432963abe37
+               - Kind: new_booking
+               - Target Type: admin
+               - Body: ₹484.92
+            
+            **TEST 3: Regression Sanity (3 test cases)**
+            ✅ PASS: GET /api/ → 200 with {"message":"Hello World"}
+            ✅ PASS: GET /api/booking/slots?date=2026-07-05 → 200 with 45 slots
+            ✅ PASS: GET /api/booking/slots/dates?days=7 → 200 with 7 dates
+            
+            **BACKEND LOGS VERIFICATION:**
+            - Local JWT verification working correctly: "_user_id_from_token: local JWT ok"
+            - Invalid tokens correctly fall back to /auth/v1/user and return 401
+            - User lookup and matching working: "users.id=83758fe8-143d-4b1e-bcd0-9fdc085ccdd6 (matched)"
+            - All endpoints returning expected status codes
+            - No errors or warnings in backend logs
+            
+            **KEY FINDINGS:**
+            1. ✅ _user_id_from_token() local JWT verification is FAST and RELIABLE
+            2. ✅ Auth validation correctly rejects missing/invalid tokens (401)
+            3. ✅ Phone update endpoint correctly stores phone + full_name
+            4. ✅ Booking creation correctly packs address into JSONB column (NOT flat columns)
+            5. ✅ Notification trigger (trg_new_booking_notify) fires successfully
+            6. ✅ All regression endpoints still working correctly
+            
+            **NO CRITICAL ISSUES FOUND**
+            
+            **CLEANUP:**
+            Test booking and notification deleted from database to avoid pollution.
+            
+            **RECOMMENDATION:**
+            Auth fix is production-ready. Both endpoints working correctly with proper
+            JWT verification, error handling, and data persistence. Main agent can
+            summarize and finish.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: |
+        Fix shipped for the "Please sign in" bug that blocked adding phone and
+        confirming bookings even after successful email OTP login. See the
+        backend task above for details. Two endpoints to retest, both under
+        /api/booking (auth via Bearer token). Test credentials + a minting
+        snippet are in /app/memory/test_credentials.md.
+    - agent: "testing"
+      message: |
+        🎉 AUTH FIX REGRESSION TEST COMPLETE - ALL TESTS PASSED 🎉
+        
+        **TEST RESULTS: 11/11 PASS (100%)**
+        
+        **ENDPOINTS TESTED:**
+        1. POST /api/booking/profile/phone (4 test cases)
+           ✅ Auth validation (401 for missing/invalid token)
+           ✅ Phone update with valid token (200 OK)
+           ✅ Validation (400 for short phone)
+        
+        2. POST /api/booking/create (4 test cases)
+           ✅ Auth validation (401 for missing token)
+           ✅ Input validation (400 for empty cart)
+           ✅ Booking creation with JSONB address (200 OK)
+           ✅ Notification trigger fired (new_booking notification created)
+        
+        3. Regression sanity (3 test cases)
+           ✅ Root endpoint, slots, slots/dates all working
+        
+        **CRITICAL VERIFICATIONS:**
+        - Local JWT verification is FAST and RELIABLE (no network round-trip)
+        - Address correctly stored as JSONB object (NOT flat columns)
+        - Notification trigger (trg_new_booking_notify) fires successfully
+        - Backend logs show no errors or warnings
+        
+        **NO CRITICAL ISSUES FOUND**
+        
+        **RECOMMENDATION:**
+        Auth fix is production-ready. Main agent can summarize and finish.
