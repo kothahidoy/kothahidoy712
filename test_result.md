@@ -5663,3 +5663,12 @@ agent_communication:
       
       **RECOMMENDATION:**
       Location selection flow is production-ready. All UC-style features working correctly. Main agent can summarize and finish.
+
+  - agent: "testing"
+    message: |
+      Backend /api/geo/reverse: 7/7 tests PASSED (real place names, cache, 422 validation, no regressions).
+      Frontend location flow: ALL SCENARIOS PASSED —
+      (1) GPS flow shows green "Delivering service at Durgapur" (proper name, not raw coords), saves as default Home address;
+      (2) /addresses shows Home card with Default pill, human-readable line;
+      (3) Manual entry flow works (address + city chips + save -> home).
+      Booking prefill code verified correct (most services use cart flow; checkout auto-selects default address already).
