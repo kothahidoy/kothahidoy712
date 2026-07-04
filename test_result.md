@@ -5359,3 +5359,11 @@ agent_communication:
       - Installed backend deps (skipped emergentintegrations==0.2.0 pin due to litellm conflict; not imported by backend code).
       - Verified: backend /api/ returns Hello World; frontend welcome screen, auth buttons, profile-setup all render correctly.
       - NOTE: App currently runs in DEMO MODE (Supabase + Razorpay keys empty). User must provide their Supabase URL/keys and Razorpay keys to restore production data mode.
+
+  - agent: "main"
+    message: |
+      **SESSION: Supabase reconnected (user provided keys)**
+      - frontend/.env: EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY (sb_publishable_ format) set.
+      - backend/.env: SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET set.
+      - Verified: Supabase REST reachable (categories/users tables have data), backend /api/admin/cms/welcome-screen returns 200, welcome screen renders. App now in PRODUCTION mode (no more demo fallback).
+      - Razorpay keys still empty (payments not configured).
