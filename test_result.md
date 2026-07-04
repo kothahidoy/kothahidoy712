@@ -5367,3 +5367,184 @@ agent_communication:
       - backend/.env: SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET set.
       - Verified: Supabase REST reachable (categories/users tables have data), backend /api/admin/cms/welcome-screen returns 200, welcome screen renders. App now in PRODUCTION mode (no more demo fallback).
       - Razorpay keys still empty (payments not configured).
+
+## SESSION: UC-style location selection + proper reverse geocoding (current)
+
+user_problem_statement_addendum: >
+  User wants (like Urban Company): at login a location screen with two options
+  ("At my current location" + "I'll enter my location manually"). Current
+  location must show a PROPER place name (not raw lat numbers like "25466").
+  The address must be saved to Saved Addresses and auto-selected at booking.
+
+backend:
+  - task: "GET /api/geo/reverse reverse-geocoding endpoint (Nominatim proxy)"
+    implemented: true
+    working: true
+    file: "backend/geo_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "New endpoint /api/geo/reverse?lat=&lon= returns name/area/city/state/pincode/address_line/display_name/label. In-memory 24h cache, 1 req/s throttle, 422 on invalid coords. Manually curl-verified for Durgapur + Kolkata coords."
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ ALL 7 TESTS PASSED - REVERSE GEOCODING ENDPOINT WORKING PERFECTLY
+          
+          **TEST RESULTS: 7/7 PASS (100%)**
+          
+          **Test 1a: Valid Coords - Durgapur (lat=23.5204, lon=87.3119)** ✅ PASS
+          - Returns 200 OK with all required fields
+          - Response: {"name": "Durgapur", "area": "", "road": "", "city": "Durgapur", "state": "West Bengal", "pincode": "713200", "address_line": "Durgapur", "display_name": "Durgapur, West Bengal, 713200, India", "label": "Durgapur", "latitude": 23.5204, "longitude": 87.3119}
+          - ✓ Name is real place name (NOT pure numbers, NOT plus-code)
+          - ✓ display_name contains state, pincode, and India
+          - ✓ All 11 required fields present: name, area, road, city, state, pincode, address_line, display_name, label, latitude, longitude
+          
+          **Test 1b: Valid Coords - Kolkata (lat=22.5726, lon=88.3639)** ✅ PASS
+          - Returns 200 OK with all required fields
+          - Response: {"name": "Bowbazar", "area": "Bowbazar", "road": "Chatterjee Lane", "city": "Kolkata", "state": "West Bengal", "pincode": "700073", "address_line": "Chatterjee Lane, Bowbazar, Kolkata", "display_name": "Chatterjee Lane, Bowbazar, Kolkata, West Bengal, 700073, India", "label": "Bowbazar, Kolkata", "latitude": 22.5726, "longitude": 88.3639}
+          - ✓ Name is real place name (Bowbazar)
+          - ✓ display_name contains state, pincode, and India
+          - ✓ All required fields present and correctly formatted
+          
+          **Test 2: Cache Functionality** ✅ PASS
+          - First call: 0.119s (hits Nominatim API)
+          - Second call: 0.085s (cached response)
+          - ✓ Both calls returned 200 OK
+          - ✓ Payloads are identical (cache working correctly)
+          - ✓ Second call faster than first (cache performance benefit)
+          - Backend logs confirm: First call hits Nominatim, second call returns cached data
+          
+          **Test 3a: Validation - Invalid Latitude (lat=999, lon=88)** ✅ PASS
+          - Returns 422 Unprocessable Entity (correct validation)
+          - Error message: "Input should be less than or equal to 90"
+          - ✓ FastAPI/Pydantic validation working correctly (lat must be -90 to 90)
+          
+          **Test 3b: Validation - Missing Parameters** ✅ PASS
+          - Missing both lat and lon: 422 Unprocessable Entity ✓
+          - Missing lon only: 422 Unprocessable Entity ✓
+          - Missing lat only: 422 Unprocessable Entity ✓
+          - ✓ All parameter validation working correctly
+          
+          **Test 4a: Regression - GET /api/ (Hello World)** ✅ PASS
+          - Returns 200 OK with {"message": "Hello World"}
+          - ✓ Root endpoint still working correctly (no regression)
+          
+          **Test 4b: Regression - GET /api/admin/cms/welcome-screen** ✅ PASS
+          - Returns 200 OK with full welcome screen configuration
+          - ✓ CMS endpoint still working correctly (no regression)
+          
+          **BACKEND LOGS VERIFICATION:**
+          - All API requests return expected status codes (200/422)
+          - Nominatim API calls successful: "HTTP/1.1 200 OK"
+          - No errors or exceptions in backend logs
+          - Cache mechanism working correctly (second call doesn't hit Nominatim)
+          - 1 req/s throttle implemented correctly (asyncio.sleep in code)
+          
+          **KEY FINDINGS:**
+          1. ✅ Endpoint correctly registered in server.py (line 95-96)
+          2. ✅ All required response fields present and correctly formatted
+          3. ✅ Real place names returned (NOT raw numbers or plus-codes)
+          4. ✅ display_name contains state, pincode, and "India" for all West Bengal coords
+          5. ✅ In-memory cache working perfectly (24h TTL, rounded to 4 decimals)
+          6. ✅ 1 req/s throttle implemented correctly (respects Nominatim fair-use policy)
+          7. ✅ Validation working correctly (422 for invalid lat/lon, missing params)
+          8. ✅ No regression - existing endpoints still working
+          
+          **NOMINATIM INTEGRATION:**
+          - User-Agent header correctly set: "Mfixit-HomeServices/1.0 (support@mfixit.app)"
+          - Accept-Language: "en-IN,en" (India-specific results)
+          - Zoom level: 17 (detailed address level)
+          - Format: jsonv2 with addressdetails=1
+          - All Nominatim best practices followed
+          
+          **NO CRITICAL ISSUES FOUND**
+          
+          **RECOMMENDATION:**
+          Backend reverse geocoding endpoint is production-ready and working perfectly. All test cases passed with 100% success rate. The endpoint correctly handles valid coordinates, caching, validation, and error cases. No regressions detected in existing endpoints.
+
+frontend:
+  - task: "Location-select screen (UC style) at /location-select"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/location-select.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Two options: 'At my current location' (GPS -> reverse geocode -> green 'Delivering service at <Name>' confirm -> saves as default Home address) and manual form (address, landmark, city chips). Skip link sets AsyncStorage flag."
+  - task: "Reverse geocode util (backend proxy + expo fallback, junk filtering)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/utils/geo.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+  - task: "Post-login redirect to location-select when no saved address"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/(tabs)/index.tsx, frontend/app/(auth)/profile-setup.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+  - task: "Booking form prefills default saved address (auto-select)"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/booking/new.tsx, frontend/app/booking/checkout.tsx (already existed), frontend/app/cart.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+  - task: "Live location label + addresses screen use proper reverse geocode"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/hooks/useLiveLocation.ts, frontend/app/addresses.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+
+test_plan:
+  current_focus:
+    - "GET /api/geo/reverse reverse-geocoding endpoint (Nominatim proxy)"
+    - "Location-select screen (UC style) at /location-select"
+    - "Booking form prefills default saved address (auto-select)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Test backend /api/geo/reverse first, then frontend location-select flow (mock geolocation via browser context permissions with WB coords e.g. 23.5204,87.3119)."
+  - agent: "testing"
+    message: |
+      🎉 REVERSE GEOCODING ENDPOINT TEST COMPLETE - 100% SUCCESS 🎉
+      
+      **BACKEND TESTING COMPLETE:**
+      ✅ GET /api/geo/reverse - ALL 7 TEST CASES PASSED
+      
+      **Test Coverage:**
+      1. ✅ Valid coordinates in West Bengal (Durgapur & Kolkata) - Returns real place names, NOT raw numbers or plus-codes
+      2. ✅ Cache functionality - Second call returns identical payload quickly (0.119s → 0.085s)
+      3. ✅ Validation - Invalid lat (999) returns 422, missing params return 422
+      4. ✅ Regression - GET /api/ and GET /api/admin/cms/welcome-screen still working
+      
+      **Key Verification:**
+      - All 11 required fields present: name, area, road, city, state, pincode, address_line, display_name, label, latitude, longitude
+      - display_name contains state, pincode, and "India" for all West Bengal coords
+      - Nominatim integration working perfectly (User-Agent, Accept-Language, zoom=17)
+      - In-memory cache with 24h TTL working correctly
+      - 1 req/s throttle implemented correctly
+      - No errors in backend logs
+      
+      **NO CRITICAL ISSUES FOUND**
+      
+      **NEXT STEPS:**
+      Backend reverse geocoding is production-ready. Main agent can now proceed with frontend testing:
+      - Location-select screen (UC style) at /location-select
+      - Reverse geocode util (frontend/src/utils/geo.ts)
+      - Post-login redirect to location-select
+      - Booking form prefills default saved address
+      - Live location label + addresses screen use proper reverse geocode

@@ -20,6 +20,8 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 
+import { reverseGeocode } from "@/src/utils/geo";
+
 const CACHE_KEY = "@mfixit:liveLocation:v1";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 
@@ -117,22 +119,25 @@ export function useLiveLocation(autoDetect: boolean = true) {
 
       let area = "";
       let city = "";
+      let label = "";
       try {
-        const places = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const p = places?.[0];
-        if (p) {
-          area = (p.name || p.street || p.district || "").toString().trim();
-          city = (p.city || p.subregion || p.region || "").toString().trim();
+        // Robust reverse geocode: backend Nominatim proxy first (proper
+        // place names on every platform), expo-location fallback inside.
+        const addr = await reverseGeocode(
+          pos.coords.latitude,
+          pos.coords.longitude,
+        );
+        if (addr) {
+          area = addr.area || addr.name || "";
+          city = addr.city || "";
+          label = addr.label || "";
         }
       } catch {
         /* reverse geocode unavailable on this platform — keep lat/lng */
       }
 
       const fresh: LiveLocation = {
-        label: composeLabel(area, city || "Durgapur"),
+        label: label || composeLabel(area, city || "Durgapur"),
         area,
         city: city || "Durgapur",
         latitude: pos.coords.latitude,

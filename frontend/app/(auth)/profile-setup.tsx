@@ -40,7 +40,9 @@ export default function ProfileSetup() {
     });
     setProfile(saved);
     setLoading(false);
-    router.replace("/(tabs)");
+    // Next: Urban-Company-style location selection (GPS or manual) —
+    // the chosen address is saved as default & auto-selected at booking.
+    router.replace("/location-select");
   };
 
   return (

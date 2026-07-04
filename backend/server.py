@@ -91,6 +91,10 @@ app.include_router(service_detail_router, prefix="/api")
 from live_location_routes import router as live_location_router  # noqa: E402
 app.include_router(live_location_router)
 
+# Geo (reverse geocoding) routes
+from geo_routes import router as geo_router  # noqa: E402
+app.include_router(geo_router)
+
 # Public booking lookup (read-only, by ID) — service-role bypass for RLS
 from booking_public_routes import router as booking_public_router  # noqa: E402
 app.include_router(booking_public_router)

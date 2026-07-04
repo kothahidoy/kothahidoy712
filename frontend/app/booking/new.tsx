@@ -31,6 +31,7 @@ import { runRazorpayCheckout } from "@/src/lib/razorpay";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress, Service } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
+import { reverseGeocode } from "@/src/utils/geo";
 
 type PayMethod = "razorpay" | "cash";
 
@@ -74,6 +75,29 @@ export default function BookingNew() {
     }).catch(() => setLoadError(true));
   }, [serviceId]);
 
+  // Auto-select the customer's default saved address (set at login via the
+  // location-select screen) so they don't have to retype it every booking.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const addrs = await dataService.listAddresses();
+        const def = addrs.find((a) => a.isDefault) || addrs[0];
+        if (def && !cancelled) {
+          setAddressLine((prev) => (prev.trim() ? prev : def.addressLine));
+          setLandmark((prev) => (prev.trim() ? prev : def.landmark ?? ""));
+          setCity(def.city || CITIES[0]);
+          setCoords({ lat: def.latitude, lng: def.longitude });
+        }
+      } catch {
+        /* no saved address — user types manually */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const detectLocation = async () => {
     setLocating(true);
     try {
@@ -89,20 +113,16 @@ export default function BookingNew() {
         accuracy: Location.Accuracy.Balanced,
       });
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      // Reverse geocode (best-effort)
-      try {
-        const places = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const p = places[0];
-        if (p) {
-          const parts = [p.name, p.street, p.district].filter(Boolean).join(", ");
-          if (parts) setAddressLine(parts);
-          if (p.city && CITIES.includes(p.city)) setCity(p.city);
-        }
-      } catch {
-        // ignore
+      // Reverse geocode via backend proxy (proper place names) with
+      // expo-location fallback handled inside the util.
+      const addr = await reverseGeocode(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
+      if (addr) {
+        const line = addr.addressLine || addr.displayName || addr.name;
+        if (line) setAddressLine(line);
+        if (addr.city && CITIES.includes(addr.city)) setCity(addr.city);
       }
     } catch (e) {
       notify("Could not detect location", String(e));

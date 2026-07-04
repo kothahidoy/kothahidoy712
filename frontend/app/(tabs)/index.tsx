@@ -36,6 +36,8 @@ import { useSession } from "@/src/context/SessionContext";
 import { useCart } from "@/src/context/CartContext";
 import { useLiveLocation } from "@/src/hooks/useLiveLocation";
 import { dataService } from "@/src/data/service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LOCATION_PROMPT_KEY } from "@/src/utils/geo";
 import { colors, radius, shadow } from "@/src/theme";
 import {
   Category,
@@ -427,6 +429,32 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // One-time post-login location prompt (Urban-Company style): if the
+  // customer has no saved address yet, take them to the location-select
+  // screen so their address gets saved & auto-selected at booking time.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const done = await AsyncStorage.getItem(LOCATION_PROMPT_KEY);
+        if (done || cancelled) return;
+        const addrs = await dataService.listAddresses();
+        if (cancelled) return;
+        if (addrs.length === 0) {
+          router.push("/location-select");
+        } else {
+          await AsyncStorage.setItem(LOCATION_PROMPT_KEY, "1");
+        }
+      } catch {
+        /* never block home */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch hero promo slides from CMS
   useEffect(() => {

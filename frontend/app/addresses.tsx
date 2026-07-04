@@ -28,6 +28,7 @@ import { CITIES } from "@/src/data/seed";
 import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
+import { reverseGeocode } from "@/src/utils/geo";
 
 export default function Addresses() {
   const router = useRouter();
@@ -60,22 +61,19 @@ export default function Addresses() {
       });
       let line = "";
       let cityName = CITIES[0];
-      try {
-        const places = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const p = places?.[0];
-        if (p) {
-          line = [p.name, p.street, p.district].filter(Boolean).join(", ");
-          if (p.city && CITIES.includes(p.city)) cityName = p.city;
+      const addr = await reverseGeocode(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
+      if (addr) {
+        line = addr.addressLine || addr.displayName || addr.name;
+        if (addr.city) {
+          cityName = CITIES.includes(addr.city) ? addr.city : addr.city;
         }
-      } catch {
-        /* no reverse-geocode (e.g. web on old browser) — still save coords */
       }
       await dataService.saveAddress({
         label: "Home",
-        addressLine: line || `Lat ${pos.coords.latitude.toFixed(4)}, Lng ${pos.coords.longitude.toFixed(4)}`,
+        addressLine: line || "Current location (edit to add details)",
         city: cityName,
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
@@ -215,19 +213,14 @@ function AddressForm({
       }
       const pos = await Location.getCurrentPositionAsync({});
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      try {
-        const places = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const p = places[0];
-        if (p) {
-          const parts = [p.name, p.street, p.district].filter(Boolean).join(", ");
-          if (parts) setAddressLine(parts);
-          if (p.city && CITIES.includes(p.city)) setCity(p.city);
-        }
-      } catch {
-        // ignore
+      const addr = await reverseGeocode(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
+      if (addr) {
+        const line = addr.addressLine || addr.displayName || addr.name;
+        if (line) setAddressLine(line);
+        if (addr.city && CITIES.includes(addr.city)) setCity(addr.city);
       }
     } finally {
       setLocating(false);

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowLeft, Minus, Plus, ShoppingCart, Home, Pencil, Phone,
   Percent, Tag, ChevronRight, X, Info,
@@ -25,6 +25,8 @@ import { colors, shadow } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
 import { useSession } from "@/src/context/SessionContext";
 import { bookingApi, Coupon, RecommendItem } from "@/src/data/bookingFlow";
+import { dataService } from "@/src/data/service";
+import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 import { supabase } from "@/src/lib/supabase";
 
@@ -47,6 +49,28 @@ export default function CartScreen() {
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [recommendations, setRecommendations] = useState<RecommendItem[]>([]);
   const [tip, setTip] = useState(0);
+  const [defaultAddr, setDefaultAddr] = useState<SavedAddress | null>(null);
+
+  // Auto-select the customer's default saved address for the sticky bar.
+  // Re-checked on focus so a freshly added address shows up immediately.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const addrs = await dataService.listAddresses();
+          if (!cancelled) {
+            setDefaultAddr(addrs.find((a) => a.isDefault) || addrs[0] || null);
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   // Modal states
   const [coupModalOpen, setCoupModalOpen] = useState(false);
@@ -438,7 +462,9 @@ export default function CartScreen() {
         >
           <Home size={18} color={colors.textMain} />
           <Text style={styles.addressText} numberOfLines={1}>
-            Home — Add your address to continue
+            {defaultAddr
+              ? `${defaultAddr.label} — ${defaultAddr.addressLine}, ${defaultAddr.city}`
+              : "Home — Add your address to continue"}
           </Text>
           <Pencil size={16} color={colors.textMuted} />
         </TouchableOpacity>
