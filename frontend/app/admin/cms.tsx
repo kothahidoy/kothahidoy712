@@ -53,13 +53,13 @@ const API = (() => {
   return (process.env.EXPO_PUBLIC_BACKEND_URL || "") + "/api/admin/cms";
 })();
 
-type TabKey = "welcome" | "instahelp" | "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard";
+type TabKey = "welcome" | "instahelp" | "home" | "categories" | "subcategories" | "banners" | "promos" | "services" | "cover" | "ratecard" | "billing";
 
 // ─────────────────────────────────────────────────────────────────────
 //  HTTP helpers
 // ─────────────────────────────────────────────────────────────────────
 async function http<T = any>(
-  method: "GET" | "POST" | "PATCH" | "DELETE",
+  method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT",
   path: string,
   body?: any,
 ): Promise<T> {
@@ -2511,6 +2511,195 @@ function RateCardTab({ categories }: any) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+//  BILLING TAB — Visitation fee, Platform fee, Taxes (admin controlled)
+// ─────────────────────────────────────────────────────────────────────
+type BillingCfg = {
+  visitation_fee_enabled: boolean;
+  visitation_fee_label: string;
+  visitation_fee_amount: number;
+  platform_fee_enabled: boolean;
+  platform_fee_label: string;
+  platform_fee_amount: number;
+  tax_enabled: boolean;
+  tax_label: string;
+  tax_percent: number;
+  total_note: string;
+};
+
+const BILLING_DEFAULT: BillingCfg = {
+  visitation_fee_enabled: true,
+  visitation_fee_label: "Visitation Fee",
+  visitation_fee_amount: 49,
+  platform_fee_enabled: true,
+  platform_fee_label: "Platform fee",
+  platform_fee_amount: 9,
+  tax_enabled: true,
+  tax_label: "Est Govt. taxes",
+  tax_percent: 5,
+  total_note: "Incl. govt. taxes & charges",
+};
+
+function BillingTab() {
+  const [cfg, setCfg] = useState<BillingCfg>(BILLING_DEFAULT);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await http<BillingCfg>("GET", "/billing-config");
+      setCfg({ ...BILLING_DEFAULT, ...(data || {}) });
+    } catch (e: any) {
+      notify("Load failed", e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const set = <K extends keyof BillingCfg>(key: K, value: BillingCfg[K]) =>
+    setCfg((p) => ({ ...p, [key]: value }));
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      await http("PUT", "/billing-config", cfg);
+      notify("Saved", "Billing config updated. New charges will appear on the customer cart within a minute.");
+    } catch (e: any) {
+      notify("Save failed", e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = async () => {
+    const ok = await confirmAsync("Reset billing to defaults?", "This will restore ₹49 visitation, ₹9 platform, 5% tax. You'll still need to press Save.");
+    if (!ok) return;
+    setCfg(BILLING_DEFAULT);
+  };
+
+  if (loading) return <ActivityIndicator style={{ marginTop: 32 }} />;
+
+  // Preview calc so the admin can see a sample bill
+  const sampleItems = 249;
+  const vf = cfg.visitation_fee_enabled ? Number(cfg.visitation_fee_amount || 0) : 0;
+  const pf = cfg.platform_fee_enabled ? Number(cfg.platform_fee_amount || 0) : 0;
+  const taxBase = sampleItems + vf + pf;
+  const tx = cfg.tax_enabled ? Math.round(taxBase * (Number(cfg.tax_percent || 0)) ) / 100 : 0;
+  const totalBill = Math.round(sampleItems + vf + pf + tx);
+
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={{ padding: 12, backgroundColor: "#EFF6FF", borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE" }}>
+        <Text style={{ fontSize: 13, color: "#1E3A8A", fontWeight: "700", marginBottom: 4 }}>
+          Cart bill summary editor
+        </Text>
+        <Text style={{ fontSize: 12, color: "#1E40AF", lineHeight: 17 }}>
+          Controls the fees & taxes shown on the customer cart&apos;s &quot;Total bill&quot; row and the &quot;Bill summary&quot; sheet. Toggle any line off to hide it. Changes go live within a minute.
+        </Text>
+      </View>
+
+      <SectionCard title="Visitation Fee" subtitle="Flat fee per booking (a technician visit charge).">
+        <ToggleRow label="Show visitation fee" value={cfg.visitation_fee_enabled} onChange={(v) => set("visitation_fee_enabled", v)} />
+        <Field
+          label="Label (as shown to customer)"
+          value={cfg.visitation_fee_label}
+          onChange={(v: string) => set("visitation_fee_label", v)}
+          placeholder="Visitation Fee"
+        />
+        <Field
+          label="Amount ₹"
+          value={String(cfg.visitation_fee_amount)}
+          onChange={(v: string) => set("visitation_fee_amount", Number(v) || 0)}
+          keyboardType="decimal-pad"
+        />
+      </SectionCard>
+
+      <SectionCard title="Platform fee" subtitle="Flat fee to run the app / support.">
+        <ToggleRow label="Show platform fee" value={cfg.platform_fee_enabled} onChange={(v) => set("platform_fee_enabled", v)} />
+        <Field
+          label="Label"
+          value={cfg.platform_fee_label}
+          onChange={(v: string) => set("platform_fee_label", v)}
+          placeholder="Platform fee"
+        />
+        <Field
+          label="Amount ₹"
+          value={String(cfg.platform_fee_amount)}
+          onChange={(v: string) => set("platform_fee_amount", Number(v) || 0)}
+          keyboardType="decimal-pad"
+        />
+      </SectionCard>
+
+      <SectionCard title="Government taxes" subtitle="Percentage on (items - discount + fees).">
+        <ToggleRow label="Show taxes" value={cfg.tax_enabled} onChange={(v) => set("tax_enabled", v)} />
+        <Field
+          label="Label"
+          value={cfg.tax_label}
+          onChange={(v: string) => set("tax_label", v)}
+          placeholder="Est Govt. taxes"
+        />
+        <Field
+          label="Tax percent (%)"
+          value={String(cfg.tax_percent)}
+          onChange={(v: string) => set("tax_percent", Number(v) || 0)}
+          keyboardType="decimal-pad"
+        />
+      </SectionCard>
+
+      <SectionCard title="Total bill note" subtitle="Small grey line under the Total bill row.">
+        <Field
+          label="Note text"
+          value={cfg.total_note}
+          onChange={(v: string) => set("total_note", v)}
+          placeholder="Incl. govt. taxes & charges"
+        />
+      </SectionCard>
+
+      <SectionCard title="Preview" subtitle={`Sample cart of ₹${sampleItems}`}>
+        <View style={{ gap: 6 }}>
+          <View style={billPrev.row}><Text style={billPrev.label}>Item total</Text><Text style={billPrev.val}>₹{sampleItems}</Text></View>
+          {cfg.visitation_fee_enabled && vf > 0 && (
+            <View style={billPrev.row}><Text style={billPrev.label}>{cfg.visitation_fee_label}</Text><Text style={billPrev.val}>₹{vf}</Text></View>
+          )}
+          {cfg.platform_fee_enabled && pf > 0 && (
+            <View style={billPrev.row}><Text style={billPrev.label}>{cfg.platform_fee_label}</Text><Text style={billPrev.val}>₹{pf}</Text></View>
+          )}
+          {cfg.tax_enabled && tx > 0 && (
+            <View style={billPrev.row}><Text style={billPrev.label}>{cfg.tax_label}</Text><Text style={billPrev.val}>₹{tx}</Text></View>
+          )}
+          <View style={billPrev.divider} />
+          <View style={billPrev.row}>
+            <Text style={[billPrev.label, { fontWeight: "800", color: colors.textMain }]}>Total bill</Text>
+            <Text style={[billPrev.val, { fontWeight: "800" }]}>₹{totalBill}</Text>
+          </View>
+          {!!cfg.total_note && (
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{cfg.total_note}</Text>
+          )}
+        </View>
+      </SectionCard>
+
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
+        <TouchableOpacity style={btn.cancel} onPress={resetToDefaults} disabled={saving}>
+          <Text style={btn.cancelTxt}>Reset defaults</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={btn.save} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Save size={16} color="#fff" />}
+          <Text style={btn.saveTxt}>{saving ? "Saving…" : "Save billing"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const billPrev = StyleSheet.create({
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
+  label: { fontSize: 14, color: colors.textBody },
+  val: { fontSize: 14, color: colors.textMain, fontWeight: "600" },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
+});
+
+// ─────────────────────────────────────────────────────────────────────
 //  ROOT
 // ─────────────────────────────────────────────────────────────────────
 export default function AdminCMS() {
@@ -2559,6 +2748,7 @@ export default function AdminCMS() {
     { key: "services",      label: "Services",   icon: Layers },
     { key: "cover",         label: "Cover",      icon: Layers },
     { key: "ratecard",      label: "Rate Card",  icon: Megaphone },
+    { key: "billing",       label: "Billing",    icon: Megaphone },
   ];
 
   return (
@@ -2593,6 +2783,7 @@ export default function AdminCMS() {
             {tab === "services"      && <ServicesTab categories={categories} />}
             {tab === "cover"         && <CoverTab categories={categories} />}
             {tab === "ratecard"      && <RateCardTab categories={categories} />}
+            {tab === "billing"       && <BillingTab />}
           </>
         )}
       </ScrollView>

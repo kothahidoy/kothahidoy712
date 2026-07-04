@@ -18,7 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowLeft, Minus, Plus, ShoppingCart, Home, Pencil, Phone,
-  Percent, Tag, ChevronRight, X, Info,
+  Percent, Tag, ChevronRight, X, Info, Receipt,
 } from "lucide-react-native";
 
 import { colors, shadow } from "@/src/theme";
@@ -38,6 +38,32 @@ const AMBER = "#B7791F";
 const AMBER_LIGHT = "#FEF3C7";
 
 const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+
+type BillingCfg = {
+  visitation_fee_enabled: boolean;
+  visitation_fee_label: string;
+  visitation_fee_amount: number;
+  platform_fee_enabled: boolean;
+  platform_fee_label: string;
+  platform_fee_amount: number;
+  tax_enabled: boolean;
+  tax_label: string;
+  tax_percent: number;
+  total_note: string;
+};
+
+const DEFAULT_BILLING: BillingCfg = {
+  visitation_fee_enabled: true,
+  visitation_fee_label: "Visitation Fee",
+  visitation_fee_amount: 49,
+  platform_fee_enabled: true,
+  platform_fee_label: "Platform fee",
+  platform_fee_amount: 9,
+  tax_enabled: true,
+  tax_label: "Est Govt. taxes",
+  tax_percent: 5,
+  total_note: "Incl. govt. taxes & charges",
+};
 
 export default function CartScreen() {
   const router = useRouter();
@@ -78,9 +104,30 @@ export default function CartScreen() {
   const [customTipInput, setCustomTipInput] = useState("");
   const [cancelPolicyOpen, setCancelPolicyOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [billSummaryOpen, setBillSummaryOpen] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
+
+  // Admin-controlled billing config (visitation fee, platform fee, taxes)
+  const [billingCfg, setBillingCfg] = useState<BillingCfg>(DEFAULT_BILLING);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const url = typeof window !== "undefined"
+          ? "/api/admin/cms/billing-config"
+          : `${API_BASE}/api/admin/cms/billing-config`;
+        const r = await fetch(url);
+        if (r.ok) {
+          const data = await r.json();
+          setBillingCfg({ ...DEFAULT_BILLING, ...data });
+        }
+      } catch {
+        /* keep defaults */
+      }
+    })();
+  }, []);
 
   // Coupon code input state (in modal)
   const [couponCodeInput, setCouponCodeInput] = useState("");
@@ -116,11 +163,21 @@ export default function CartScreen() {
     })();
   }, [total, items.length, dominantCategory]);
 
-  // Calculate amounts
+  // Calculate amounts using admin-controlled billing config
   const itemTotal = total;
   const couponSaving = appliedDiscount;
-  const taxes = Math.round((itemTotal - couponSaving) * 0.08 * 100) / 100;
-  const total_amount = Math.max(0, itemTotal - couponSaving + taxes);
+  const netItems = Math.max(0, itemTotal - couponSaving);
+  const visitationFee = billingCfg.visitation_fee_enabled
+    ? Math.round((billingCfg.visitation_fee_amount || 0) * 100) / 100
+    : 0;
+  const platformFee = billingCfg.platform_fee_enabled
+    ? Math.round((billingCfg.platform_fee_amount || 0) * 100) / 100
+    : 0;
+  const taxBase = netItems + visitationFee + platformFee;
+  const taxes = billingCfg.tax_enabled
+    ? Math.round(taxBase * (billingCfg.tax_percent || 0)) / 100
+    : 0;
+  const total_amount = Math.max(0, netItems + visitationFee + platformFee + taxes);
   const amount_to_pay = total_amount + tip;
   const totalSavings = couponSaving;
 
@@ -403,17 +460,25 @@ export default function CartScreen() {
           )
         ) : null}
 
-        {/* Payment summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Payment summary</Text>
-          <Row label="Item total" value={`₹${Math.round(itemTotal)}`} />
-          {couponSaving > 0 && <Row label="Coupon discount" value={`-₹${Math.round(couponSaving)}`} valueColor={GREEN} />}
-          <Row label="Taxes and Fee" value={`₹${Math.round(taxes)}`} />
-          <View style={styles.summaryDivider} />
-          <Row label="Total amount" value={`₹${Math.round(total_amount)}`} bold />
-          {tip > 0 && <Row label="Tip" value={`₹${tip}`} />}
-          {tip > 0 && <Row label="Amount to pay" value={`₹${Math.round(amount_to_pay)}`} bold large />}
-        </View>
+        {/* Total bill (compact — taps to open Bill summary sheet) */}
+        <TouchableOpacity
+          style={styles.totalBillRow}
+          activeOpacity={0.7}
+          onPress={() => setBillSummaryOpen(true)}
+        >
+          <View style={styles.totalBillIcon}>
+            <Receipt size={20} color={colors.textMain} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.totalBillTitle}>
+              Total bill  <Text style={styles.totalBillAmount}>₹{Math.round(amount_to_pay)}</Text>
+            </Text>
+            {!!billingCfg.total_note && (
+              <Text style={styles.totalBillNote}>{billingCfg.total_note}</Text>
+            )}
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
+        </TouchableOpacity>
 
         {/* Tip */}
         <View style={styles.tipSection}>
@@ -472,6 +537,57 @@ export default function CartScreen() {
           <Text style={styles.selectSlotText}>Select slot</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ───── Bill Summary Modal ───── */}
+      <Modal visible={billSummaryOpen} animationType="slide" transparent onRequestClose={() => setBillSummaryOpen(false)}>
+        <TouchableWithoutFeedback onPress={() => setBillSummaryOpen(false)}>
+          <View style={styles.modalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.billSheet}>
+                <TouchableOpacity
+                  onPress={() => setBillSummaryOpen(false)}
+                  hitSlop={8}
+                  style={styles.billCloseBtn}
+                  activeOpacity={0.7}
+                >
+                  <X size={18} color={colors.textMain} />
+                </TouchableOpacity>
+                <Text style={styles.billTitle}>Bill summary</Text>
+
+                <View style={{ marginTop: 20, gap: 6 }}>
+                  <BillLine label="Item total" value={`₹${Math.round(itemTotal)}`} />
+                  {couponSaving > 0 && (
+                    <BillLine label="Coupon discount" value={`-₹${Math.round(couponSaving)}`} valueColor={GREEN} />
+                  )}
+                  {billingCfg.visitation_fee_enabled && visitationFee > 0 && (
+                    <BillLine label={billingCfg.visitation_fee_label} value={`₹${Math.round(visitationFee)}`} />
+                  )}
+                  {billingCfg.platform_fee_enabled && platformFee > 0 && (
+                    <BillLine label={billingCfg.platform_fee_label} value={`₹${Math.round(platformFee)}`} />
+                  )}
+                  {billingCfg.tax_enabled && taxes > 0 && (
+                    <BillLine label={billingCfg.tax_label} value={`₹${Math.round(taxes)}`} />
+                  )}
+                </View>
+
+                <View style={styles.billDivider} />
+                <BillLine label="Total bill" value={`₹${Math.round(total_amount)}`} bold />
+                {tip > 0 && <BillLine label="Tip" value={`₹${tip}`} />}
+                <View style={styles.billDivider} />
+                <BillLine label="Amount to pay" value={`₹${Math.round(amount_to_pay)}`} bold large />
+
+                <TouchableOpacity
+                  style={styles.billOkBtn}
+                  onPress={() => setBillSummaryOpen(false)}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.billOkText}>Okay, got it</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* ───── Coupons Modal ───── */}
       <Modal visible={coupModalOpen} animationType="slide" transparent onRequestClose={() => setCoupModalOpen(false)}>
@@ -687,27 +803,64 @@ export default function CartScreen() {
   );
 }
 
-function Row({
-  label, value, right, bold, large, valueColor,
+function BillLine({
+  label, value, bold, large, valueColor,
 }: {
   label: string;
-  value?: string;
-  right?: React.ReactNode;
+  value: string;
   bold?: boolean;
   large?: boolean;
   valueColor?: string;
 }) {
   return (
-    <View style={summaryStyles.row}>
-      <Text style={[summaryStyles.label, bold && summaryStyles.boldLabel, large && summaryStyles.largeLabel]}>{label}</Text>
-      {right ? right : (
-        <Text style={[summaryStyles.value, bold && summaryStyles.boldValue, large && summaryStyles.largeValue, valueColor ? { color: valueColor } : null]}>
-          {value}
-        </Text>
-      )}
+    <View style={billLineStyles.row}>
+      <Text
+        style={[
+          billLineStyles.label,
+          bold && billLineStyles.labelBold,
+          large && billLineStyles.labelLarge,
+        ]}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          billLineStyles.value,
+          bold && billLineStyles.valueBold,
+          large && billLineStyles.valueLarge,
+          valueColor ? { color: valueColor } : null,
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
+
+const billLineStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  label: {
+    fontSize: 15,
+    color: colors.textBody,
+    textDecorationLine: "underline",
+    textDecorationStyle: "dotted",
+    textDecorationColor: colors.textMuted,
+  },
+  labelBold: {
+    fontWeight: "800",
+    color: colors.textMain,
+    textDecorationLine: "none",
+  },
+  labelLarge: { fontSize: 16 },
+  value: { fontSize: 15, color: colors.textMain, fontWeight: "600" },
+  valueBold: { fontWeight: "800", fontSize: 16 },
+  valueLarge: { fontSize: 17 },
+});
 
 const summaryStyles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
@@ -798,6 +951,56 @@ const styles = StyleSheet.create({
   summaryCard: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   summaryTitle: { fontSize: 16, fontWeight: "800", color: colors.textMain, marginBottom: 10 },
   summaryDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+
+  // Compact "Total bill" row (opens Bill summary sheet)
+  totalBillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+  },
+  totalBillIcon: {
+    width: 32, height: 32,
+    alignItems: "center", justifyContent: "center",
+  },
+  totalBillTitle: { fontSize: 16, fontWeight: "700", color: colors.textMain },
+  totalBillAmount: { fontSize: 16, fontWeight: "800", color: colors.textMain },
+  totalBillNote: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+
+  // Bill summary bottom sheet
+  billSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 24,
+  },
+  billCloseBtn: {
+    position: "absolute",
+    right: 16,
+    top: -46,
+    width: 36, height: 36,
+    borderRadius: 18,
+    backgroundColor: "#fff",
+    alignItems: "center", justifyContent: "center",
+    ...shadow.bottomNav,
+  },
+  billTitle: { fontSize: 24, fontWeight: "800", color: colors.textMain },
+  billDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+  billOkBtn: {
+    marginTop: 20,
+    backgroundColor: PURPLE,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  billOkText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
   tipSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   tipRow: { flexDirection: "row", gap: 10, marginVertical: 10, flexWrap: "wrap" },
