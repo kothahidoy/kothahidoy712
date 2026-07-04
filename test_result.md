@@ -5348,3 +5348,14 @@ agent_communication:
         violations. The auto-upsert logic maintains data integrity while providing
         flexibility for the frontend catalog.
 
+
+  - agent: "main"
+    message: |
+      **SESSION: GitHub code import (continuation task)**
+      - Imported full codebase from github.com/kothahidoy/kothahidoy712 (origin/main) into /app.
+      - Recreated missing .env files (gitignored in repo):
+        * backend/.env: MONGO_URL, DB_NAME, CORS_ORIGINS + EMPTY placeholders for SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET, RAZORPAY_* keys
+        * frontend/.env: EXPO_PACKAGER_PROXY_URL, EXPO_PACKAGER_HOSTNAME, EXPO_PUBLIC_BACKEND_URL + EMPTY EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY
+      - Installed backend deps (skipped emergentintegrations==0.2.0 pin due to litellm conflict; not imported by backend code).
+      - Verified: backend /api/ returns Hello World; frontend welcome screen, auth buttons, profile-setup all render correctly.
+      - NOTE: App currently runs in DEMO MODE (Supabase + Razorpay keys empty). User must provide their Supabase URL/keys and Razorpay keys to restore production data mode.
