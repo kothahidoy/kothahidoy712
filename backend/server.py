@@ -95,6 +95,10 @@ app.include_router(live_location_router)
 from geo_routes import router as geo_router  # noqa: E402
 app.include_router(geo_router)
 
+# Billing / fees CMS routes
+from billing_cms_routes import router as billing_cms_router  # noqa: E402
+app.include_router(billing_cms_router)
+
 # Public booking lookup (read-only, by ID) — service-role bypass for RLS
 from booking_public_routes import router as booking_public_router  # noqa: E402
 app.include_router(booking_public_router)

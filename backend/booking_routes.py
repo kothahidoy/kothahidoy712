@@ -18,6 +18,8 @@ from datetime import date as date_cls, datetime, timedelta
 import os
 import httpx
 
+from billing_cms_routes import get_billing_config, compute_bill
+
 router = APIRouter(prefix="/api/booking", tags=["booking"])
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -533,10 +535,13 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
             d = item_total * pct / 100.0
             plus_discount = round(min(d, 100.0), 2)
 
-        taxes = round((item_total - coupon_discount - plus_discount) * 0.08, 2)  # 8% taxes
-        if taxes < 0:
-            taxes = 0
-        grand_total = round(item_total - coupon_discount - plus_discount + taxes + payload.tip_amount + plus_price, 2)
+        # ── Billing fees (admin-controlled via /api/admin/cms/billing-config)
+        billing_cfg = await get_billing_config()
+        bill = compute_bill(item_total, coupon_discount + plus_discount, billing_cfg)
+        visitation_fee = bill["visitation_fee"]
+        platform_fee = bill["platform_fee"]
+        taxes = bill["taxes"]
+        grand_total = round(bill["total_bill"] + payload.tip_amount + plus_price, 2)
 
         # Get primary service for legacy fields
         primary = payload.items[0]
@@ -628,6 +633,8 @@ async def create_booking(payload: BookingCreate, authorization: Optional[str] = 
                 "coupon_discount": coupon_discount,
                 "plus_discount": plus_discount,
                 "plus_price": plus_price,
+                "visitation_fee": visitation_fee,
+                "platform_fee": platform_fee,
                 "taxes": taxes,
                 "tip": payload.tip_amount,
                 "grand_total": grand_total,
