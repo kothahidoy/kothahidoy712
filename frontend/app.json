@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Detect your address for service booking",
         "NSPhotoLibraryUsageDescription": "Attach photos for your service request"
-      }
+      },
+      "bundleIdentifier": "com.emergent.codeimporthub.u5yru3"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,8 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "package": "com.emergent.codeimporthub.u5yru3"
     },
     "web": {
       "bundler": "metro",
