@@ -18,16 +18,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ArrowLeft, Minus, Plus, ShoppingCart, Home, Pencil, Phone,
-  Percent, Tag, ChevronRight, X, Info, Receipt,
+  Percent, Tag, ChevronRight, X, Info, Receipt, MapPin, Navigation, Briefcase,
 } from "lucide-react-native";
+import * as Location from "expo-location";
 
 import { colors, shadow } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
 import { useSession } from "@/src/context/SessionContext";
 import { bookingApi, Coupon, RecommendItem } from "@/src/data/bookingFlow";
 import { dataService } from "@/src/data/service";
+import { CITIES } from "@/src/data/seed";
 import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
+import { reverseGeocode } from "@/src/utils/geo";
 import { supabase } from "@/src/lib/supabase";
 
 const PURPLE = "#6E3DF5";
@@ -128,6 +131,144 @@ export default function CartScreen() {
       }
     })();
   }, []);
+
+  // ── Address bottom-sheet state (UC-style save-and-proceed) ───────
+  const [addrSheetOpen, setAddrSheetOpen] = useState(false);
+  const [addrDetecting, setAddrDetecting] = useState(false);
+  const [addrSaving, setAddrSaving] = useState(false);
+  const [addrLine, setAddrLine] = useState(""); // reverse-geocoded main line
+  const [addrCity, setAddrCity] = useState<string>(CITIES[0]);
+  const [addrCoords, setAddrCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [houseInput, setHouseInput] = useState("");
+  const [landmarkInput, setLandmarkInput] = useState("");
+  const [addrNameInput, setAddrNameInput] = useState("");
+  const [saveAs, setSaveAs] = useState<"Home" | "Other">("Home");
+  const [otherLabelInput, setOtherLabelInput] = useState("");
+
+  // Open the address sheet. If we already know the default address,
+  // pre-fill everything so returning customers see their saved details
+  // and don't have to type again.
+  const openAddressSheet = useCallback(async () => {
+    // Prefill from existing default (or first) saved address
+    if (defaultAddr) {
+      // We keep the full addressLine as detected label; the customer already
+      // provided house/flat once — split it back out heuristically.
+      const parts = (defaultAddr.addressLine || "").split(",").map((s) => s.trim()).filter(Boolean);
+      // First segment is usually the house/flat number (what customer typed)
+      const firstIsHouseLike = parts[0] && parts[0].length <= 40;
+      setHouseInput(firstIsHouseLike ? parts[0] : "");
+      setAddrLine(firstIsHouseLike ? parts.slice(1).join(", ") : parts.join(", "));
+      setLandmarkInput(defaultAddr.landmark || "");
+      setAddrCity(defaultAddr.city || CITIES[0]);
+      setAddrCoords({ lat: defaultAddr.latitude || 0, lng: defaultAddr.longitude || 0 });
+      const lbl = defaultAddr.label || "Home";
+      if (lbl === "Home") {
+        setSaveAs("Home");
+        setOtherLabelInput("");
+      } else {
+        setSaveAs("Other");
+        setOtherLabelInput(lbl);
+      }
+    } else {
+      // Fresh customer — leave the form empty; they can tap "Use current location"
+      setHouseInput("");
+      setLandmarkInput("");
+      setAddrLine("");
+      setAddrCoords(null);
+      setAddrCity(CITIES[0]);
+      setSaveAs("Home");
+      setOtherLabelInput("");
+    }
+    setAddrNameInput(profile?.name || "");
+    setAddrSheetOpen(true);
+  }, [defaultAddr, profile?.name]);
+
+  // GPS detect + reverse geocode → pre-fills the read-only "Street" line.
+  const detectMyLocation = useCallback(async () => {
+    setAddrDetecting(true);
+    try {
+      if (Platform.OS !== "web") {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          notify("Permission denied", "Please enable location to auto-detect your address.");
+          return;
+        }
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const geo = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      if (geo) {
+        setAddrLine(geo.addressLine || geo.displayName || geo.name || "");
+        if (geo.city) setAddrCity(CITIES.includes(geo.city) ? geo.city : geo.city);
+      } else {
+        setAddrLine("Current location (add house/flat below)");
+      }
+      setAddrCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    } catch (e: any) {
+      notify("Detect failed", e?.message || "Could not fetch your location");
+    } finally {
+      setAddrDetecting(false);
+    }
+  }, []);
+
+  // Save + proceed. Persists via dataService (Supabase → falls back to AsyncStorage).
+  const handleSaveAddressAndProceed = useCallback(async () => {
+    const house = houseInput.trim();
+    if (!house) {
+      notify("House/Flat required", "Please enter your house or flat number.");
+      return;
+    }
+    const label = saveAs === "Home" ? "Home" : (otherLabelInput.trim() || "Other");
+    // Compose a display address line that starts with the customer-typed
+    // house/flat, then the detected street label. This is what shows on
+    // the sticky bar and in bookings.
+    const composed = [house, addrLine].filter(Boolean).join(", ");
+    setAddrSaving(true);
+    try {
+      const saved = await dataService.saveAddress({
+        label,
+        addressLine: composed || house,
+        landmark: landmarkInput.trim() || undefined,
+        city: addrCity || CITIES[0],
+        latitude: addrCoords?.lat || 0,
+        longitude: addrCoords?.lng || 0,
+        isDefault: true,
+      });
+      setDefaultAddr(saved);
+      setAddrSheetOpen(false);
+
+      // If profile has no name yet, save the one they entered here too.
+      if (addrNameInput.trim() && profile && !profile.name) {
+        setProfile({ ...profile, name: addrNameInput.trim() });
+      }
+
+      // Now do the same guard that the "Select slot" button does, then
+      // navigate straight into the slot picker.
+      if (!isAuthenticated) {
+        notify("Sign in required", "Please sign in to continue");
+        router.push("/welcome");
+        return;
+      }
+      if (items.length === 0) {
+        notify("Empty cart", "Add services to your cart first");
+        return;
+      }
+      router.push({
+        pathname: "/booking/slot",
+        params: {
+          coupon: appliedCoupon?.code || "",
+          tip: String(tip),
+        },
+      });
+    } catch (e: any) {
+      notify("Save failed", e?.message || "Could not save your address");
+    } finally {
+      setAddrSaving(false);
+    }
+  }, [
+    houseInput, landmarkInput, addrLine, addrCity, addrCoords, saveAs,
+    otherLabelInput, addrNameInput, profile, setProfile, isAuthenticated,
+    items.length, appliedCoupon?.code, tip, router,
+  ]);
 
   // Coupon code input state (in modal)
   const [couponCodeInput, setCouponCodeInput] = useState("");
@@ -523,7 +664,7 @@ export default function CartScreen() {
         <TouchableOpacity
           style={styles.addressRow}
           activeOpacity={0.7}
-          onPress={() => router.push("/addresses")}
+          onPress={openAddressSheet}
         >
           <Home size={18} color={colors.textMain} />
           <Text style={styles.addressText} numberOfLines={1}>
@@ -533,10 +674,172 @@ export default function CartScreen() {
           </Text>
           <Pencil size={16} color={colors.textMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.selectSlotBtn} onPress={handleProceedToSlot} activeOpacity={0.9}>
-          <Text style={styles.selectSlotText}>Select slot</Text>
+        <TouchableOpacity
+          style={styles.selectSlotBtn}
+          onPress={defaultAddr ? handleProceedToSlot : openAddressSheet}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.selectSlotText}>
+            {defaultAddr ? "Select slot" : "Add address to continue"}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* ───── Address Sheet (UC-style Save-and-proceed) ───── */}
+      <Modal
+        visible={addrSheetOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAddrSheetOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.addrSheet}>
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={() => setAddrSheetOpen(false)}
+                hitSlop={8}
+                style={styles.addrCloseBtn}
+                activeOpacity={0.7}
+              >
+                <X size={18} color={colors.textMain} />
+              </TouchableOpacity>
+
+              {/* Map placeholder header + detect button */}
+              <View style={styles.addrMapHead}>
+                <MapPin size={26} color={PURPLE} />
+                <Text style={styles.addrMapCaption}>
+                  {addrLine ? "Location detected" : "Place the pin accurately on map"}
+                </Text>
+                <TouchableOpacity
+                  style={styles.addrDetectBtn}
+                  onPress={detectMyLocation}
+                  activeOpacity={0.8}
+                  disabled={addrDetecting}
+                >
+                  {addrDetecting ? (
+                    <ActivityIndicator color={PURPLE} size="small" />
+                  ) : (
+                    <>
+                      <Navigation size={14} color={PURPLE} />
+                      <Text style={styles.addrDetectText}>Use current location</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={{ maxHeight: "100%" }}
+                contentContainerStyle={{ padding: 20, paddingBottom: 30 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Detected street row + Change */}
+                <View style={styles.addrDetectedRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.addrDetectedTitle} numberOfLines={1}>
+                      {addrLine ? addrLine.split(",")[0] : "Add your street address"}
+                    </Text>
+                    <Text style={styles.addrDetectedSub} numberOfLines={2}>
+                      {addrLine || "Tap 'Use current location' to auto-fill from GPS"}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.addrChangeBtn}
+                    onPress={detectMyLocation}
+                    activeOpacity={0.8}
+                    disabled={addrDetecting}
+                  >
+                    <Text style={styles.addrChangeText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.addrDivider} />
+
+                {/* House / flat (required) */}
+                <TextInput
+                  value={houseInput}
+                  onChangeText={setHouseInput}
+                  placeholder="House/Flat Number*"
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.addrInput, !!houseInput && styles.addrInputActive]}
+                />
+
+                {/* Landmark (optional) */}
+                <TextInput
+                  value={landmarkInput}
+                  onChangeText={setLandmarkInput}
+                  placeholder="Landmark (Optional)"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.addrInput}
+                />
+
+                {/* Name */}
+                <TextInput
+                  value={addrNameInput}
+                  onChangeText={setAddrNameInput}
+                  placeholder="Name"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.addrInput}
+                />
+
+                {/* Save as */}
+                <Text style={styles.saveAsLabel}>Save as</Text>
+                <View style={styles.saveAsRow}>
+                  <TouchableOpacity
+                    style={[styles.saveAsChip, saveAs === "Home" && styles.saveAsChipActive]}
+                    onPress={() => setSaveAs("Home")}
+                    activeOpacity={0.8}
+                  >
+                    <Home size={14} color={saveAs === "Home" ? PURPLE : colors.textMain} />
+                    <Text style={[styles.saveAsChipText, saveAs === "Home" && styles.saveAsChipTextActive]}>
+                      Home
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveAsChip, saveAs === "Other" && styles.saveAsChipActive]}
+                    onPress={() => setSaveAs("Other")}
+                    activeOpacity={0.8}
+                  >
+                    <Briefcase size={14} color={saveAs === "Other" ? PURPLE : colors.textMain} />
+                    <Text style={[styles.saveAsChipText, saveAs === "Other" && styles.saveAsChipTextActive]}>
+                      Other
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {saveAs === "Other" && (
+                  <TextInput
+                    value={otherLabelInput}
+                    onChangeText={setOtherLabelInput}
+                    placeholder="Label (e.g. Office, Parents)"
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.addrInput, { marginTop: 10 }]}
+                  />
+                )}
+
+                {/* Save + proceed */}
+                <TouchableOpacity
+                  style={[
+                    styles.addrProceedBtn,
+                    (!houseInput.trim() || addrSaving) && styles.addrProceedBtnDisabled,
+                  ]}
+                  onPress={handleSaveAddressAndProceed}
+                  disabled={!houseInput.trim() || addrSaving}
+                  activeOpacity={0.9}
+                >
+                  {addrSaving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.addrProceedText}>Save and proceed to slots</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ───── Bill Summary Modal ───── */}
       <Modal visible={billSummaryOpen} animationType="slide" transparent onRequestClose={() => setBillSummaryOpen(false)}>
@@ -1001,6 +1304,125 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   billOkText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+
+  // Address sheet (UC-style)
+  addrSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "92%",
+    overflow: "hidden",
+  },
+  addrCloseBtn: {
+    position: "absolute",
+    right: 16,
+    top: 10,
+    zIndex: 10,
+    width: 36, height: 36,
+    borderRadius: 18,
+    backgroundColor: "#fff",
+    alignItems: "center", justifyContent: "center",
+    ...shadow.bottomNav,
+  },
+  addrMapHead: {
+    height: 180,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  addrMapCaption: { fontSize: 13, color: colors.textBody, fontWeight: "600" },
+  addrDetectBtn: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: PURPLE,
+  },
+  addrDetectText: { color: PURPLE, fontWeight: "700", fontSize: 13 },
+
+  addrDetectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 14,
+  },
+  addrDetectedTitle: { fontSize: 17, fontWeight: "800", color: colors.textMain },
+  addrDetectedSub: { fontSize: 13, color: colors.textMuted, marginTop: 4, lineHeight: 18 },
+  addrChangeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: PURPLE_LIGHT,
+    borderRadius: 8,
+  },
+  addrChangeText: { color: PURPLE, fontWeight: "700", fontSize: 14 },
+  addrDivider: { height: 1, backgroundColor: colors.border, marginBottom: 14 },
+
+  addrInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: colors.textMain,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+  },
+  addrInputActive: {
+    borderColor: PURPLE,
+    borderWidth: 1.5,
+  },
+
+  saveAsLabel: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: "600",
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  saveAsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  saveAsChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+  },
+  saveAsChipActive: {
+    borderColor: PURPLE,
+    backgroundColor: PURPLE_LIGHT,
+    borderWidth: 1.5,
+  },
+  saveAsChipText: { color: colors.textMain, fontWeight: "600", fontSize: 14 },
+  saveAsChipTextActive: { color: PURPLE, fontWeight: "700" },
+
+  addrProceedBtn: {
+    marginTop: 22,
+    backgroundColor: PURPLE,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  addrProceedBtnDisabled: {
+    backgroundColor: "#CBD5E1",
+  },
+  addrProceedText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
   tipSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   tipRow: { flexDirection: "row", gap: 10, marginVertical: 10, flexWrap: "wrap" },
