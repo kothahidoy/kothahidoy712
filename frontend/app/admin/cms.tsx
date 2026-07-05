@@ -2561,12 +2561,44 @@ function BillingTab() {
     setCfg((p) => ({ ...p, [key]: value }));
 
   const save = async () => {
+    // Client-side normalization + validation. This matches the pydantic
+    // constraints on the backend so the user gets a clear message before
+    // we even hit the network.
+    const clean: BillingCfg = {
+      ...cfg,
+      visitation_fee_label: (cfg.visitation_fee_label || "").trim() || "Visitation Fee",
+      platform_fee_label: (cfg.platform_fee_label || "").trim() || "Platform fee",
+      tax_label: (cfg.tax_label || "").trim() || "Est Govt. taxes",
+      total_note: (cfg.total_note || "").trim(),
+      visitation_fee_amount: Math.max(0, Number(cfg.visitation_fee_amount) || 0),
+      platform_fee_amount: Math.max(0, Number(cfg.platform_fee_amount) || 0),
+      tax_percent: Math.max(0, Math.min(100, Number(cfg.tax_percent) || 0)),
+    };
+    if (Number(cfg.tax_percent) > 100) {
+      notify("Tax too high", "Tax percent must be between 0 and 100. It was clamped to 100.");
+    }
+    setCfg(clean);
     try {
       setSaving(true);
-      await http("PUT", "/billing-config", cfg);
-      notify("Saved", "Billing config updated. New charges will appear on the customer cart within a minute.");
+      await http("PUT", "/billing-config", clean);
+      notify("Saved", "Billing config updated. Customer cart will refresh within a minute.");
     } catch (e: any) {
-      notify("Save failed", e.message || String(e));
+      // Try to parse pydantic-style errors into a readable message.
+      let msg = e?.message || String(e);
+      const m = msg.match(/→\s*(\d+):\s*(.+)$/);
+      if (m) {
+        const [, status, rawBody] = m;
+        try {
+          const parsed = JSON.parse(rawBody);
+          if (Array.isArray(parsed?.detail)) {
+            const first = parsed.detail[0];
+            msg = `(${status}) ${first?.loc?.slice(-1)[0] || "field"}: ${first?.msg || "invalid"}`;
+          } else if (parsed?.detail) {
+            msg = `(${status}) ${parsed.detail}`;
+          }
+        } catch { /* keep raw msg */ }
+      }
+      notify("Save failed", msg);
     } finally {
       setSaving(false);
     }
@@ -2608,9 +2640,12 @@ function BillingTab() {
           placeholder="Visitation Fee"
         />
         <Field
-          label="Amount ₹"
+          label="Amount ₹ (0 or more)"
           value={String(cfg.visitation_fee_amount)}
-          onChange={(v: string) => set("visitation_fee_amount", Number(v) || 0)}
+          onChange={(v: string) => {
+            const n = Number(v);
+            set("visitation_fee_amount", Number.isFinite(n) ? Math.max(0, n) : 0);
+          }}
           keyboardType="decimal-pad"
         />
       </SectionCard>
@@ -2624,14 +2659,17 @@ function BillingTab() {
           placeholder="Platform fee"
         />
         <Field
-          label="Amount ₹"
+          label="Amount ₹ (0 or more)"
           value={String(cfg.platform_fee_amount)}
-          onChange={(v: string) => set("platform_fee_amount", Number(v) || 0)}
+          onChange={(v: string) => {
+            const n = Number(v);
+            set("platform_fee_amount", Number.isFinite(n) ? Math.max(0, n) : 0);
+          }}
           keyboardType="decimal-pad"
         />
       </SectionCard>
 
-      <SectionCard title="Government taxes" subtitle="Percentage on (items - discount + fees).">
+      <SectionCard title="Government taxes" subtitle="Percentage on (items - discount + fees). Must be 0-100.">
         <ToggleRow label="Show taxes" value={cfg.tax_enabled} onChange={(v) => set("tax_enabled", v)} />
         <Field
           label="Label"
@@ -2640,9 +2678,13 @@ function BillingTab() {
           placeholder="Est Govt. taxes"
         />
         <Field
-          label="Tax percent (%)"
+          label="Tax percent (%) — enter a number between 0 and 100"
           value={String(cfg.tax_percent)}
-          onChange={(v: string) => set("tax_percent", Number(v) || 0)}
+          onChange={(v: string) => {
+            const n = Number(v);
+            if (Number.isNaN(n)) return set("tax_percent", 0);
+            set("tax_percent", Math.max(0, Math.min(100, n)));
+          }}
           keyboardType="decimal-pad"
         />
       </SectionCard>
