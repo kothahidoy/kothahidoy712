@@ -73,6 +73,8 @@ export interface SavedAddress {
   id: ID;
   label: string; // Home, Office, ...
   addressLine: string;
+  houseFlat?: string; // house/flat number, stored separately so we never
+  // have to guess it back out of addressLine on re-open.
   landmark?: string;
   city: string;
   latitude: number;
