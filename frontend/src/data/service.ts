@@ -20,6 +20,7 @@ import {
   TIME_SLOTS,
 } from "@/src/data/seed";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { clearPhoneSessionToken } from "@/src/lib/authToken";
 import {
   Booking,
   BookingStatus,
@@ -671,6 +672,11 @@ export const dataService = {
     } catch (e) {
       // Even if Supabase signOut fails (network), clear everything locally.
       console.warn("[signOut] supabase.auth.signOut failed", e);
+    }
+    try {
+      await clearPhoneSessionToken();
+    } catch (e) {
+      console.warn("[signOut] clearPhoneSessionToken failed", e);
     }
     try {
       await storage.removeItem(PROFILE_KEY);
