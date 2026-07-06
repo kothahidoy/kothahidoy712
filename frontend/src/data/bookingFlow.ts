@@ -1,17 +1,10 @@
 // Booking flow API client (Urban Company-style cart, slot, checkout)
-import { supabase } from "@/src/lib/supabase";
+import { authHeader as buildAuthHeader } from "@/src/lib/authToken";
 
 const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 
 async function authHeader(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  try {
-    if (!supabase) return headers;
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  } catch {}
-  return headers;
+  return buildAuthHeader();
 }
 
 // ---------- Types ----------
