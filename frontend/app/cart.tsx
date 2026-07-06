@@ -151,13 +151,20 @@ export default function CartScreen() {
   const openAddressSheet = useCallback(async () => {
     // Prefill from existing default (or first) saved address
     if (defaultAddr) {
-      // We keep the full addressLine as detected label; the customer already
-      // provided house/flat once — split it back out heuristically.
-      const parts = (defaultAddr.addressLine || "").split(",").map((s) => s.trim()).filter(Boolean);
-      // First segment is usually the house/flat number (what customer typed)
-      const firstIsHouseLike = parts[0] && parts[0].length <= 40;
-      setHouseInput(firstIsHouseLike ? parts[0] : "");
-      setAddrLine(firstIsHouseLike ? parts.slice(1).join(", ") : parts.join(", "));
+      // House/flat is stored in its own column now, so we read it directly
+      // instead of guessing it back out of addressLine. Older addresses
+      // saved before this fix won't have houseFlat set — for those we fall
+      // back to the old heuristic just once, but new saves always use the
+      // dedicated field so this bug can't recur.
+      if (defaultAddr.houseFlat) {
+        setHouseInput(defaultAddr.houseFlat);
+        setAddrLine(defaultAddr.addressLine || "");
+      } else {
+        const parts = (defaultAddr.addressLine || "").split(",").map((s) => s.trim()).filter(Boolean);
+        const firstIsHouseLike = parts[0] && parts[0].length <= 40;
+        setHouseInput(firstIsHouseLike ? parts[0] : "");
+        setAddrLine(firstIsHouseLike ? parts.slice(1).join(", ") : parts.join(", "));
+      }
       setLandmarkInput(defaultAddr.landmark || "");
       setAddrCity(defaultAddr.city || CITIES[0]);
       setAddrCoords({ lat: defaultAddr.latitude || 0, lng: defaultAddr.longitude || 0 });
@@ -227,6 +234,7 @@ export default function CartScreen() {
       const saved = await dataService.saveAddress({
         label,
         addressLine: composed || house,
+        houseFlat: house,
         landmark: landmarkInput.trim() || undefined,
         city: addrCity || CITIES[0],
         latitude: addrCoords?.lat || 0,
