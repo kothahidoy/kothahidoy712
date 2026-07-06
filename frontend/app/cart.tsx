@@ -32,6 +32,7 @@ import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 import { reverseGeocode } from "@/src/utils/geo";
 import { supabase } from "@/src/lib/supabase";
+import { getAuthToken } from "@/src/lib/authToken";
 
 const PURPLE = "#6E3DF5";
 const PURPLE_LIGHT = "#EFE9FE";
@@ -390,8 +391,7 @@ export default function CartScreen() {
     }
     setSavingPhone(true);
     try {
-      const { data } = await supabase!.auth.getSession();
-      const token = data?.session?.access_token;
+      const token = await getAuthToken();
       const res = await fetch(`${API_BASE}/api/booking/profile/phone`, {
         method: "POST",
         headers: {
