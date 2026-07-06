@@ -24,6 +24,7 @@
 import { Platform } from "react-native";
 
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
+import { getAuthToken } from "@/src/lib/authToken";
 import { SavedAddress } from "@/src/types";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
@@ -153,11 +154,7 @@ export async function runRazorpayCheckout(
   }
 
   // Pull the caller's JWT so the Edge Function can run as the user (RLS).
-  const sess =
-    isSupabaseConfigured && supabase
-      ? (await supabase.auth.getSession()).data.session
-      : null;
-  const jwt = sess?.access_token;
+  const jwt = await getAuthToken();
 
   return new Promise<PayResult>((resolve) => {
     let settled = false;
