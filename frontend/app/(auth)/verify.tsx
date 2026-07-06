@@ -18,6 +18,7 @@ import { colors, radius } from "@/src/theme";
 import { verifyOtp, resendOtp, OtpError } from "@/src/lib/otpApi";
 import { dataService } from "@/src/data/service";
 import { supabase } from "@/src/lib/supabase";
+import { savePhoneSessionToken } from "@/src/lib/authToken";
 
 const SLOTS = 6;
 
@@ -111,6 +112,12 @@ export default function VerifyScreen() {
         } catch (err) {
           console.warn("[verify] setSession failed", err);
         }
+        // Also keep our own copy of the access_token. supabase-js's
+        // auto-refresh will eventually try to use the refresh_token above
+        // against real Supabase Auth, fail (it's not a real GoTrue token),
+        // and silently clear the session — this independent copy is what
+        // keeps the user "logged in" for API calls after that happens.
+        await savePhoneSessionToken(res.session.access_token);
       }
 
       // Route new users to profile setup, returning users straight to home.
