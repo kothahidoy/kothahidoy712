@@ -116,7 +116,14 @@ export default function CheckoutScreen() {
       }
 
       await clearCart();
-      notify("Booking confirmed!", `Your booking is ${booking.status || "pending"}.`);
+      const status = booking.status || "pending";
+      if (status === "confirmed") {
+        notify("Booking confirmed!", "A professional has been assigned for your service.");
+      } else if (status === "pending") {
+        notify("Booking received!", "We're finding a professional for you. You'll get a notification once it's confirmed.");
+      } else {
+        notify("Booking received!", `Your booking is ${status}.`);
+      }
       router.replace({ pathname: "/booking/confirmation", params: { id: booking.id } });
     } catch (e: any) {
       notify("Booking failed", e?.message || "Please try again");
