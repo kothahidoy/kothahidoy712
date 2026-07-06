@@ -677,11 +677,11 @@ export default function CartScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.selectSlotBtn}
-          onPress={defaultAddr ? handleProceedToSlot : openAddressSheet}
+          onPress={defaultAddr && defaultAddr.houseFlat ? handleProceedToSlot : openAddressSheet}
           activeOpacity={0.9}
         >
           <Text style={styles.selectSlotText}>
-            {defaultAddr ? "Select slot" : "Add address to continue"}
+            {defaultAddr && defaultAddr.houseFlat ? "Select slot" : "Add house/flat to continue"}
           </Text>
         </TouchableOpacity>
       </View>
