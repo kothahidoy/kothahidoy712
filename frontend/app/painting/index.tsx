@@ -6,6 +6,8 @@ import { ArrowLeft, ChevronRight, Search, Star, Clock, Menu, Tag } from "lucide-
 import { useCart } from "@/src/context/CartContext";
 import { colors } from "@/src/theme";
 import { useCategoryContent } from "@/src/hooks/useCategoryContent";
+import VariantPickerModal from "@/src/components/VariantPickerModal";
+import { ServiceVariant } from "@/src/components/ServiceDetail/types";
 
 
 const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> = {
@@ -109,6 +111,10 @@ export default function PaintingFullPageScreen() {
   const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
+  const [variantDetails, setVariantDetails] = useState<
+    Record<string, { name: string; price: number; image: string; baseServiceName?: string }>
+  >({});
+  const [pickerServiceId, setPickerServiceId] = useState<string | null>(null);
   const { replaceAllItems: __syncGlobalCart } = useCart();
 
   // 🔌 Live CMS-driven content (admin Sub-cats + Services)
@@ -123,6 +129,17 @@ export default function PaintingFullPageScreen() {
 
   useEffect(() => {
     const list = Object.entries(cart).map(([id, qty]) => {
+      const variant = variantDetails[id];
+      if (variant) {
+        return {
+          service_id: id,
+          quantity: qty,
+          title: variant.baseServiceName ? `${variant.baseServiceName} — ${variant.name}` : variant.name,
+          image: variant.image,
+          price: variant.price,
+          category: "painting",
+        };
+      }
       let svc: any = null;
       Object.values(ALL_SERVICES).forEach((cat: any) => {
         const s = cat.services?.find((x: any) => x.id === id);
@@ -132,7 +149,7 @@ export default function PaintingFullPageScreen() {
     });
     __syncGlobalCart(list);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart]);
+  }, [cart, variantDetails]);
 
   const [activeCategory, setActiveCategory] = useState("");
 
@@ -162,7 +179,45 @@ export default function PaintingFullPageScreen() {
   const handleAddToCart = (serviceId: string) => setCart(prev => ({ ...prev, [serviceId]: (prev[serviceId] || 0) + 1 }));
   const handleRemoveFromCart = (serviceId: string) => setCart(prev => { const newQty = (prev[serviceId] || 0) - 1; if (newQty <= 0) { const { [serviceId]: _, ...rest } = prev; return rest; } return { ...prev, [serviceId]: newQty }; });
 
-  const getCartTotal = () => { let total = 0; Object.entries(cart).forEach(([id, qty]) => { Object.values(ALL_SERVICES).forEach(cat => { const s = cat.services.find(x => x.id === id); if (s) total += s.price * qty; }); }); return total; };
+  const serviceQty = (serviceId: string) =>
+    Object.entries(cart).reduce(
+      (sum, [key, qty]) => (key === serviceId || key.startsWith(`${serviceId}::`) ? sum + qty : sum),
+      0,
+    );
+
+  const removeOneForService = (serviceId: string) => {
+    setCart(prev => {
+      const matchKey = Object.keys(prev).find(
+        k => k === serviceId || k.startsWith(`${serviceId}::`),
+      );
+      if (!matchKey) return prev;
+      const newQty = (prev[matchKey] || 0) - 1;
+      if (newQty <= 0) {
+        const { [matchKey]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [matchKey]: newQty };
+    });
+  };
+
+  const handleServiceAddPress = (service: any) => {
+    if (service.options) {
+      setPickerServiceId(service.id);
+    } else {
+      handleAddToCart(service.id);
+    }
+  };
+
+  const handleAddVariant = (serviceId: string, baseServiceName: string, variant: ServiceVariant) => {
+    const key = `${serviceId}::${variant.id}`;
+    setVariantDetails(prev => ({
+      ...prev,
+      [key]: { name: variant.name, price: variant.price, image: variant.image, baseServiceName },
+    }));
+    setCart(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+  };
+
+  const getCartTotal = () => { let total = 0; Object.entries(cart).forEach(([id, qty]) => { if (variantDetails[id]) { total += variantDetails[id].price * qty; return; } Object.values(ALL_SERVICES).forEach(cat => { const s = cat.services.find(x => x.id === id); if (s) total += s.price * qty; }); }); return total; };
   const getCartItemCount = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
   return (
@@ -198,7 +253,7 @@ export default function PaintingFullPageScreen() {
             <View style={styles.sectionHeader}><Text style={styles.sectionLabel}>{categoryData.title}</Text><Text style={styles.sectionTitle}>{categoryData.title}</Text></View>
             {categoryData.services.map((service, index) => (
               <View key={service.id}>
-                <ServiceCard service={service} quantity={cart[service.id] || 0} onAdd={() => handleAddToCart(service.id)} onRemove={() => handleRemoveFromCart(service.id)} onViewDetails={() => router.push(`/painting/service/${service.id}`)} />
+                <ServiceCard service={service} quantity={serviceQty(service.id)} onAdd={() => handleServiceAddPress(service)} onRemove={() => removeOneForService(service.id)} onViewDetails={() => router.push(`/painting/service/${service.id}`)} />
                 {index < categoryData.services.length - 1 && <View style={styles.serviceDivider} />}
               </View>
             ))}
@@ -239,7 +294,24 @@ export default function PaintingFullPageScreen() {
           <View><Text style={styles.cartItemCount}>{getCartItemCount()} item{getCartItemCount() > 1 ? "s" : ""}</Text><Text style={styles.cartTotal}>₹{getCartTotal().toLocaleString()}</Text></View>
           <TouchableOpacity style={styles.viewCartBtn} onPress={() => router.push("/cart")}><Text style={styles.viewCartText}>View Cart</Text><ChevronRight size={18} color="#FFF" /></TouchableOpacity>
         </View>
-      )}</SafeAreaView>
+      )}
+
+      <VariantPickerModal
+        visible={!!pickerServiceId}
+        serviceId={pickerServiceId}
+        categoryId="painting"
+        onClose={() => setPickerServiceId(null)}
+        onAddVariant={(variant) => {
+          if (!pickerServiceId) return;
+          let baseName = "";
+          Object.values(ALL_SERVICES).forEach((cat: any) => {
+            const s = cat.services?.find((x: any) => x.id === pickerServiceId);
+            if (s) baseName = s.name;
+          });
+          handleAddVariant(pickerServiceId, baseName, variant);
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
