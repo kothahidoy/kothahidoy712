@@ -36,7 +36,66 @@ export async function clearPhoneSessionToken(): Promise<void> {
   } catch {}
 }
 
-/** Returns the best available bearer token, or null if signed out. */
+function base64UrlDecode(input: string): string {
+  const padded = input.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = padded.length % 4;
+  const withPad = pad ? padded + "=".repeat(4 - pad) : padded;
+  if (typeof atob === "function") return atob(withPad);
+  // React Native / Node fallback
+  return Buffer.from(withPad, "base64").toString("utf-8");
+}
+
+function decodeJwtClaims(token: string): Record<string, any> | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    return JSON.parse(base64UrlDecode(payload));
+  } catch {
+    return null;
+  }
+}
+
+/** Reads the `sub` claim out of a JWT without verifying its signature. We
+ * only ever decode tokens we minted ourselves or that came straight from
+ * Supabase, so this is safe — we're not trusting untrusted input here. */
+function decodeJwtSub(token: string): string | null {
+  return decodeJwtClaims(token)?.sub ?? null;
+}
+
+/** Returns { phone, email } claims from the stored phone-login token, if any. */
+export async function getStoredPhoneClaims(): Promise<{ phone?: string; email?: string } | null> {
+  const stored = await storage.getItem<string | null>(PHONE_SESSION_TOKEN_KEY, null).catch(() => null);
+  if (!stored) return null;
+  const claims = decodeJwtClaims(stored);
+  if (!claims) return null;
+  return { phone: claims.phone, email: claims.email };
+}
+
+/**
+ * Resolves the auth user id (what public.users.auth_user_id should match)
+ * without depending on `supabase.auth.getUser()`. That call makes a network
+ * request to real Supabase Auth (GoTrue) to validate the token — which will
+ * never recognize a phone-login token, since our backend mints that token
+ * itself rather than GoTrue issuing it. That mismatch is what caused saved
+ * addresses, bookings, and profile data to all appear empty for phone
+ * logins even though everything was correctly saved server-side.
+ */
+export async function getAuthUserId(): Promise<string | null> {
+  const stored = await storage.getItem<string | null>(PHONE_SESSION_TOKEN_KEY, null).catch(() => null);
+  if (stored) {
+    const sub = decodeJwtSub(stored);
+    if (sub) return sub;
+  }
+  try {
+    if (supabase) {
+      const { data } = await supabase.auth.getUser();
+      return data?.user?.id ?? null;
+    }
+  } catch {}
+  return null;
+}
+
+
 export async function getAuthToken(): Promise<string | null> {
   try {
     const stored = await storage.getItem<string | null>(PHONE_SESSION_TOKEN_KEY, null);
