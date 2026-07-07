@@ -20,7 +20,7 @@ import {
   TIME_SLOTS,
 } from "@/src/data/seed";
 import { isSupabaseConfigured, supabase } from "@/src/lib/supabase";
-import { clearPhoneSessionToken } from "@/src/lib/authToken";
+import { clearPhoneSessionToken, getAuthUserId, getStoredPhoneClaims } from "@/src/lib/authToken";
 import {
   Booking,
   BookingStatus,
@@ -59,27 +59,30 @@ async function writeJSON<T>(key: string, value: T): Promise<void> {
  */
 async function getCurrentUserId(): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  const authUser = data.user;
-  if (!authUser) return null;
+  const authUserId = await getAuthUserId();
+  if (!authUserId) return null;
 
   // 1) Look up existing public.users row.
   const { data: row } = await supabase
     .from("users")
     .select("id")
-    .eq("auth_user_id", authUser.id)
+    .eq("auth_user_id", authUserId)
     .maybeSingle();
   if (row?.id) return row.id;
 
   // 2) Auto-create a minimal profile row on first call so RLS-protected
   //    inserts on bookings / saved_addresses succeed even if the profile
   //    setup screen wasn't reached for some reason.
+  const phoneClaims = await getStoredPhoneClaims();
+  const { data: authUser } = phoneClaims
+    ? { data: { user: null } }
+    : await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const { data: created } = await supabase
     .from("users")
     .insert({
-      auth_user_id: authUser.id,
-      phone: authUser.phone ?? null,
-      email: authUser.email ?? null,
+      auth_user_id: authUserId,
+      phone: phoneClaims?.phone ?? authUser?.user?.phone ?? null,
+      email: phoneClaims?.email ?? authUser?.user?.email ?? null,
     })
     .select("id")
     .single();
