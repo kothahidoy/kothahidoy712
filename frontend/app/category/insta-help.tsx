@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useCart } from "@/src/context/CartContext";
 import { 
   ArrowLeft, 
   ChevronRight, 
@@ -326,6 +327,7 @@ export default function InstaHelpServiceScreen() {
   const brandReviewsLabel = cms.category?.brand_reviews_label || "7.9 M bookings";
   const [selectedTab, setSelectedTab] = useState<"instant" | "later">("later");
   const [cart, setCart] = useState<{ [key: string]: number }>({});
+  const { replaceAllItems: __syncGlobalCart } = useCart();
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [selectedTask, setSelectedTask] = useState<CmsTaskCategory | null>(null);
@@ -366,6 +368,27 @@ export default function InstaHelpServiceScreen() {
       enabled: true,
     }));
   }, [cfg]);
+
+  // Was missing entirely before: this screen's "Add" only updated its own
+  // local `cart` state and never told the shared CartContext, so anything
+  // added here never showed up on the actual /cart page ("Your cart is
+  // empty" even right after adding). This mirrors the same sync effect the
+  // other category screens (electrician, plumber, etc.) already have.
+  useEffect(() => {
+    const list = Object.entries(cart).map(([id, qty]) => {
+      const slot = timeSlots.find((o) => o.id === id);
+      return {
+        service_id: id,
+        quantity: qty,
+        title: slot ? `InstaHelp — ${slot.duration}` : "InstaHelp",
+        image: undefined,
+        price: slot?.price,
+        category: "insta-help",
+      };
+    });
+    __syncGlobalCart(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, timeSlots]);
 
   const taskCategories = useMemo<CmsTaskCategory[]>(() => {
     const src = cfg?.task_categories?.filter((t) => t.enabled);
