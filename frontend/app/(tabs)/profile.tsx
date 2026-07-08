@@ -1,7 +1,10 @@
 import {
   Image,
+  Linking,
+  Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,6 +16,7 @@ import React from "react";
 import {
   Bell,
   ChevronRight,
+  FileText,
   Globe,
   HeadphonesIcon,
   HelpCircle,
@@ -23,12 +27,15 @@ import {
   Share2,
   Shield,
   Sparkles,
+  Star,
   User as UserIcon,
 } from "lucide-react-native";
 
 import { useSession } from "@/src/context/SessionContext";
 import { colors, radius, shadow } from "@/src/theme";
 import { confirmAsync, notify } from "@/src/utils/dialogs";
+
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 
 interface Item {
   icon: React.ComponentType<{ size: number; color: string; strokeWidth: number }>;
@@ -43,6 +50,20 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { profile, isAdmin, signOut, refreshProfile } = useSession();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [cmsCfg, setCmsCfg] = React.useState<{
+    rate_us_url_android?: string;
+    rate_us_url_ios?: string;
+    share_app_message?: string;
+  }>({});
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/cms/profile-screen`);
+        if (res.ok) setCmsCfg(await res.json());
+      } catch {}
+    })();
+  }, []);
 
   // Re-fetch profile (and therefore role) whenever the tab gains focus so
   // role changes made in the DB show up without a hard reload.
@@ -78,7 +99,7 @@ export default function ProfileScreen() {
     {
       icon: Bell,
       label: "Notifications",
-      onPress: () => notify("Notifications", "Push notifications coming soon."),
+      onPress: () => router.push("/profile/notifications"),
       testID: "profile-item-notifs",
     },
     {
@@ -102,13 +123,45 @@ export default function ProfileScreen() {
     {
       icon: Shield,
       label: "Privacy policy",
-      onPress: () => notify("Privacy", "We respect your data."),
+      onPress: () => router.push("/profile/privacy-policy"),
       testID: "profile-item-privacy",
+    },
+    {
+      icon: FileText,
+      label: "Terms & Conditions",
+      onPress: () => router.push("/profile/terms"),
+      testID: "profile-item-terms",
+    },
+    {
+      icon: Star,
+      label: "Rate us",
+      onPress: () => {
+        const url =
+          Platform.OS === "ios"
+            ? cmsCfg.rate_us_url_ios
+            : cmsCfg.rate_us_url_android;
+        if (url) {
+          Linking.openURL(url).catch(() => {});
+        } else {
+          notify("Rate us", "Thanks for the love! The app isn't published on the store yet.");
+        }
+      },
+      testID: "profile-item-rate",
+    },
+    {
+      icon: Share2,
+      label: "Share app",
+      onPress: () => {
+        Share.share({
+          message: cmsCfg.share_app_message || "Check out Mfixit — book home services in minutes!",
+        }).catch(() => {});
+      },
+      testID: "profile-item-share",
     },
     {
       icon: Settings,
       label: "Settings",
-      onPress: () => notify("Settings", "More controls coming soon."),
+      onPress: () => router.push("/profile/settings"),
       testID: "profile-item-settings",
     },
     {
@@ -166,7 +219,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.editBtn}
             activeOpacity={0.8}
-            onPress={() => notify("Edit profile", "Coming soon.")}
+            onPress={() => router.push("/profile/edit")}
             testID="profile-edit-btn"
           >
             <Text style={styles.editText}>Edit</Text>
