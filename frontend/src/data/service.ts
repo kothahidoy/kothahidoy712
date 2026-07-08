@@ -92,6 +92,18 @@ async function getCurrentUserId(): Promise<string | null> {
 // --- CATALOG ------------------------------------------------------------
 
 export const dataService = {
+  /** Clears cached profile/bookings/addresses from local storage without
+   * signing the user out — used by Settings > "Clear local data". Next
+   * fetch will pull fresh data from Supabase (or fall back to demo mode). */
+  clearLocalCache: async (): Promise<void> => {
+    try {
+      await storage.removeItem(PROFILE_KEY);
+      await storage.removeItem(BOOKINGS_KEY);
+      await storage.removeItem(ADDRESSES_KEY);
+    } catch (e) {
+      console.warn("[clearLocalCache] failed", e);
+    }
+  },
   getCategories: async (): Promise<Category[]> => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
@@ -555,9 +567,9 @@ export const dataService = {
 
   getProfile: async (): Promise<UserProfile | null> => {
     if (isSupabaseConfigured && supabase) {
-      const { data: authData } = await supabase.auth.getUser();
-      const authUser = authData.user;
-      if (authUser) {
+      const authUserId = await getAuthUserId();
+      if (authUserId) {
+        const phoneClaims = await getStoredPhoneClaims();
         // Try the SECURITY-DEFINER RPC first — bypasses RLS completely so
         // a lingering recursive policy on public.users can never break
         // the login flow.
@@ -579,7 +591,7 @@ export const dataService = {
             .select(
               "id, full_name, phone, email, avatar_url, city, created_at, role",
             )
-            .eq("auth_user_id", authUser.id)
+            .eq("auth_user_id", authUserId)
             .maybeSingle();
           finalRow = directRow;
         }
@@ -588,9 +600,9 @@ export const dataService = {
           const profile: UserProfile = {
             id: finalRow.id,
             name:
-              finalRow.full_name ?? authUser.email?.split("@")[0] ?? "Guest",
-            phone: finalRow.phone ?? authUser.phone ?? undefined,
-            email: finalRow.email ?? authUser.email ?? undefined,
+              finalRow.full_name ?? phoneClaims?.email?.split("@")[0] ?? "Guest",
+            phone: finalRow.phone ?? phoneClaims?.phone ?? undefined,
+            email: finalRow.email ?? phoneClaims?.email ?? undefined,
             avatar: finalRow.avatar_url ?? undefined,
             city: finalRow.city ?? "Durgapur",
             createdAt: finalRow.created_at,
@@ -602,10 +614,10 @@ export const dataService = {
         // Authenticated but no profile row yet — return a stub so the
         // UI knows the user is signed in (profile-setup will fill it).
         const stub: UserProfile = {
-          id: authUser.id,
-          name: authUser.user_metadata?.full_name ?? "",
-          phone: authUser.phone ?? undefined,
-          email: authUser.email ?? undefined,
+          id: authUserId,
+          name: "",
+          phone: phoneClaims?.phone ?? undefined,
+          email: phoneClaims?.email ?? undefined,
           city: "Durgapur",
           createdAt: new Date().toISOString(),
           role: "customer",
@@ -623,17 +635,17 @@ export const dataService = {
     },
   ): Promise<UserProfile> => {
     if (isSupabaseConfigured && supabase) {
-      const { data } = await supabase.auth.getUser();
-      const authUser = data.user;
-      if (authUser) {
+      const authUserId = await getAuthUserId();
+      if (authUserId) {
+        const phoneClaims = await getStoredPhoneClaims();
         const { data: upserted, error } = await supabase
           .from("users")
           .upsert(
             {
-              auth_user_id: authUser.id,
+              auth_user_id: authUserId,
               full_name: profile.name,
-              phone: profile.phone ?? authUser.phone ?? null,
-              email: profile.email ?? authUser.email ?? null,
+              phone: profile.phone ?? phoneClaims?.phone ?? null,
+              email: profile.email ?? phoneClaims?.email ?? null,
               avatar_url: profile.avatar ?? null,
               city: profile.city,
             },
