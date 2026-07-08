@@ -527,7 +527,30 @@ async def list_services_cms(
         url += f"&{q}"
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.get(url, headers=_sb_headers())
-        return r.json() if r.is_success else []
+        services = r.json() if r.is_success else []
+        if not isinstance(services, list) or not services:
+            return services
+
+        # Attach a real variant/option count to each service so the app
+        # knows whether to show the option-picker (multiple tiers) or add
+        # directly (single price). Previously this field was never
+        # populated, so the picker never opened for any admin-added tier.
+        ids = [s.get("id") for s in services if s.get("id")]
+        if ids:
+            id_list = ",".join(ids)
+            vr = await client.get(
+                f"{SUPABASE_URL}/rest/v1/service_variants"
+                f"?service_id=in.({id_list})&select=service_id",
+                headers=_sb_headers(),
+            )
+            counts: dict = {}
+            if vr.is_success:
+                for row in vr.json():
+                    sid = row.get("service_id")
+                    counts[sid] = counts.get(sid, 0) + 1
+            for s in services:
+                s["options"] = counts.get(s.get("id"), 0)
+        return services
 
 
 @router.post("/services")
