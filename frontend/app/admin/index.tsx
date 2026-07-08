@@ -25,6 +25,7 @@ import {
   XCircle,
   Clock,
   Play,
+  FileText,
 } from "lucide-react-native";
 
 import { adminService, AdminStats } from "@/src/data/admin";
@@ -198,6 +199,13 @@ export default function AdminDashboard() {
             sub="Manage booking availability slots"
             onPress={() => router.push("/admin/settings")}
             testID="admin-slots-link"
+          />
+          <MenuItem
+            icon={FileText}
+            label="Legal & Profile Content"
+            sub="Privacy policy, terms, support contact, rate-us links"
+            onPress={() => router.push("/admin/legal-content" as any)}
+            testID="admin-legal-content-link"
           />
           <MenuItem
             icon={SettingsIcon}
