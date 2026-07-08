@@ -110,6 +110,9 @@ app.include_router(welcome_cms_router)
 from instahelp_cms_routes import router as instahelp_cms_router  # noqa: E402
 app.include_router(instahelp_cms_router)
 
+from profile_cms_routes import router as profile_cms_router  # noqa: E402
+app.include_router(profile_cms_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
