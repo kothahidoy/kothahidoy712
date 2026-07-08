@@ -232,15 +232,13 @@ export default function ServiceDetails() {
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <PrimaryButton
-                label="Book Now"
-                onPress={() =>
-                  router.push({
-                    pathname: "/booking/new",
-                    params: { serviceId: service.id },
-                  })
-                }
-                testID="svc-book-now-btn"
-              />
+  title="Book Now"
+  onPress={async () => {
+    await addToCart(service.id);
+    router.push("/booking/slot");
+  }}
+  testID="svc-book-now-btn"
+/>
             </View>
           </View>
         </View>
