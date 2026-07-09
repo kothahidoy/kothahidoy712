@@ -460,7 +460,22 @@ async def _ensure_services_exist(client: httpx.AsyncClient, items: List[BookingI
     except Exception as exc:
         import logging
         logging.getLogger("booking.services").warning("auto-upsert error: %s", exc)
-
+@router.get("/mine")
+async def my_bookings(authorization: Optional[str] = Header(None)):
+    uid = await _user_id_from_token(authorization)
+    if not uid:
+        return {"bookings": []}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/bookings"
+            f"?customer_id=eq.{uid}"
+            f"&select=id,service_id,scheduled_date,time_slot,address,notes,price,status,rating,review,created_at,payment_status,payment_method,payment_id,paid_at,items"
+            f"&order=created_at.desc",
+            headers=_sb_headers(),
+        )
+        if r.status_code != 200:
+            return {"bookings": []}
+        return {"bookings": r.json()
 
 @router.post("/create")
 async def create_booking(payload: BookingCreate, authorization: Optional[str] = Header(None)):
