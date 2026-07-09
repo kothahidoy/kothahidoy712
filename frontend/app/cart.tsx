@@ -290,6 +290,71 @@ export default function CartScreen() {
     return best;
   }, [items]);
 
+  // Subtotal per category present in the cart — used to check each
+  // category's own "visitation fee off above ₹X" threshold (admin-set on
+  // the category's CMS page). Previously this threshold was only shown as
+  // a promotional banner on the category page and never actually checked
+  // here, so the fee was charged even when the promise had been met.
+  const categorySubtotals = useMemo(() => {
+    const subs: Record<string, number> = {};
+    items.forEach((it) => {
+      const cat = it.category || "_uncategorized";
+      subs[cat] = (subs[cat] || 0) + (it.service_price || 0) * it.quantity;
+    });
+    return subs;
+  }, [items]);
+
+  const [categoryFeeConfig, setCategoryFeeConfig] = useState<
+    Record<string, { active: boolean; threshold: number; label: string }>
+  >({});
+
+  useEffect(() => {
+    const categories = Object.keys(categorySubtotals).filter((c) => c !== "_uncategorized");
+    const missing = categories.filter((c) => !(c in categoryFeeConfig));
+    if (missing.length === 0) return;
+    (async () => {
+      const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+      const entries = await Promise.all(
+        missing.map(async (catId) => {
+          try {
+            const r = await fetch(`${API_BASE}/api/admin/cms/public/category/${catId}/cms`);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const j = await r.json();
+            return [
+              catId,
+              {
+                active: !!j?.category?.visitation_fee_active,
+                threshold: Number(j?.category?.visitation_fee_threshold || 0),
+                label: j?.category?.visitation_fee_label || "Visitation fee",
+              },
+            ] as const;
+          } catch {
+            return [catId, { active: false, threshold: 0, label: "" }] as const;
+          }
+        }),
+      );
+      setCategoryFeeConfig((prev) => {
+        const next = { ...prev };
+        entries.forEach(([catId, cfg]) => { next[catId] = cfg; });
+        return next;
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categorySubtotals]);
+
+  // If ANY category in the cart has an active "fee off above ₹X" promo and
+  // its own subtotal has crossed that threshold, waive the visitation fee
+  // for the whole order (keeps the pricing model simple for mixed carts).
+  const visitationFeeWaiver = useMemo(() => {
+    for (const [catId, subtotal] of Object.entries(categorySubtotals)) {
+      const cfg = categoryFeeConfig[catId];
+      if (cfg?.active && cfg.threshold > 0 && subtotal >= cfg.threshold) {
+        return { waived: true, label: cfg.label };
+      }
+    }
+    return { waived: false, label: "" };
+  }, [categorySubtotals, categoryFeeConfig]);
+
   // Load data
   useEffect(() => {
     (async () => {
@@ -310,7 +375,7 @@ export default function CartScreen() {
   const itemTotal = total;
   const couponSaving = appliedDiscount;
   const netItems = Math.max(0, itemTotal - couponSaving);
-  const visitationFee = billingCfg.visitation_fee_enabled
+  const visitationFee = billingCfg.visitation_fee_enabled && !visitationFeeWaiver.waived
     ? Math.round((billingCfg.visitation_fee_amount || 0) * 100) / 100
     : 0;
   const platformFee = billingCfg.platform_fee_enabled
@@ -865,6 +930,13 @@ export default function CartScreen() {
                   )}
                   {billingCfg.visitation_fee_enabled && visitationFee > 0 && (
                     <BillLine label={billingCfg.visitation_fee_label} value={`₹${Math.round(visitationFee)}`} />
+                  )}
+                  {billingCfg.visitation_fee_enabled && visitationFeeWaiver.waived && (
+                    <BillLine
+                      label={visitationFeeWaiver.label || "Visitation fee"}
+                      value="FREE"
+                      valueColor={GREEN}
+                    />
                   )}
                   {billingCfg.platform_fee_enabled && platformFee > 0 && (
                     <BillLine label={billingCfg.platform_fee_label} value={`₹${Math.round(platformFee)}`} />
