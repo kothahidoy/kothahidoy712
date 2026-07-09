@@ -3,8 +3,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   FlatList,
   Image,
+  Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,6 +16,8 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
+  Star,
+  X,
   XCircle,
 } from "lucide-react-native";
 
@@ -21,6 +25,7 @@ import { dataService } from "@/src/data/service";
 import { bookingApi } from "@/src/data/bookingFlow";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus } from "@/src/types";
+import { notify } from "@/src/utils/dialogs";
 
 type Filter = "active" | "completed" | "cancelled";
 
@@ -56,11 +61,16 @@ export default function BookingsScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("active");
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rateTarget, setRateTarget] = useState<Booking | null>(null);
+
+  const reload = useCallback(() => {
+    bookingApi.listMyBookings().then(setBookings);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      bookingApi.listMyBookings().then(setBookings);
-    }, []),
+      reload();
+    }, [reload]),
   );
 
   const filtered = bookings.filter((b) => matches(b, filter));
@@ -122,10 +132,20 @@ export default function BookingsScreen() {
             <BookingCard
               booking={item}
               onPress={() => router.push(`/booking/${item.id}`)}
+              onRate={() => setRateTarget(item)}
             />
           )}
         />
       )}
+
+      <RateBookingModal
+        booking={rateTarget}
+        onClose={() => setRateTarget(null)}
+        onSubmitted={() => {
+          setRateTarget(null);
+          reload();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -133,9 +153,11 @@ export default function BookingsScreen() {
 function BookingCard({
   booking,
   onPress,
+  onRate,
 }: {
   booking: Booking;
   onPress: () => void;
+  onRate: () => void;
 }) {
   const sc = STATUS_COLORS[booking.status];
   const date = new Date(booking.scheduledDate);
@@ -181,8 +203,107 @@ function BookingCard({
           </Text>
         </View>
         <Text style={styles.price}>₹{booking.price}</Text>
+
+        {booking.status === "completed" && (
+          booking.rating ? (
+            <View style={styles.ratedRow}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star
+                  key={n}
+                  size={14}
+                  color="#F59E0B"
+                  fill={n <= (booking.rating || 0) ? "#F59E0B" : "none"}
+                />
+              ))}
+              <Text style={styles.ratedText}>You rated this</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.rateBtn}
+              onPress={(e) => {
+                e.stopPropagation();
+                onRate();
+              }}
+              testID={`rate-booking-${booking.id}`}
+            >
+              <Star size={13} color={colors.primary} />
+              <Text style={styles.rateBtnText}>Rate service</Text>
+            </TouchableOpacity>
+          )
+        )}
       </View>
     </TouchableOpacity>
+  );
+}
+
+function RateBookingModal({
+  booking,
+  onClose,
+  onSubmitted,
+}: {
+  booking: Booking | null;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!booking) return null;
+
+  const onSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const res = await bookingApi.rateBooking(booking.id, rating, text.trim());
+      notify(
+        res.published ? "Thanks for the 5★!" : "Thanks for your feedback",
+        res.published
+          ? "Your review is now visible on the service page."
+          : "Our team will review it before it's shown publicly.",
+      );
+      onSubmitted();
+    } catch (e: any) {
+      notify("Couldn't submit", e?.message || "Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Rate {booking.serviceTitle}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={10}>
+              <X size={20} color={colors.textMain} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.starPicker}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <TouchableOpacity key={n} onPress={() => setRating(n)} hitSlop={6}>
+                <Star size={32} color="#F59E0B" fill={n <= rating ? "#F59E0B" : "none"} />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Tell us about your experience (optional)"
+            placeholderTextColor={colors.textSubtle}
+            style={styles.reviewInput}
+            multiline
+            textAlignVertical="top"
+          />
+
+          <TouchableOpacity style={styles.submitBtn} onPress={onSubmit} disabled={submitting}>
+            <Text style={styles.submitBtnText}>{submitting ? "Submitting..." : "Submit review"}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -279,4 +400,57 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   emptyCTAText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+
+  ratedRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 8 },
+  ratedText: { fontSize: 11, color: colors.textMuted, marginLeft: 6 },
+  rateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  rateBtnText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  modalTitle: { fontSize: 16, fontWeight: "700", color: colors.textMain, flex: 1, marginRight: 12 },
+  starPicker: { flexDirection: "row", justifyContent: "center", gap: 10, marginBottom: 18 },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 12,
+    minHeight: 90,
+    fontSize: 14,
+    color: colors.textMain,
+    marginBottom: 16,
+  },
+  submitBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  submitBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });
