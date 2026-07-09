@@ -476,7 +476,7 @@ async def my_bookings(authorization: Optional[str] = Header(None)):
         )
         if r.status_code != 200:
             return {"bookings": []}
-               return {"bookings": r.json()}
+        return {"bookings": r.json()}
 
 
 @router.post("/create")
@@ -695,3 +695,76 @@ async def update_phone(payload: PhoneUpdate, authorization: Optional[str] = Head
         )
         user = u.json()[0] if u.status_code == 200 and u.json() else None
         return {"ok": True, "user": user}
+
+
+class BookingReview(BaseModel):
+    rating: int
+    review_text: str = ""
+
+
+@router.post("/{booking_id}/review")
+async def submit_booking_review(
+    booking_id: str,
+    payload: BookingReview,
+    authorization: Optional[str] = Header(None),
+):
+    """Customer rates a completed booking. This both (1) records the rating
+    on the booking itself, and (2) creates a public service_reviews row for
+    that service — 5★ reviews are published immediately and show on the
+    service's "View details" page right away; anything less than 5★ is
+    saved unpublished for the admin to review and decide whether to show."""
+    uid = await _user_id_from_token(authorization)
+    if not uid:
+        raise HTTPException(401, "Please sign in")
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(400, "Rating must be between 1 and 5")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        b = await client.get(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}&customer_id=eq.{uid}"
+            f"&select=id,service_id,status,rating",
+            headers=_sb_headers(),
+        )
+        rows = b.json() if b.status_code == 200 else []
+        if not rows:
+            raise HTTPException(404, "Booking not found")
+        booking = rows[0]
+        if booking.get("status") != "completed":
+            raise HTTPException(400, "You can only rate a completed booking")
+        if booking.get("rating"):
+            raise HTTPException(400, "This booking has already been rated")
+
+        # 1) Save the rating on the booking itself.
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}",
+            headers=_sb_headers(),
+            json={"rating": payload.rating, "review": payload.review_text},
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(500, f"Failed to save rating: {r.text}")
+
+        # 2) Create the matching public service review.
+        u = await client.get(
+            f"{SUPABASE_URL}/rest/v1/users?id=eq.{uid}&select=full_name,avatar_url",
+            headers=_sb_headers(),
+        )
+        profile = u.json()[0] if u.status_code == 200 and u.json() else {}
+        review_body = {
+            "service_id": booking["service_id"],
+            "customer_name": profile.get("full_name") or "Mfixit customer",
+            "customer_avatar": profile.get("avatar_url") or "",
+            "rating": payload.rating,
+            "review_text": payload.review_text,
+            "is_published": payload.rating == 5,
+        }
+        rv = await client.post(
+            f"{SUPABASE_URL}/rest/v1/service_reviews",
+            headers=_sb_headers(),
+            json=review_body,
+        )
+        if rv.status_code not in (200, 201):
+            # Rating is already saved on the booking even if this part fails —
+            # don't roll that back, just surface the error.
+            raise HTTPException(500, f"Rating saved, but review publish failed: {rv.text}")
+
+        return {"ok": True, "published": payload.rating == 5}
