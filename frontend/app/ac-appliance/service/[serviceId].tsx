@@ -42,7 +42,6 @@ export default function ACApplianceServiceDetailScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [selectedACType, setSelectedACType] = useState("split");
 
   const { loading, error, serviceData } = useServiceDetail(
     serviceId || "",
