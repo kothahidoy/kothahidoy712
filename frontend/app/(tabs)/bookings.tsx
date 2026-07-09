@@ -18,6 +18,7 @@ import {
 } from "lucide-react-native";
 
 import { dataService } from "@/src/data/service";
+import { bookingApi } from "@/src/data/bookingFlow";
 import { colors, radius, shadow } from "@/src/theme";
 import { Booking, BookingStatus } from "@/src/types";
 
@@ -58,7 +59,7 @@ export default function BookingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      dataService.listBookings().then(setBookings);
+      bookingApi.listMyBookings().then(setBookings);
     }, []),
   );
 
