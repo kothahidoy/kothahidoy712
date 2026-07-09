@@ -234,9 +234,16 @@ export default function ServiceDetails() {
               <PrimaryButton
   title="Book Now"
   onPress={async () => {
+    setAddingToCart(true);
     await addToCart(service.id);
-    router.push("/booking/slot");
+    setAddingToCart(false);
+    // Route through the same /cart screen every other category uses —
+    // this is where address selection, the house/flat requirement, and
+    // slot selection all live. Jumping straight to /booking/slot used to
+    // skip all of that.
+    router.push("/cart");
   }}
+  disabled={addingToCart}
   testID="svc-book-now-btn"
 />
             </View>
