@@ -9,16 +9,16 @@ async function authHeader(): Promise<Record<string, string>> {
 
 // ---------- Types ----------
 export interface SlotDate {
-  date: string;        // YYYY-MM-DD
-  day_name: string;    // "Mon"
-  day_num: number;     // 23
+  date: string;
+  day_name: string;
+  day_num: number;
   slot_count: number;
 }
 
 export interface TimeSlot {
   id: string;
   date: string;
-  time: string;        // "03:30 PM"
+  time: string;
   available: boolean;
 }
 
@@ -125,20 +125,19 @@ export const bookingApi = {
   ): Promise<RecommendItem[]> {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
-      // Map route slugs (used in cart) to actual DB category_id values (multi-value supported via comma)
       const ROUTE_TO_DB: Record<string, string> = {
-        "ac-appliance":  "ac-appliance",
-        "salon-women":   "salon-women",
-        "salon":         "salon-men",
-        "salon-men":     "salon-men",
-        "plumber":       "plumber",
-        "electrician":   "electrician",
-        "cleaning":      "cleaning-pest",
+        "ac-appliance": "ac-appliance",
+        "salon-women": "salon-women",
+        "salon": "salon-men",
+        "salon-men": "salon-men",
+        "plumber": "plumber",
+        "electrician": "electrician",
+        "cleaning": "cleaning-pest",
         "cleaning-pest": "cleaning-pest",
-        "carpenter":     "carpenter",
-        "painting":      "painting",
-        "pest-control":  "cleaning-pest",
-        "insta-help":    "insta-help",
+        "carpenter": "carpenter",
+        "painting": "painting",
+        "pest-control": "cleaning-pest",
+        "insta-help": "insta-help",
       };
       if (categoryId) {
         params.set("category_id", ROUTE_TO_DB[categoryId] || categoryId);
@@ -149,6 +148,37 @@ export const bookingApi = {
       const d = await r.json();
       return d.items || [];
     } catch { return []; }
+  },
+
+  async listMyBookings() {
+    const headers = await authHeader();
+    const r = await fetch(`${API_BASE}/api/booking/mine`, { headers });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.bookings || []).map((b: any) => {
+      const items = Array.isArray(b.items) ? b.items : [];
+      const first = items[0] || null;
+      const extra = items.length > 1 ? ` +${items.length - 1} more` : "";
+      return {
+        id: b.id,
+        serviceId: b.service_id,
+        serviceTitle: (first?.title || "Service") + extra,
+        serviceImage: first?.image || "",
+        scheduledDate: b.scheduled_date,
+        timeSlot: b.time_slot,
+        address: b.address,
+        notes: b.notes ?? undefined,
+        price: Number(b.price),
+        status: b.status,
+        rating: b.rating ?? undefined,
+        review: b.review ?? undefined,
+        createdAt: b.created_at,
+        paymentStatus: b.payment_status ?? "unpaid",
+        paymentMethod: b.payment_method ?? undefined,
+        paymentId: b.payment_id ?? undefined,
+        paidAt: b.paid_at ?? undefined,
+      };
+    });
   },
 
   async createBooking(payload: {
