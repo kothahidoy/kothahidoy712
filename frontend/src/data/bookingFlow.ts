@@ -57,6 +57,20 @@ export interface RecommendItem {
 
 // ---------- API methods ----------
 export const bookingApi = {
+  async rateBooking(bookingId: string, rating: number, reviewText: string): Promise<{ ok: boolean; published: boolean }> {
+    const headers = await authHeader();
+    const r = await fetch(`${API_BASE}/api/booking/${bookingId}/review`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ rating, review_text: reviewText }),
+    });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const j = await r.json(); msg = j.detail || msg; } catch {}
+      throw new Error(msg);
+    }
+    return r.json();
+  },
   async getSlotDates(days = 7): Promise<SlotDate[]> {
     try {
       const r = await fetch(`${API_BASE}/api/booking/slots/dates?days=${days}`);
