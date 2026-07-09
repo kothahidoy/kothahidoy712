@@ -460,6 +460,7 @@ async def _ensure_services_exist(client: httpx.AsyncClient, items: List[BookingI
     except Exception as exc:
         import logging
         logging.getLogger("booking.services").warning("auto-upsert error: %s", exc)
+      
 @router.get("/mine")
 async def my_bookings(authorization: Optional[str] = Header(None)):
     uid = await _user_id_from_token(authorization)
