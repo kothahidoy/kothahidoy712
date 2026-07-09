@@ -475,7 +475,8 @@ async def my_bookings(authorization: Optional[str] = Header(None)):
         )
         if r.status_code != 200:
             return {"bookings": []}
-        return {"bookings": r.json()
+               return {"bookings": r.json()}
+
 
 @router.post("/create")
 async def create_booking(payload: BookingCreate, authorization: Optional[str] = Header(None)):
