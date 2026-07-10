@@ -886,6 +886,27 @@ export default function AdminSettings() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
+
+      <TouchableOpacity
+  style={{
+    backgroundColor: "#007bff",
+    padding: 12,
+    borderRadius: 8,
+    margin: 10,
+  }}
+  onPress={() => router.push("/admin/add-provider")}
+>
+  <Text
+    style={{
+      color: "#fff",
+      textAlign: "center",
+      fontSize: 16,
+      fontWeight: "600",
+    }}
+  >
+    Add Provider
+  </Text>
+</TouchableOpacity>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
