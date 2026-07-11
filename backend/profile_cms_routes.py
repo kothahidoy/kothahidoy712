@@ -77,6 +77,13 @@ class ProfileConfig(BaseModel):
         "cleaning & more in minutes! https://mfixit.app"
     )
 
+    # Admin can hide any of these three Profile-screen menu rows entirely
+    # (e.g. before the app is actually published on a store, or before the
+    # referral program is ready) without touching code.
+    show_share_app: bool = True
+    show_rate_us: bool = True
+    show_refer_earn: bool = True
+
 
 def _service_headers() -> dict:
     return {
