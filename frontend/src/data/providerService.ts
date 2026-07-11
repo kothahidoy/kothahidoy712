@@ -261,6 +261,7 @@ export const providerService = {
         name: p.name,
         phone: p.phone,
         serviceType: p.service_type,
+        aadhaarNumber: p.aadhaar_number ?? undefined,
         isAvailable: p.is_available,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -372,11 +373,16 @@ export const providerService = {
   createProvider: async (
     name: string,
     phone: string,
-    serviceType: string
+    serviceType: string,
+    aadhaarNumber?: string
   ): Promise<{ success: boolean; provider?: Provider; error?: string }> => {
     const normalizedPhone = normalizePhone(phone);
     if (!normalizedPhone || normalizedPhone.length < 10) {
       return { success: false, error: "Invalid phone number" };
+    }
+    const cleanAadhaar = (aadhaarNumber || "").replace(/\D/g, "");
+    if (cleanAadhaar && cleanAadhaar.length !== 12) {
+      return { success: false, error: "Aadhaar number must be exactly 12 digits" };
     }
 
     if (isSupabaseConfigured && supabase) {
@@ -384,6 +390,7 @@ export const providerService = {
         p_name: name.trim(),
         p_phone: normalizedPhone,
         p_service_type: serviceType,
+        p_aadhaar_number: cleanAadhaar || null,
       });
       if (error) {
         return { success: false, error: error.message };
@@ -395,6 +402,7 @@ export const providerService = {
           name: name.trim(),
           phone: normalizedPhone,
           serviceType,
+          aadhaarNumber: cleanAadhaar || undefined,
           isAvailable: true,
         },
       };
@@ -413,12 +421,52 @@ export const providerService = {
       name: name.trim(),
       phone: normalizedPhone,
       serviceType,
+      aadhaarNumber: cleanAadhaar || undefined,
       isAvailable: true,
       createdAt: new Date().toISOString(),
     };
 
     await writeJSON(PROVIDERS_KEY, [...providers, newProvider]);
     return { success: true, provider: newProvider };
+  },
+
+  /**
+   * Toggle a provider's availability (admin only)
+   */
+  setProviderAvailability: async (
+    providerId: string,
+    available: boolean
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("admin_set_provider_availability", {
+        p_provider_id: providerId,
+        p_available: available,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    }
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    await writeJSON(
+      PROVIDERS_KEY,
+      providers.map((p) => (p.id === providerId ? { ...p, isAvailable: available } : p)),
+    );
+    return { success: true };
+  },
+
+  /**
+   * Remove a provider (admin only). Past booking history is preserved.
+   */
+  deleteProvider: async (providerId: string): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("admin_delete_provider", {
+        p_provider_id: providerId,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    }
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    await writeJSON(PROVIDERS_KEY, providers.filter((p) => p.id !== providerId));
+    return { success: true };
   },
 
   // ================= UTILITIES =================
