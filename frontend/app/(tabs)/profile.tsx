@@ -54,6 +54,9 @@ export default function ProfileScreen() {
     rate_us_url_android?: string;
     rate_us_url_ios?: string;
     share_app_message?: string;
+    show_share_app?: boolean;
+    show_rate_us?: boolean;
+    show_refer_earn?: boolean;
   }>({});
 
   React.useEffect(() => {
@@ -183,6 +186,13 @@ export default function ProfileScreen() {
     },
   ];
 
+  const hiddenTestIDs = new Set<string>([
+    ...(cmsCfg.show_share_app === false ? ["profile-item-share"] : []),
+    ...(cmsCfg.show_rate_us === false ? ["profile-item-rate"] : []),
+    ...(cmsCfg.show_refer_earn === false ? ["profile-item-refer"] : []),
+  ]);
+  const visibleItems = items.filter((it) => !hiddenTestIDs.has(it.testID || ""));
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <ScrollView
@@ -254,12 +264,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menu}>
-          {items.map((it, idx) => (
+          {visibleItems.map((it, idx) => (
             <TouchableOpacity
               key={it.label}
               style={[
                 styles.menuItem,
-                idx !== items.length - 1 && styles.menuDivider,
+                idx !== visibleItems.length - 1 && styles.menuDivider,
               ]}
               onPress={it.onPress}
               activeOpacity={0.7}
