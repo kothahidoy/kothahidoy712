@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
   ScrollView,
   StyleSheet,
@@ -20,7 +21,9 @@ import {
 import { colors, radius, shadow } from "@/src/theme";
 import { notify } from "@/src/utils/dialogs";
 
-const FAQS = [
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+
+const DEFAULT_FAQS = [
   {
     q: "How do I book a service?",
     a: "Open the Home tab, pick a category, choose a service and tap Book Now. Select date, slot, address and confirm — it takes 60 seconds.",
@@ -29,30 +32,39 @@ const FAQS = [
     q: "Can I cancel my booking?",
     a: "Yes. Open the Bookings tab, choose the booking, and tap Cancel booking. Free cancellation up to 2 hours before the slot.",
   },
-  {
-    q: "Are the professionals verified?",
-    a: "Every Mfixit pro goes through a background check, skill test and customer rating threshold before being onboarded.",
-  },
-  {
-    q: "Is there a service warranty?",
-    a: "Most services come with a 30-day workmanship warranty. Details are listed under What's included on the service page.",
-  },
-  {
-    q: "How do I pay?",
-    a: "We currently support cash and UPI at the end of the service. Card and wallet payments are coming soon.",
-  },
 ];
 
 export default function HelpScreen() {
   const router = useRouter();
   const [open, setOpen] = useState<number | null>(0);
+  const [loading, setLoading] = useState(true);
+  const [whatsappNumber, setWhatsappNumber] = useState("919999999999");
+  const [callNumber, setCallNumber] = useState("+91 98765 00000");
+  const [email, setEmail] = useState("support@mfixit.in");
+  const [faqs, setFaqs] = useState(DEFAULT_FAQS);
 
-  const dial = (n: string) => Linking.openURL(`tel:${n}`);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/cms/profile-screen`);
+        if (res.ok) {
+          const cfg = await res.json();
+          if (cfg.whatsapp_number) setWhatsappNumber(cfg.whatsapp_number);
+          if (cfg.support_phone) setCallNumber(cfg.support_phone);
+          if (cfg.support_email) setEmail(cfg.support_email);
+          if (Array.isArray(cfg.faqs) && cfg.faqs.length > 0) setFaqs(cfg.faqs);
+        }
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const dial = (n: string) => Linking.openURL(`tel:${n.replace(/\s/g, "")}`);
   const wa = () =>
-    Linking.openURL("https://wa.me/919999999999?text=Hi%20Mfixit%20Support").catch(
+    Linking.openURL(`https://wa.me/${whatsappNumber}?text=Hi%20Mfixit%20Support`).catch(
       () => notify("WhatsApp not installed"),
     );
-  const mail = () => Linking.openURL("mailto:support@mfixit.app");
+  const mail = () => Linking.openURL(`mailto:${email}`);
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
@@ -87,7 +99,7 @@ export default function HelpScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => dial("18001234567")}
+            onPress={() => dial(callNumber)}
             activeOpacity={0.85}
             testID="help-call"
           >
@@ -95,7 +107,7 @@ export default function HelpScreen() {
               <Phone size={20} color={colors.primary} strokeWidth={2.5} />
             </View>
             <Text style={styles.actionLabel}>Call us</Text>
-            <Text style={styles.actionSub}>1800-123-4567</Text>
+            <Text style={styles.actionSub}>{callNumber}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -108,7 +120,7 @@ export default function HelpScreen() {
               <Mail size={20} color="#B45309" strokeWidth={2.5} />
             </View>
             <Text style={styles.actionLabel}>Email</Text>
-            <Text style={styles.actionSub}>support@mfixit.app</Text>
+            <Text style={styles.actionSub}>{email}</Text>
           </TouchableOpacity>
         </View>
 
@@ -116,33 +128,37 @@ export default function HelpScreen() {
           Frequently asked questions
         </Text>
 
-        <View style={styles.faqs}>
-          {FAQS.map((f, i) => {
-            const isOpen = open === i;
-            return (
-              <TouchableOpacity
-                key={f.q}
-                style={[
-                  styles.faq,
-                  i !== FAQS.length - 1 && styles.faqDivider,
-                ]}
-                onPress={() => setOpen(isOpen ? null : i)}
-                activeOpacity={0.85}
-                testID={`help-faq-${i}`}
-              >
-                <View style={styles.faqHead}>
-                  <Text style={styles.faqQ}>{f.q}</Text>
-                  <ChevronDown
-                    size={16}
-                    color={colors.textMuted}
-                    style={{ transform: [{ rotate: isOpen ? "180deg" : "0deg" }] }}
-                  />
-                </View>
-                {isOpen ? <Text style={styles.faqA}>{f.a}</Text> : null}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} />
+        ) : (
+          <View style={styles.faqs}>
+            {faqs.map((f, i) => {
+              const isOpen = open === i;
+              return (
+                <TouchableOpacity
+                  key={f.q + i}
+                  style={[
+                    styles.faq,
+                    i !== faqs.length - 1 && styles.faqDivider,
+                  ]}
+                  onPress={() => setOpen(isOpen ? null : i)}
+                  activeOpacity={0.85}
+                  testID={`help-faq-${i}`}
+                >
+                  <View style={styles.faqHead}>
+                    <Text style={styles.faqQ}>{f.q}</Text>
+                    <ChevronDown
+                      size={16}
+                      color={colors.textMuted}
+                      style={{ transform: [{ rotate: isOpen ? "180deg" : "0deg" }] }}
+                    />
+                  </View>
+                  {isOpen ? <Text style={styles.faqA}>{f.a}</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
