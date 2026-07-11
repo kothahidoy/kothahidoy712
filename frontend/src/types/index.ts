@@ -149,6 +149,7 @@ export interface Provider {
   name: string;
   phone: string;
   serviceType: ID; // maps to category.id
+  aadhaarNumber?: string;
   isAvailable: boolean;
   createdAt?: string;
   updatedAt?: string;
