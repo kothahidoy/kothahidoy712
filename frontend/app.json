@@ -26,6 +26,11 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "PUT_YOUR_ANDROID_MAPS_SDK_KEY_HERE"
+        }
+      },
       "package": "com.emergent.codeimporthub.u5yru3"
     },
     "web": {
