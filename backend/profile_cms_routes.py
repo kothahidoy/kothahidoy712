@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import json
 import httpx
+from typing import List, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -69,6 +70,32 @@ class ProfileConfig(BaseModel):
 
     support_email: str = "support@mfixit.in"
     support_phone: str = "+91 98765 00000"
+    whatsapp_number: str = "919999999999"
+
+    faqs: List[Dict[str, str]] = Field(
+        default_factory=lambda: [
+            {
+                "q": "How do I book a service?",
+                "a": "Open the Home tab, pick a category, choose a service and tap Book Now. Select date, slot, address and confirm — it takes 60 seconds.",
+            },
+            {
+                "q": "Can I cancel my booking?",
+                "a": "Yes. Open the Bookings tab, choose the booking, and tap Cancel booking. Free cancellation up to 2 hours before the slot.",
+            },
+            {
+                "q": "Are the professionals verified?",
+                "a": "Every Mfixit pro goes through a background check, skill test and customer rating threshold before being onboarded.",
+            },
+            {
+                "q": "Is there a service warranty?",
+                "a": "Most services come with a 30-day workmanship warranty. Details are listed under What's included on the service page.",
+            },
+            {
+                "q": "How do I pay?",
+                "a": "We currently support cash and UPI at the end of the service. Card and wallet payments are coming soon.",
+            },
+        ]
+    )
 
     rate_us_url_android: str = ""
     rate_us_url_ios: str = ""
