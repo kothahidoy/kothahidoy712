@@ -39,6 +39,8 @@ import {
   LOCATION_PROMPT_KEY,
 } from "@/src/utils/geo";
 import { notify } from "@/src/utils/dialogs";
+import PlacesSearchInput, { PlaceResult } from "@/src/components/PlacesSearchInput";
+import PlatformMap from "@/src/components/PlatformMap";
 
 const GREEN = "#16A34A";
 
@@ -270,6 +272,15 @@ function ManualForm({
   const [landmark, setLandmark] = useState("");
   const [city, setCity] = useState(CITIES[0]);
   const [saving, setSaving] = useState(false);
+  const [coords, setCoords] = useState({ lat: 23.5204, lng: 87.3119 }); // Durgapur center — fallback only
+
+  const onPlaceSelected = (place: PlaceResult) => {
+    setAddressLine(place.addressLine || place.name);
+    setCoords({ lat: place.latitude, lng: place.longitude });
+    if (place.city && CITIES.includes(place.city as any)) {
+      setCity(place.city as any);
+    }
+  };
 
   const save = async () => {
     if (addressLine.trim().length < 5) {
@@ -283,8 +294,8 @@ function ManualForm({
         addressLine: addressLine.trim(),
         landmark: landmark.trim() || undefined,
         city,
-        latitude: 23.5204,
-        longitude: 87.3119,
+        latitude: coords.lat,
+        longitude: coords.lng,
         isDefault: true,
       });
       await onSaved();
@@ -308,6 +319,23 @@ function ManualForm({
         <Text style={styles.subtitle}>
           This address will be saved and auto-selected when you book a service.
         </Text>
+
+        <Text style={styles.fieldLabel}>Search for your address</Text>
+        <PlacesSearchInput
+          placeholder="Search area, street, landmark..."
+          latitude={coords.lat}
+          longitude={coords.lng}
+          onSelect={onPlaceSelected}
+        />
+
+        <View style={{ marginTop: 14 }}>
+          <PlatformMap
+            latitude={coords.lat}
+            longitude={coords.lng}
+            addressLabel={addressLine || "Drag the pin to fine-tune your location"}
+            onPinDragEnd={(c) => setCoords({ lat: c.latitude, lng: c.longitude })}
+          />
+        </View>
 
         <Text style={styles.fieldLabel}>Full address</Text>
         <TextInput
