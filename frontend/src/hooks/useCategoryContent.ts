@@ -108,6 +108,7 @@ export function useCategoryContent(categoryId: string): UseCategoryContentResult
             image: sv.image || s.image_url || PLACEHOLDER,
             description: sv.description || undefined,
             shortDescription: sv.short_description || undefined,
+            options: Number(sv.options) > 0 ? Number(sv.options) : undefined,
           }));
         ALL_SERVICES[String(s.id)] = { title: s.name, services: list };
       });
@@ -130,6 +131,7 @@ export function useCategoryContent(categoryId: string): UseCategoryContentResult
             image: sv.image || PLACEHOLDER,
             description: sv.description || undefined,
             shortDescription: sv.short_description || undefined,
+            options: Number(sv.options) > 0 ? Number(sv.options) : undefined,
           })),
         };
       }
