@@ -13,12 +13,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Save } from "lucide-react-native";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react-native";
 
 import { colors, radius, shadow } from "@/src/theme";
 import { notify } from "@/src/utils/dialogs";
 
 const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+
+interface FAQ {
+  q: string;
+  a: string;
+}
 
 interface ProfileConfig {
   privacy_policy_title: string;
@@ -27,6 +32,8 @@ interface ProfileConfig {
   terms_body: string;
   support_email: string;
   support_phone: string;
+  whatsapp_number: string;
+  faqs: FAQ[];
   rate_us_url_android: string;
   rate_us_url_ios: string;
   share_app_message: string;
@@ -42,6 +49,8 @@ const EMPTY: ProfileConfig = {
   terms_body: "",
   support_email: "",
   support_phone: "",
+  whatsapp_number: "",
+  faqs: [],
   rate_us_url_android: "",
   rate_us_url_ios: "",
   share_app_message: "",
@@ -180,6 +189,55 @@ export default function LegalContentEditor() {
           <Text style={styles.sectionTitle}>Support contact</Text>
           <Field label="Support email" value={cfg.support_email} onChangeText={set("support_email")} />
           <Field label="Support phone" value={cfg.support_phone} onChangeText={set("support_phone")} />
+          <Field
+            label="WhatsApp number (digits only, with country code, e.g. 919876500000)"
+            value={cfg.whatsapp_number}
+            onChangeText={set("whatsapp_number")}
+          />
+
+          <Text style={styles.sectionTitle}>FAQs</Text>
+          {cfg.faqs.map((f, i) => (
+            <View key={i} style={styles.faqEditCard}>
+              <View style={styles.faqEditHeader}>
+                <Text style={styles.faqEditIndex}>FAQ {i + 1}</Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setCfg((prev) => ({ ...prev, faqs: prev.faqs.filter((_, idx) => idx !== i) }))
+                  }
+                >
+                  <Trash2 size={16} color="#DC2626" />
+                </TouchableOpacity>
+              </View>
+              <Field
+                label="Question"
+                value={f.q}
+                onChangeText={(t) =>
+                  setCfg((prev) => ({
+                    ...prev,
+                    faqs: prev.faqs.map((row, idx) => (idx === i ? { ...row, q: t } : row)),
+                  }))
+                }
+              />
+              <Field
+                label="Answer"
+                value={f.a}
+                onChangeText={(t) =>
+                  setCfg((prev) => ({
+                    ...prev,
+                    faqs: prev.faqs.map((row, idx) => (idx === i ? { ...row, a: t } : row)),
+                  }))
+                }
+                multiline
+              />
+            </View>
+          ))}
+          <TouchableOpacity
+            style={styles.addFaqBtn}
+            onPress={() => setCfg((prev) => ({ ...prev, faqs: [...prev.faqs, { q: "", a: "" }] }))}
+          >
+            <Plus size={16} color={colors.primary} />
+            <Text style={styles.addFaqBtnText}>Add FAQ</Text>
+          </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>Rate us & Share</Text>
           <Field
@@ -282,4 +340,31 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 14, fontWeight: "600", color: colors.textMain },
   toggleSub: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  faqEditCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 12,
+    marginBottom: 12,
+  },
+  faqEditHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  faqEditIndex: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  addFaqBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  addFaqBtnText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
 });
