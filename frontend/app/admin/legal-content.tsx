@@ -5,6 +5,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -29,6 +30,9 @@ interface ProfileConfig {
   rate_us_url_android: string;
   rate_us_url_ios: string;
   share_app_message: string;
+  show_share_app: boolean;
+  show_rate_us: boolean;
+  show_refer_earn: boolean;
 }
 
 const EMPTY: ProfileConfig = {
@@ -41,7 +45,32 @@ const EMPTY: ProfileConfig = {
   rate_us_url_android: "",
   rate_us_url_ios: "",
   share_app_message: "",
+  show_share_app: true,
+  show_rate_us: true,
+  show_refer_earn: true,
 };
+
+function ToggleRow({
+  label,
+  sub,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  sub?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        {sub ? <Text style={styles.toggleSub}>{sub}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.primary }} />
+    </View>
+  );
+}
 
 function Field({
   label,
@@ -166,6 +195,26 @@ export default function LegalContentEditor() {
             multiline
           />
 
+          <Text style={styles.sectionTitle}>Profile menu visibility</Text>
+          <ToggleRow
+            label="Share app"
+            sub="Shows the 'Share app' row on the customer Profile screen"
+            value={cfg.show_share_app}
+            onValueChange={(v) => setCfg((prev) => ({ ...prev, show_share_app: v }))}
+          />
+          <ToggleRow
+            label="Rate us"
+            sub="Shows the 'Rate us' row on the customer Profile screen"
+            value={cfg.show_rate_us}
+            onValueChange={(v) => setCfg((prev) => ({ ...prev, show_rate_us: v }))}
+          />
+          <ToggleRow
+            label="Refer & earn"
+            sub="Shows the 'Refer & earn' row on the customer Profile screen"
+            value={cfg.show_refer_earn}
+            onValueChange={(v) => setCfg((prev) => ({ ...prev, show_refer_earn: v }))}
+          />
+
           <TouchableOpacity style={styles.saveBtnLarge} onPress={onSave} disabled={saving}>
             {saving ? (
               <ActivityIndicator color="#fff" />
@@ -223,4 +272,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   saveBtnLargeText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  toggleLabel: { fontSize: 14, fontWeight: "600", color: colors.textMain },
+  toggleSub: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 });
