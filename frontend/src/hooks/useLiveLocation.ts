@@ -70,12 +70,16 @@ async function readCache(): Promise<LiveLocation | null> {
   }
 }
 
-async function writeCache(v: LiveLocation) {
+export async function writeLiveLocationCache(v: LiveLocation) {
   try {
     await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(v));
   } catch {
     /* ignore */
   }
+}
+
+async function writeCache(v: LiveLocation) {
+  return writeLiveLocationCache(v);
 }
 
 function composeLabel(area: string, city: string): string {
@@ -185,10 +189,21 @@ export function useLiveLocation(autoDetect: boolean = true) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDetect]);
 
+  const refreshFromCache = useCallback(async () => {
+    const cached = await readCache();
+    if (cached && mountedRef.current) {
+      setState((s) => ({ ...s, location: cached, loading: false }));
+    }
+  }, []);
+
   return {
     ...state,
     /** Force re-detect (e.g. user tapped the location row) */
     refresh: detect,
+    /** Re-read the cached value only — used after another screen (like
+     * the location search screen) writes a new location, so the Home
+     * header updates instantly without a fresh GPS fetch. */
+    refreshFromCache,
     /** Platform note: web requires HTTPS to work */
     isWeb: Platform.OS === "web",
   };
