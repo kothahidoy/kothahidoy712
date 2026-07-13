@@ -29,6 +29,8 @@ import { colors, radius, shadow } from "@/src/theme";
 import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 import { reverseGeocode } from "@/src/utils/geo";
+import PlacesSearchInput, { PlaceResult } from "@/src/components/PlacesSearchInput";
+import PlatformMap from "@/src/components/PlatformMap";
 
 export default function Addresses() {
   const router = useRouter();
@@ -227,6 +229,12 @@ function AddressForm({
     }
   };
 
+  const onPlaceSelected = (place: PlaceResult) => {
+    setCoords({ lat: place.latitude, lng: place.longitude });
+    setAddressLine(place.addressLine || place.name);
+    if (place.city && CITIES.includes(place.city as any)) setCity(place.city as any);
+  };
+
   const save = async () => {
     if (addressLine.trim().length < 5) {
       notify("Address required", "Please enter your full address.");
@@ -237,6 +245,9 @@ function AddressForm({
       addressLine: addressLine.trim(),
       landmark: landmark.trim() || undefined,
       city,
+      // Only fall back to the Durgapur city-center pin if the user never
+      // searched, used current location, or dragged the map pin — better
+      // than silently mis-pinning every manually-typed address there.
       latitude: coords?.lat ?? 23.5204,
       longitude: coords?.lng ?? 87.3119,
       isDefault,
@@ -268,6 +279,13 @@ function AddressForm({
         ))}
       </View>
 
+      <PlacesSearchInput
+        placeholder="Search area, street, landmark..."
+        latitude={coords?.lat}
+        longitude={coords?.lng}
+        onSelect={onPlaceSelected}
+      />
+
       <TouchableOpacity
         style={styles.locBtn}
         onPress={detect}
@@ -280,6 +298,17 @@ function AddressForm({
           {locating ? "Detecting…" : "Use my current location"}
         </Text>
       </TouchableOpacity>
+
+      {coords && (
+        <View style={{ marginBottom: 12 }}>
+          <PlatformMap
+            latitude={coords.lat}
+            longitude={coords.lng}
+            addressLabel={addressLine}
+            onPinDragEnd={(c) => setCoords({ lat: c.latitude, lng: c.longitude })}
+          />
+        </View>
+      )}
 
       <TextInput
         value={addressLine}
