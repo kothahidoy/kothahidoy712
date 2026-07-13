@@ -31,6 +31,8 @@ import { CITIES } from "@/src/data/seed";
 import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 import { reverseGeocode } from "@/src/utils/geo";
+import PlacesSearchInput, { PlaceResult } from "@/src/components/PlacesSearchInput";
+import PlatformMap from "@/src/components/PlatformMap";
 import { supabase } from "@/src/lib/supabase";
 import { getAuthToken } from "@/src/lib/authToken";
 
@@ -211,7 +213,11 @@ export default function CartScreen() {
     }
   }, []);
 
-  // Save + proceed. Persists via dataService (Supabase → falls back to AsyncStorage).
+  const onPlaceSelected = useCallback((place: PlaceResult) => {
+    setAddrLine(place.addressLine || place.name);
+    if (place.city) setAddrCity(CITIES.includes(place.city as any) ? place.city : place.city);
+    setAddrCoords({ lat: place.latitude, lng: place.longitude });
+  }, []); Persists via dataService (Supabase → falls back to AsyncStorage).
   const handleSaveAddressAndProceed = useCallback(async () => {
     const house = houseInput.trim();
     if (!house) {
@@ -774,12 +780,22 @@ export default function CartScreen() {
                 <X size={18} color={colors.textMain} />
               </TouchableOpacity>
 
-              {/* Map placeholder header + detect button */}
+              {/* Real map + detect button */}
               <View style={styles.addrMapHead}>
-                <MapPin size={26} color={PURPLE} />
-                <Text style={styles.addrMapCaption}>
-                  {addrLine ? "Location detected" : "Place the pin accurately on map"}
-                </Text>
+                {addrCoords ? (
+                  <PlatformMap
+                    latitude={addrCoords.lat}
+                    longitude={addrCoords.lng}
+                    addressLabel={addrLine || "Drag the pin to fine-tune your location"}
+                    height={160}
+                    onPinDragEnd={(c) => setAddrCoords({ lat: c.latitude, lng: c.longitude })}
+                  />
+                ) : (
+                  <>
+                    <MapPin size={26} color={PURPLE} />
+                    <Text style={styles.addrMapCaption}>Search or use current location below</Text>
+                  </>
+                )}
                 <TouchableOpacity
                   style={styles.addrDetectBtn}
                   onPress={detectMyLocation}
@@ -802,6 +818,14 @@ export default function CartScreen() {
                 contentContainerStyle={{ padding: 20, paddingBottom: 30 }}
                 keyboardShouldPersistTaps="handled"
               >
+                <PlacesSearchInput
+                  placeholder="Search area, street, landmark..."
+                  latitude={addrCoords?.lat}
+                  longitude={addrCoords?.lng}
+                  onSelect={onPlaceSelected}
+                />
+                <View style={{ height: 14 }} />
+
                 {/* Detected street row + Change */}
                 <View style={styles.addrDetectedRow}>
                   <View style={{ flex: 1 }}>
