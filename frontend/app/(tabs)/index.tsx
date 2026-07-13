@@ -13,7 +13,7 @@ import {
   ViewToken,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import {
@@ -371,6 +371,13 @@ export default function HomeScreen() {
   const { profile } = useSession();
   const { itemCount } = useCart();
   const live = useLiveLocation(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      live.refreshFromCache();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [popular, setPopular] = useState<Service[]>([]);
   const [topRated, setTopRated] = useState<Service[]>([]);
@@ -569,7 +576,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.heroLocationRow}
               activeOpacity={0.7}
-              onPress={live.refresh}
+              onPress={() => router.push("/location-search")}
               testID="home-location-tap"
             >
               <View style={styles.heroLocationDot} />
