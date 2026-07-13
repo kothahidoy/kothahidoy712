@@ -135,6 +135,42 @@ export const ProviderTrackingCard: React.FC<Props> = ({
   let distanceKm: number | null = null;
   if (provider && dest) distanceKm = haversineKm(provider, dest);
 
+  // Real road distance + ETA via the Directions API — falls back to the
+  // straight-line distance above if this hasn't resolved yet or the
+  // server key isn't configured.
+  const [eta, setEta] = useState<{ distanceText: string; durationText: string } | null>(null);
+  const lastEtaKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!provider || !dest) {
+      setEta(null);
+      return;
+    }
+    // Avoid re-fetching on every 15s poll for a pin that barely moved —
+    // only refetch once the provider has moved ~150m+ (about 3 decimal
+    // places of lat/lng) since the last successful ETA fetch.
+    const key = `${provider.lat.toFixed(3)},${provider.lng.toFixed(3)}`;
+    if (key === lastEtaKeyRef.current) return;
+    lastEtaKeyRef.current = key;
+
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          origin_lat: String(provider.lat),
+          origin_lon: String(provider.lng),
+          dest_lat: String(dest.lat),
+          dest_lon: String(dest.lng),
+        });
+        const r = await fetch(`${API_BASE}/api/geo/directions?${params.toString()}`);
+        if (!r.ok) return; // Directions key not configured yet — keep straight-line fallback
+        const d = await r.json();
+        setEta({ distanceText: d.distance_text, durationText: d.duration_text });
+      } catch {
+        /* keep straight-line fallback */
+      }
+    })();
+  }, [provider?.lat, provider?.lng, dest?.lat, dest?.lng]);
+
   const openInMaps = () => {
     if (!provider) return;
     const dst = dest
@@ -214,7 +250,9 @@ export const ProviderTrackingCard: React.FC<Props> = ({
             {isLive ? "Live • Provider on the way" : "Last seen"}
           </Text>
           <Text style={styles.headerSub}>
-            {distanceKm != null && distanceKm < 50
+            {eta
+              ? `${eta.durationText} · ${eta.distanceText} by road`
+              : distanceKm != null && distanceKm < 50
               ? `${distanceKm.toFixed(distanceKm < 1 ? 2 : 1)} km away`
               : "Tracking active"}
             {" · "}
