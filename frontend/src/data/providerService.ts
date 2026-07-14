@@ -250,6 +250,25 @@ export const providerService = {
   // ================= ADMIN PROVIDER MANAGEMENT =================
 
   /**
+   * Public check used by the provider LOGIN screen — does a provider with
+   * this phone number exist? Uses a separate, non-admin-gated RPC since
+   * admin_list_providers() (used by the admin management screen) now
+   * correctly requires is_admin() and also returns Aadhaar numbers.
+   */
+  checkProviderExists: async (phone: string): Promise<boolean> => {
+    const normalizedPhone = normalizePhone(phone);
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("provider_exists_by_phone", {
+        p_phone: normalizedPhone,
+      });
+      if (error) return false;
+      return Array.isArray(data) && data.length > 0;
+    }
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    return providers.some((p) => normalizePhone(p.phone) === normalizedPhone);
+  },
+
+  /**
    * List all providers (admin only)
    */
   listAllProviders: async (): Promise<Provider[]> => {
