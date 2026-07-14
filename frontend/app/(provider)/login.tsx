@@ -67,10 +67,7 @@ export default function ProviderLogin() {
 
     try {
       // First check if provider exists in the system
-      const providers = await providerService.listAllProviders();
-      const providerExists = providers.some(
-        (p) => p.phone.replace(/\D/g, "") === normalizedPhone
-      );
+      const providerExists = await providerService.checkProviderExists(normalizedPhone);
 
       if (!providerExists) {
         notify(
