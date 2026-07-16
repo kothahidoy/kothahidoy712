@@ -127,6 +127,8 @@ export const providerService = {
           status: b.status as BookingStatus,
           createdAt: b.created_at,
           providerId: b.provider_id,
+          rating: b.rating ?? undefined,
+          review: b.review ?? undefined,
         };
       });
     }
@@ -142,6 +144,46 @@ export const providerService = {
     );
     console.log("[providerService.listJobs] Filtered jobs:", filtered.length);
     return filtered;
+  },
+
+  /**
+   * Completed job history for this provider — powers the Earnings tab
+   * (income totals) and Profile tab (average customer rating).
+   */
+  listCompletedJobs: async (providerId: string, daysBack = 90): Promise<Booking[]> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.rpc("list_provider_completed_jobs", {
+        p_provider_id: providerId,
+        p_days_back: daysBack,
+      });
+      if (error || !data) return [];
+
+      const services = await dataService.getServices();
+      const byId = new Map(services.map((s) => [s.id, s]));
+
+      return data.map((b: any) => {
+        const svc = byId.get(b.service_id);
+        return {
+          id: b.id,
+          serviceId: b.service_id,
+          serviceTitle: svc?.title ?? "Service",
+          serviceImage: svc?.image ?? "",
+          scheduledDate: b.scheduled_date,
+          timeSlot: b.time_slot,
+          address: b.address as SavedAddress,
+          notes: b.notes ?? undefined,
+          price: Number(b.price),
+          status: b.status as BookingStatus,
+          createdAt: b.created_at,
+          providerId: b.provider_id,
+          rating: b.rating ?? undefined,
+          review: b.review ?? undefined,
+        };
+      });
+    }
+
+    const bookings = await readJSON<Booking[]>(BOOKINGS_KEY, []);
+    return bookings.filter((b) => b.providerId === providerId && b.status === "completed");
   },
 
   /**
@@ -447,6 +489,30 @@ export const providerService = {
 
     await writeJSON(PROVIDERS_KEY, [...providers, newProvider]);
     return { success: true, provider: newProvider };
+  },
+
+  /**
+   * Provider's own self-service availability toggle (Profile tab) — uses
+   * a separate RPC from setProviderAvailability, which is admin-only.
+   */
+  setMyAvailability: async (
+    providerId: string,
+    available: boolean,
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.rpc("provider_set_my_availability", {
+        p_provider_id: providerId,
+        p_available: available,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    }
+    const providers = await readJSON<Provider[]>(PROVIDERS_KEY, []);
+    await writeJSON(
+      PROVIDERS_KEY,
+      providers.map((p) => (p.id === providerId ? { ...p, isAvailable: available } : p)),
+    );
+    return { success: true };
   },
 
   /**
