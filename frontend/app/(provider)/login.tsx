@@ -38,7 +38,7 @@ export default function ProviderLogin() {
       try {
         const provider = await providerService.getCurrentProvider();
         if (provider) {
-          router.replace("/(provider)/jobs");
+          router.replace("/(provider)/(tabs)/jobs");
         }
       } catch (e) {
         console.warn("Session check failed", e);
