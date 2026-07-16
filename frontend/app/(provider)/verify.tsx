@@ -99,7 +99,7 @@ export default function ProviderVerifyScreen() {
       const provider = await providerService.login(normalizedPhone);
 
       if (provider) {
-        router.replace("/(provider)/jobs");
+        router.replace("/(provider)/(tabs)/jobs");
       } else {
         notify(
           "Not Registered",
