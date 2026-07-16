@@ -79,7 +79,7 @@ export default function VerifyScreen() {
   const routeAfterAuth = async () => {
     try {
       if (authType === "provider") {
-        router.replace("/(provider)/jobs");
+        router.replace("/(provider)/(tabs)/jobs");
         return;
       }
       const fresh = await dataService.getProfile();
