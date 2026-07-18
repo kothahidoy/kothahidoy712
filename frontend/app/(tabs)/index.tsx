@@ -370,7 +370,13 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useSession();
   const { itemCount } = useCart();
-  const live = useLiveLocation(true);
+  const [savedAddrLabel, setSavedAddrLabel] = useState<string | null>(null);
+  const [addrChecked, setAddrChecked] = useState(false);
+  // Only let useLiveLocation touch GPS once we know for sure there's no
+  // saved address — once the customer has picked one, it should stay put
+  // (previously this refreshed from GPS on every app open once its 6-hour
+  // cache expired, silently overwriting whatever the customer had chosen).
+  const live = useLiveLocation(addrChecked && !savedAddrLabel);
 
   useFocusEffect(
     useCallback(() => {
@@ -440,28 +446,43 @@ export default function HomeScreen() {
   // One-time post-login location prompt (Urban-Company style): if the
   // customer has no saved address yet, take them to the location-select
   // screen so their address gets saved & auto-selected at booking time.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const done = await AsyncStorage.getItem(LOCATION_PROMPT_KEY);
-        if (done || cancelled) return;
-        const addrs = await dataService.listAddresses();
-        if (cancelled) return;
-        if (addrs.length === 0) {
-          router.push("/location-select");
-        } else {
+  // This same check also decides the header label (see savedAddrLabel) —
+  // a saved address always wins over a fresh GPS detect.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const addrs = await dataService.listAddresses();
+          if (cancelled) return;
+          if (addrs.length === 0) {
+            setAddrChecked(true);
+            const done = await AsyncStorage.getItem(LOCATION_PROMPT_KEY);
+            if (!done && !cancelled) router.push("/location-select");
+            return;
+          }
+          const def = addrs.find((a) => a.isDefault) || addrs[0];
+          const shortAddr = (def.addressLine || "").split(",")[0]?.trim();
+          const label =
+            shortAddr && def.city && shortAddr !== def.city
+              ? `${def.city} — ${shortAddr}`
+              : def.city || def.addressLine || def.label;
+          if (!cancelled) {
+            setSavedAddrLabel(label);
+            setAddrChecked(true);
+          }
           await AsyncStorage.setItem(LOCATION_PROMPT_KEY, "1");
+        } catch {
+          /* never block home */
+          if (!cancelled) setAddrChecked(true);
         }
-      } catch {
-        /* never block home */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      })();
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
 
   // Fetch hero promo slides from CMS
   useEffect(() => {
@@ -551,8 +572,12 @@ export default function HomeScreen() {
   const cityLabel = profile?.city ?? "Durgapur";
   const firstName = (profile?.name ?? "there").split(" ")[0];
 
-  // Live location: prefer detected address, else profile city, else default
-  const liveLabel = live.location?.label
+  // Location label: a saved default address always wins — GPS only fills
+  // in while we're still checking, or for a brand-new customer with no
+  // saved address yet.
+  const liveLabel = savedAddrLabel
+    ? savedAddrLabel
+    : live.location?.label
     ? live.location.label
     : live.loading
     ? "Detecting your location…"
