@@ -40,7 +40,6 @@ import {
 } from "@/src/utils/geo";
 import { notify } from "@/src/utils/dialogs";
 import PlacesSearchInput, { PlaceResult } from "@/src/components/PlacesSearchInput";
-import PlatformMap from "@/src/components/PlatformMap";
 
 const GREEN = "#16A34A";
 
@@ -268,6 +267,7 @@ function ManualForm({
   onBack: () => void;
   onSaved: () => Promise<void> | void;
 }) {
+  const [houseFlat, setHouseFlat] = useState("");
   const [addressLine, setAddressLine] = useState("");
   const [landmark, setLandmark] = useState("");
   const [city, setCity] = useState(CITIES[0]);
@@ -283,6 +283,10 @@ function ManualForm({
   };
 
   const save = async () => {
+    if (houseFlat.trim().length < 1) {
+      notify("House/Flat required", "Please enter your house or flat number.");
+      return;
+    }
     if (addressLine.trim().length < 5) {
       notify("Address required", "Please enter your full address.");
       return;
@@ -292,6 +296,7 @@ function ManualForm({
       await dataService.saveAddress({
         label: "Home",
         addressLine: addressLine.trim(),
+        houseFlat: houseFlat.trim(),
         landmark: landmark.trim() || undefined,
         city,
         latitude: coords.lat,
@@ -328,20 +333,21 @@ function ManualForm({
           onSelect={onPlaceSelected}
         />
 
-        <View style={{ marginTop: 14 }}>
-          <PlatformMap
-            latitude={coords.lat}
-            longitude={coords.lng}
-            addressLabel={addressLine || "Drag the pin to fine-tune your location"}
-            onPinDragEnd={(c) => setCoords({ lat: c.latitude, lng: c.longitude })}
-          />
-        </View>
+        <Text style={styles.fieldLabel}>House / Flat number</Text>
+        <TextInput
+          value={houseFlat}
+          onChangeText={setHouseFlat}
+          placeholder="e.g. Flat 302, Block B"
+          placeholderTextColor={colors.textSubtle}
+          style={styles.input}
+          testID="loc-manual-housenum"
+        />
 
         <Text style={styles.fieldLabel}>Full address</Text>
         <TextInput
           value={addressLine}
           onChangeText={setAddressLine}
-          placeholder="House / flat, street, area"
+          placeholder="Street, area"
           placeholderTextColor={colors.textSubtle}
           style={styles.input}
           testID="loc-manual-address"
