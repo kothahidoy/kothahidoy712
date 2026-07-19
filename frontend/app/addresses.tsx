@@ -30,7 +30,6 @@ import { SavedAddress } from "@/src/types";
 import { notify } from "@/src/utils/dialogs";
 import { reverseGeocode } from "@/src/utils/geo";
 import PlacesSearchInput, { PlaceResult } from "@/src/components/PlacesSearchInput";
-import PlatformMap from "@/src/components/PlatformMap";
 
 export default function Addresses() {
   const router = useRouter();
@@ -198,6 +197,7 @@ function AddressForm({
   onCancel: () => void;
 }) {
   const [label, setLabel] = useState("Home");
+  const [houseFlat, setHouseFlat] = useState("");
   const [addressLine, setAddressLine] = useState("");
   const [landmark, setLandmark] = useState("");
   const [city, setCity] = useState(CITIES[0]);
@@ -236,6 +236,10 @@ function AddressForm({
   };
 
   const save = async () => {
+    if (houseFlat.trim().length < 1) {
+      notify("House/Flat required", "Please enter your house or flat number.");
+      return;
+    }
     if (addressLine.trim().length < 5) {
       notify("Address required", "Please enter your full address.");
       return;
@@ -243,11 +247,12 @@ function AddressForm({
     await onSave({
       label: label.trim() || "Home",
       addressLine: addressLine.trim(),
+      houseFlat: houseFlat.trim(),
       landmark: landmark.trim() || undefined,
       city,
       // Only fall back to the Durgapur city-center pin if the user never
-      // searched, used current location, or dragged the map pin — better
-      // than silently mis-pinning every manually-typed address there.
+      // searched or used current location — better than silently
+      // mis-pinning every manually-typed address there.
       latitude: coords?.lat ?? 23.5204,
       longitude: coords?.lng ?? 87.3119,
       isDefault,
@@ -299,21 +304,23 @@ function AddressForm({
         </Text>
       </TouchableOpacity>
 
-      {coords && (
-        <View style={{ marginBottom: 12 }}>
-          <PlatformMap
-            latitude={coords.lat}
-            longitude={coords.lng}
-            addressLabel={addressLine}
-            onPinDragEnd={(c) => setCoords({ lat: c.latitude, lng: c.longitude })}
-          />
-        </View>
-      )}
+      {/* coords is still tracked (from search / current-location) and used
+          as the saved lat/lng — we just no longer show a draggable pin,
+          since Google can't fill in a house/flat number for us anyway;
+          the customer types that themselves below. */}
 
+      <TextInput
+        value={houseFlat}
+        onChangeText={setHouseFlat}
+        placeholder="House / Flat number"
+        placeholderTextColor={colors.textSubtle}
+        style={styles.input}
+        testID="ad-housenum-input"
+      />
       <TextInput
         value={addressLine}
         onChangeText={setAddressLine}
-        placeholder="House / flat, street, area"
+        placeholder="Street, area"
         placeholderTextColor={colors.textSubtle}
         style={styles.input}
         testID="ad-line-input"
