@@ -91,7 +91,7 @@ const FALLBACK_ALL_SERVICES: Record<string, { title: string; services: any[] }> 
   },
 };
 
-const SUPER_SAVER_PACKAGES: PackageData[] = [
+const HARDCODED_FALLBACK_PACKAGES: PackageData[] = [
   {
     id: "make-your-own-women",
     name: "Make your own package",
@@ -191,6 +191,8 @@ const SUPER_SAVER_PACKAGES: PackageData[] = [
   },
 ];
 
+const PACKAGES_API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+
 const ServiceCard = ({ service, quantity, onAdd, onRemove, onViewDetails }: any) => (
   <View style={styles.serviceCard}>
     <View style={styles.serviceInfo}>
@@ -227,6 +229,42 @@ export default function SalonWomenFullPageScreen() {
   const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
   const scrollViewRef = useRef<ScrollView>(null);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
+  const [dynamicPackages, setDynamicPackages] = useState<PackageData[]>([]);
+  const [showPackagesSection, setShowPackagesSection] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${PACKAGES_API_BASE}/api/admin/cms/public/packages/salon-women`);
+        if (!r.ok) return;
+        const data = await r.json();
+        setShowPackagesSection(!!data.show_packages);
+        if (Array.isArray(data.packages) && data.packages.length > 0) {
+          setDynamicPackages(
+            data.packages.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              rating: p.rating,
+              reviewCount: p.review_count,
+              price: p.price,
+              originalPrice: p.original_price ?? undefined,
+              duration: p.duration || "",
+              discount: p.discount ?? undefined,
+              items: p.items || [],
+              customizable: false,
+            })),
+          );
+        }
+      } catch {
+        // Keep whatever was already loaded (or none) — the section simply
+        // won't render below if showPackagesSection stays false.
+      }
+    })();
+  }, []);
+
+  // Admin-managed packages when available, otherwise fall back to the
+  // hardcoded starter set so the section never just goes blank.
+  const activePackages = dynamicPackages.length > 0 ? dynamicPackages : HARDCODED_FALLBACK_PACKAGES;
   const [variantDetails, setVariantDetails] = useState<
     Record<string, { name: string; price: number; image: string; baseServiceName?: string }>
   >({});
@@ -340,7 +378,7 @@ export default function SalonWomenFullPageScreen() {
   const getCartItemCount = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
   const handleAddPackage = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    const pkg = activePackages.find(p => p.id === packageId);
     if (pkg) {
       if (pkg.customizable) {
         setSelectedPackage(pkg);
@@ -352,7 +390,7 @@ export default function SalonWomenFullPageScreen() {
   };
 
   const handleEditPackage = (packageId: string) => {
-    const pkg = SUPER_SAVER_PACKAGES.find(p => p.id === packageId);
+    const pkg = activePackages.find(p => p.id === packageId);
     if (pkg) {
       setSelectedPackage(pkg);
       setShowPackageModal(true);
@@ -394,13 +432,17 @@ export default function SalonWomenFullPageScreen() {
         onScroll={(e) => { const scrollY = e.nativeEvent.contentOffset.y; let current = "waxing"; Object.entries(sectionPositions).forEach(([id, pos]) => { if (scrollY >= pos - 150) current = id; }); if (current !== activeCategory) setActiveCategory(current); }}
         scrollEventThrottle={16}
       >
-        <SuperSaverPackages
-          packages={SUPER_SAVER_PACKAGES}
-          themeColor={THEME_COLOR}
-          onAddPackage={handleAddPackage}
-          onEditPackage={handleEditPackage}
-        />
-        <View style={styles.sectionDivider} />
+        {showPackagesSection && activePackages.length > 0 && (
+          <>
+            <SuperSaverPackages
+              packages={activePackages}
+              themeColor={THEME_COLOR}
+              onAddPackage={handleAddPackage}
+              onEditPackage={handleEditPackage}
+            />
+            <View style={styles.sectionDivider} />
+          </>
+        )}
 
         {Object.entries(ALL_SERVICES).map(([categoryId, categoryData]) => (
           <View key={categoryId} onLayout={(e) => setSectionPositions(prev => ({ ...prev, [categoryId]: e.nativeEvent.layout.y }))}>
