@@ -226,6 +226,7 @@ class CategoryUpsert(BaseModel):
     visitation_fee_label: Optional[str] = None
     visitation_fee_threshold: Optional[float] = None
     visitation_fee_active: Optional[bool] = None
+    show_packages: Optional[bool] = None
 
 
 @router.get("/categories")
@@ -282,8 +283,105 @@ async def delete_category(category_id: str):
 
 
 # ═════════════════════════════════════════════════════════════════
-# Category banners (hero carousel)
+# Service packages ("Super Saver Packages" — bundled services at a
+# discount). Admin-manageable, per-category, with items as JSON so the
+# admin can freely add/remove bundled line items without a schema change.
 # ═════════════════════════════════════════════════════════════════
+class PackageItemModel(BaseModel):
+    category: str
+    description: str
+
+
+class PackageUpsert(BaseModel):
+    category_id: str
+    name: str
+    rating: Optional[float] = 4.8
+    review_count: Optional[str] = "1.0 K reviews"
+    price: float
+    original_price: Optional[float] = None
+    duration: Optional[str] = None
+    discount: Optional[int] = None
+    items: List[PackageItemModel] = []
+    sort_order: int = 0
+    is_active: bool = True
+
+
+@router.get("/packages")
+async def list_packages_admin(category_id: Optional[str] = None):
+    """Admin view — all packages (including inactive) for management."""
+    url = f"{SUPABASE_URL}/rest/v1/service_packages?select=*&order=sort_order"
+    if category_id:
+        url += f"&category_id=eq.{category_id}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(url, headers=_sb_headers())
+        return r.json() if r.is_success else []
+
+
+@router.get("/public/packages/{category_id}")
+async def list_packages_public(category_id: str):
+    """Customer-facing — only active packages for one category. Also
+    returns whether the category has packages enabled at all, so the app
+    knows whether to render the section."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        cat_r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/categories?id=eq.{category_id}&select=show_packages",
+            headers=_sb_headers(),
+        )
+        cat = cat_r.json()[0] if cat_r.is_success and cat_r.json() else {}
+        show = bool(cat.get("show_packages"))
+        if not show:
+            return {"show_packages": False, "packages": []}
+
+        pkg_r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/service_packages"
+            f"?category_id=eq.{category_id}&is_active=eq.true&order=sort_order",
+            headers=_sb_headers(),
+        )
+        return {"show_packages": True, "packages": pkg_r.json() if pkg_r.is_success else []}
+
+
+@router.post("/packages")
+async def create_package(payload: PackageUpsert):
+    body = payload.dict()
+    body["items"] = [i for i in body["items"]]
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/service_packages",
+            headers=_sb_headers("return=representation"),
+            json=body,
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(r.status_code, r.text)
+        data = r.json()
+        return data[0] if isinstance(data, list) else data
+
+
+@router.patch("/packages/{package_id}")
+async def update_package(package_id: str, payload: PackageUpsert):
+    body = payload.dict()
+    body["items"] = [i for i in body["items"]]
+    body["updated_at"] = "now()"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/service_packages?id=eq.{package_id}",
+            headers=_sb_headers(),
+            json=body,
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+
+
+@router.delete("/packages/{package_id}")
+async def delete_package(package_id: str):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/service_packages?id=eq.{package_id}",
+            headers=_sb_headers(),
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
 class BannerUpsert(BaseModel):
     id: Optional[str] = None
     category_id: str
