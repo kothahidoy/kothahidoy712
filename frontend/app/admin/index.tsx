@@ -208,6 +208,13 @@ export default function AdminDashboard() {
             testID="admin-legal-content-link"
           />
           <MenuItem
+            icon={Gift}
+            label="Super Saver Packages"
+            sub="Bundle deals per category, with an on/off toggle"
+            onPress={() => router.push("/admin/packages" as any)}
+            testID="admin-packages-link"
+          />
+          <MenuItem
             icon={SettingsIcon}
             label="All Settings"
             sub="Services, slots, bookings & offers"
