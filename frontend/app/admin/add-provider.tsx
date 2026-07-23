@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -16,7 +16,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ArrowLeft, Phone, Trash2, UserPlus, Users } from "lucide-react-native";
 
 import { providerService } from "@/src/data/providerService";
-import { CATEGORIES } from "@/src/data/seed";
+import { CATEGORIES as FALLBACK_CATEGORIES } from "@/src/data/seed";
+
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 import { Provider } from "@/src/types";
 import { colors, radius, shadow } from "@/src/theme";
 import { notify, confirmAsync } from "@/src/utils/dialogs";
@@ -27,8 +29,27 @@ export default function AddProvider() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [aadhaar, setAadhaar] = useState("");
-  const [serviceType, setServiceType] = useState(CATEGORIES[0]?.id || "");
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(FALLBACK_CATEGORIES);
+  const [serviceType, setServiceType] = useState(FALLBACK_CATEGORIES[0]?.id || "");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/cms/categories`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const live = data.map((c: any) => ({ id: c.id, name: c.name || c.id }));
+            setCategories(live);
+            setServiceType((prev) => (live.some((c) => c.id === prev) ? prev : live[0].id));
+          }
+        }
+      } catch {
+        // Keep the hardcoded fallback list — better than an empty dropdown.
+      }
+    })();
+  }, []);
 
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -110,7 +131,7 @@ export default function AddProvider() {
     reload();
   };
 
-  const categoryName = (id: string) => CATEGORIES.find((c) => c.id === id)?.name || id;
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name || id;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -176,7 +197,7 @@ export default function AddProvider() {
 
               <Text style={styles.label}>Service category</Text>
               <View style={styles.chipRow}>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <TouchableOpacity
                     key={c.id}
                     style={[styles.chip, serviceType === c.id && styles.chipActive]}
