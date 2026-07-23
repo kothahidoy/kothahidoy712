@@ -217,7 +217,7 @@ export default function CartScreen() {
     setAddrLine(place.addressLine || place.name);
     if (place.city) setAddrCity(CITIES.includes(place.city as any) ? place.city : place.city);
     setAddrCoords({ lat: place.latitude, lng: place.longitude });
-  }, []); Persists via dataService (Supabase → falls back to AsyncStorage).
+  }, []);
   const handleSaveAddressAndProceed = useCallback(async () => {
     const house = houseInput.trim();
     if (!house) {
