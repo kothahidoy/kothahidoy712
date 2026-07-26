@@ -84,7 +84,32 @@ export async function getAuthUserId(): Promise<string | null> {
   const stored = await storage.getItem<string | null>(PHONE_SESSION_TOKEN_KEY, null).catch(() => null);
   if (stored) {
     const sub = decodeJwtSub(stored);
-    if (sub) return sub;
+    if (sub) {
+      // getAuthUserId() correctly resolves who the user is even when
+      // supabase-js's own session has gone stale (its auto-refresh uses a
+      // fake refresh_token we minted, which real GoTrue rejects, silently
+      // clearing the session at some point after login). But every caller
+      // of this function typically goes on to run a supabase.from()/.rpc()
+      // query right after — and those go through supabase-js's client,
+      // which enforces RLS using auth.uid() from ITS OWN session, not our
+      // resolved id. If that session is stale, RLS silently returns zero
+      // rows (not an error), which looked like "profile not found" and
+      // sent the customer back through profile-setup / showed empty
+      // addresses/bookings, even though everything was saved correctly.
+      // Re-attaching our known-good token here heals that before the
+      // caller's next query runs.
+      try {
+        if (supabase) {
+          const { data } = await supabase.auth.getSession();
+          if (!data?.session?.access_token) {
+            await supabase.auth.setSession({ access_token: stored, refresh_token: stored });
+          }
+        }
+      } catch {
+        /* best-effort — fall through and return sub regardless */
+      }
+      return sub;
+    }
   }
   try {
     if (supabase) {
