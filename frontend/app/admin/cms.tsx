@@ -2524,6 +2524,9 @@ type BillingCfg = {
   tax_label: string;
   tax_percent: number;
   total_note: string;
+  late_cancellation_fee_enabled: boolean;
+  late_cancellation_window_hours: number;
+  late_cancellation_fee_percent: number;
 };
 
 const BILLING_DEFAULT: BillingCfg = {
@@ -2537,6 +2540,9 @@ const BILLING_DEFAULT: BillingCfg = {
   tax_label: "Est Govt. taxes",
   tax_percent: 5,
   total_note: "Incl. govt. taxes & charges",
+  late_cancellation_fee_enabled: true,
+  late_cancellation_window_hours: 12,
+  late_cancellation_fee_percent: 25,
 };
 
 function BillingTab() {
@@ -2684,6 +2690,29 @@ function BillingTab() {
             const n = Number(v);
             if (Number.isNaN(n)) return set("tax_percent", 0);
             set("tax_percent", Math.max(0, Math.min(100, n)));
+          }}
+          keyboardType="decimal-pad"
+        />
+      </SectionCard>
+
+      <SectionCard title="Late cancellation fee" subtitle="Charged when a customer cancels close to their slot time — this was previously just advertised in the cancellation policy text but never actually applied.">
+        <ToggleRow label="Enable late-cancellation fee" value={cfg.late_cancellation_fee_enabled} onChange={(v) => set("late_cancellation_fee_enabled", v)} />
+        <Field
+          label="Free-cancellation window (hours before slot)"
+          value={String(cfg.late_cancellation_window_hours)}
+          onChange={(v: string) => {
+            const n = Number(v);
+            set("late_cancellation_window_hours", Number.isFinite(n) ? Math.max(0, n) : 0);
+          }}
+          keyboardType="decimal-pad"
+        />
+        <Field
+          label="Fee (% of booking price) — enter a number between 0 and 100"
+          value={String(cfg.late_cancellation_fee_percent)}
+          onChange={(v: string) => {
+            const n = Number(v);
+            if (Number.isNaN(n)) return set("late_cancellation_fee_percent", 0);
+            set("late_cancellation_fee_percent", Math.max(0, Math.min(100, n)));
           }}
           keyboardType="decimal-pad"
         />
