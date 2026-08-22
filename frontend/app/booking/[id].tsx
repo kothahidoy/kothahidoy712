@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   Clock,
   MapPin,
@@ -19,6 +22,7 @@ import {
   Phone,
   Star,
   User,
+  X,
   XCircle,
 } from "lucide-react-native";
 
@@ -26,7 +30,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { ProviderTrackingCard } from "@/src/components/ProviderTrackingCard";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
-import { bookingApi } from "@/src/data/bookingFlow";
+import { bookingApi, SlotDate, TimeSlot } from "@/src/data/bookingFlow";
 import { providerService } from "@/src/data/providerService";
 import { supabase } from "@/src/lib/supabase";
 import { runRazorpayCheckout } from "@/src/lib/razorpay";
@@ -78,13 +82,21 @@ export default function BookingDetail() {
   const onCancel = async () => {
     const ok = await confirmAsync(
       "Cancel booking?",
-      "This action cannot be undone.",
+      "If your slot is within the cancellation window, a fee may apply. This action cannot be undone.",
       "Cancel booking",
       "Keep booking",
     );
     if (!ok) return;
     try {
-      await bookingApi.cancelBooking(booking.id);
+      const res = await bookingApi.cancelBooking(booking.id);
+      if (res.cancellation_fee > 0) {
+        notify(
+          "Booking cancelled",
+          `A late-cancellation fee of ₹${res.cancellation_fee} applies since this was within the free-cancellation window.`,
+        );
+      } else {
+        notify("Booking cancelled", "No cancellation fee — you're all set.");
+      }
     } catch (e: any) {
       notify("Couldn't cancel", e?.message || "Please try again.");
       return;
@@ -115,6 +127,57 @@ export default function BookingDetail() {
   const canCancel = ["pending", "confirmed", "assigned", "in_progress"].includes(
     booking.status,
   );
+  const canReschedule = ["pending", "confirmed", "assigned"].includes(booking.status);
+
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [slotDates, setSlotDates] = useState<SlotDate[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [loadingDates, setLoadingDates] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  const openReschedule = async () => {
+    setRescheduleOpen(true);
+    setSelectedDate(null);
+    setSelectedSlot(null);
+    setSlots([]);
+    setLoadingDates(true);
+    try {
+      const dates = await bookingApi.getSlotDates(7);
+      setSlotDates(dates);
+    } finally {
+      setLoadingDates(false);
+    }
+  };
+
+  const onPickDate = async (date: string) => {
+    setSelectedDate(date);
+    setSelectedSlot(null);
+    setLoadingSlots(true);
+    try {
+      const s = await bookingApi.getSlots(date);
+      setSlots(s);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const onConfirmReschedule = async () => {
+    if (!selectedDate || !selectedSlot) return;
+    setRescheduling(true);
+    try {
+      await bookingApi.rescheduleBooking(booking.id, selectedDate, selectedSlot);
+      setRescheduleOpen(false);
+      notify("Booking rescheduled", "Your new slot is confirmed.");
+      await load();
+    } catch (e: any) {
+      notify("Couldn't reschedule", e?.message || "Please try again.");
+    } finally {
+      setRescheduling(false);
+    }
+  };
 
   const isUnpaid =
     booking.paymentStatus === "unpaid" || booking.paymentStatus === "failed";
@@ -364,6 +427,17 @@ export default function BookingDetail() {
               testID="bd-done-btn"
             />
           ) : null}
+          {canReschedule ? (
+            <TouchableOpacity
+              style={styles.rescheduleBtn}
+              activeOpacity={0.8}
+              onPress={openReschedule}
+              testID="bd-reschedule-btn"
+            >
+              <CalendarClock size={16} color={colors.primary} />
+              <Text style={styles.rescheduleText}>Reschedule</Text>
+            </TouchableOpacity>
+          ) : null}
           {canCancel ? (
             <TouchableOpacity
               style={styles.cancelBtn}
@@ -376,6 +450,82 @@ export default function BookingDetail() {
           ) : null}
         </View>
       </ScrollView>
+
+      <Modal visible={rescheduleOpen} animationType="slide" transparent onRequestClose={() => setRescheduleOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Reschedule booking</Text>
+              <TouchableOpacity onPress={() => setRescheduleOpen(false)} hitSlop={10}>
+                <X size={20} color={colors.textMain} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Pick a new date</Text>
+            {loadingDates ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                {slotDates.map((d) => (
+                  <TouchableOpacity
+                    key={d.date}
+                    style={[styles.dateChip, selectedDate === d.date && styles.dateChipActive]}
+                    onPress={() => onPickDate(d.date)}
+                  >
+                    <Text style={[styles.dateChipDay, selectedDate === d.date && styles.dateChipTextActive]}>
+                      {d.day_name}
+                    </Text>
+                    <Text style={[styles.dateChipNum, selectedDate === d.date && styles.dateChipTextActive]}>
+                      {d.day_num}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {selectedDate && (
+              <>
+                <Text style={styles.modalLabel}>Pick a new time slot</Text>
+                {loadingSlots ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+                ) : (
+                  <View style={styles.slotGrid}>
+                    {slots.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        disabled={!s.available}
+                        style={[
+                          styles.slotChip,
+                          selectedSlot === s.time && styles.slotChipActive,
+                          !s.available && styles.slotChipDisabled,
+                        ]}
+                        onPress={() => setSelectedSlot(s.time)}
+                      >
+                        <Text
+                          style={[
+                            styles.slotChipText,
+                            selectedSlot === s.time && styles.dateChipTextActive,
+                            !s.available && styles.slotChipTextDisabled,
+                          ]}
+                        >
+                          {s.time}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            <PrimaryButton
+              label={rescheduling ? "Rescheduling..." : "Confirm new slot"}
+              onPress={onConfirmReschedule}
+              disabled={!selectedDate || !selectedSlot || rescheduling}
+              style={{ marginTop: 20 }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -547,4 +697,53 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelText: { color: colors.error, fontWeight: "800", fontSize: 14 },
+  rescheduleBtn: {
+    height: 50,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  rescheduleText: { color: colors.primary, fontWeight: "800", fontSize: 14 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 34,
+  },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: colors.textMain },
+  modalLabel: { fontSize: 13, fontWeight: "700", color: colors.textMain, marginBottom: 10 },
+  dateChip: {
+    width: 56,
+    height: 64,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  dateChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  dateChipDay: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+  dateChipNum: { fontSize: 16, color: colors.textMain, fontWeight: "800", marginTop: 2 },
+  dateChipTextActive: { color: "#fff" },
+  slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  slotChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  slotChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  slotChipDisabled: { opacity: 0.4 },
+  slotChipText: { fontSize: 13, fontWeight: "600", color: colors.textMain },
+  slotChipTextDisabled: { color: colors.textMuted },
 });
