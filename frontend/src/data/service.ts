@@ -499,26 +499,71 @@ export const dataService = {
   ): Promise<SavedAddress> => {
     const userId = await getCurrentUserId();
     if (userId && supabase) {
-      // If this address is default, demote previous defaults first.
+      const row = {
+        user_id: userId,
+        label: input.label,
+        address_line: input.addressLine,
+        house_flat: input.houseFlat ?? null,
+        landmark: input.landmark ?? null,
+        city: input.city,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        is_default: !!input.isDefault,
+      };
+
+      // A customer only ever has one "default" address at a time — every
+      // screen that lets them set/refine their location (GPS auto-detect
+      // on login, the location search screen, the Saved Addresses form,
+      // the cart address sheet) saves with isDefault: true. Previously
+      // each of those calls INSERTed a brand new row, so a customer who
+      // e.g. had their area auto-detected at login and then added their
+      // flat number later ended up with two separate saved addresses
+      // instead of one refined one. Now we update the existing default
+      // row in place instead of creating another.
       if (input.isDefault) {
-        await supabase
+        const { data: existingDefault } = await supabase
           .from("saved_addresses")
-          .update({ is_default: false })
-          .eq("user_id", userId);
+          .select("id")
+          .eq("user_id", userId)
+          .eq("is_default", true)
+          .maybeSingle();
+
+        if (existingDefault?.id) {
+          const { data, error } = await supabase
+            .from("saved_addresses")
+            .update(row)
+            .eq("id", existingDefault.id)
+            .select(
+              "id, label, address_line, house_flat, landmark, city, latitude, longitude, is_default",
+            )
+            .single();
+          if (!error && data) {
+            return {
+              id: data.id,
+              label: data.label ?? "Home",
+              addressLine: data.address_line,
+              houseFlat: data.house_flat ?? undefined,
+              landmark: data.landmark ?? undefined,
+              city: data.city,
+              latitude: Number(data.latitude ?? 0),
+              longitude: Number(data.longitude ?? 0),
+              isDefault: !!data.is_default,
+            };
+          }
+          // Fall through to insert below only if the update itself failed.
+        } else {
+          // No existing default yet — demote any other rows just in case
+          // (shouldn't normally be needed, but keeps is_default unique).
+          await supabase
+            .from("saved_addresses")
+            .update({ is_default: false })
+            .eq("user_id", userId);
+        }
       }
+
       const { data, error } = await supabase
         .from("saved_addresses")
-        .insert({
-          user_id: userId,
-          label: input.label,
-          address_line: input.addressLine,
-          house_flat: input.houseFlat ?? null,
-          landmark: input.landmark ?? null,
-          city: input.city,
-          latitude: input.latitude,
-          longitude: input.longitude,
-          is_default: !!input.isDefault,
-        })
+        .insert(row)
         .select(
           "id, label, address_line, house_flat, landmark, city, latitude, longitude, is_default",
         )
