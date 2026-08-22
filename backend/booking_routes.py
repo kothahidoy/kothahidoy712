@@ -768,3 +768,48 @@ async def submit_booking_review(
             raise HTTPException(500, f"Rating saved, but review publish failed: {rv.text}")
 
         return {"ok": True, "published": payload.rating == 5}
+
+
+@router.post("/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: str,
+    authorization: Optional[str] = Header(None),
+):
+    """Customer cancels their own booking. Previously this only happened
+    client-side via a direct status update, which left an assigned
+    provider permanently marked as busy (is_available stayed false
+    forever, since nothing ever set it back to true on cancellation)."""
+    uid = await _user_id_from_token(authorization)
+    if not uid:
+        raise HTTPException(401, "Please sign in")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        b = await client.get(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}&customer_id=eq.{uid}"
+            f"&select=id,status,provider_id",
+            headers=_sb_headers(),
+        )
+        rows = b.json() if b.status_code == 200 else []
+        if not rows:
+            raise HTTPException(404, "Booking not found")
+        booking = rows[0]
+        if booking.get("status") in ("completed", "cancelled"):
+            raise HTTPException(400, f"Booking is already {booking['status']}")
+
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}",
+            headers=_sb_headers(),
+            json={"status": "cancelled"},
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(500, f"Failed to cancel: {r.text}")
+
+        provider_id = booking.get("provider_id")
+        if provider_id:
+            await client.patch(
+                f"{SUPABASE_URL}/rest/v1/providers?id=eq.{provider_id}",
+                headers=_sb_headers(),
+                json={"is_available": True},
+            )
+
+        return {"ok": True}
