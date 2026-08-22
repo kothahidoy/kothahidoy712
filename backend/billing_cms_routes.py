@@ -57,6 +57,15 @@ class BillingConfig(BaseModel):
     # Small grey note under "Total bill" in the cart
     total_note: str = "Incl. govt. taxes & charges"
 
+    # Late-cancellation fee — charged (recorded on the booking; collected
+    # at the next payment / by the provider on-site for COD bookings) when
+    # a customer cancels within the given window before their slot. This
+    # was previously just advertised in the cancellation-policy text but
+    # never actually enforced anywhere.
+    late_cancellation_fee_enabled: bool = True
+    late_cancellation_window_hours: float = Field(default=12.0, ge=0)
+    late_cancellation_fee_percent: float = Field(default=25.0, ge=0, le=100)
+
 
 def _service_headers() -> dict:
     return {
