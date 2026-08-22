@@ -57,11 +57,26 @@ export interface RecommendItem {
 
 // ---------- API methods ----------
 export const bookingApi = {
-  async cancelBooking(bookingId: string): Promise<{ ok: boolean }> {
+  async cancelBooking(bookingId: string): Promise<{ ok: boolean; cancellation_fee: number }> {
     const headers = await authHeader();
     const r = await fetch(`${API_BASE}/api/booking/${bookingId}/cancel`, {
       method: "POST",
       headers,
+    });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const j = await r.json(); msg = j.detail || msg; } catch {}
+      throw new Error(msg);
+    }
+    return r.json();
+  },
+
+  async rescheduleBooking(bookingId: string, scheduledDate: string, timeSlot: string): Promise<{ ok: boolean }> {
+    const headers = await authHeader();
+    const r = await fetch(`${API_BASE}/api/booking/${bookingId}/reschedule`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ scheduled_date: scheduledDate, time_slot: timeSlot }),
     });
     if (!r.ok) {
       let msg = `HTTP ${r.status}`;
