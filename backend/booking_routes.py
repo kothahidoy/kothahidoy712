@@ -20,6 +20,26 @@ import httpx
 
 from billing_cms_routes import get_billing_config, compute_bill
 
+
+def _parse_scheduled_datetime(scheduled_date: str, time_slot: str) -> Optional[datetime]:
+    """time_slot has been saved in a few different shapes over time
+    ("10:00 AM - 11:00 AM", "8:00 PM", "8:30 PM") — take the first clock
+    time found and combine it with the date. Returns None if unparsable,
+    in which case callers should treat the slot as "not imminent" rather
+    than block the action."""
+    try:
+        first_part = (time_slot or "").split("-")[0].strip()
+        for fmt in ("%I:%M %p", "%I:%M%p", "%H:%M"):
+            try:
+                t = datetime.strptime(first_part, fmt).time()
+                d = datetime.strptime(scheduled_date, "%Y-%m-%d").date()
+                return datetime.combine(d, t)
+            except ValueError:
+                continue
+    except Exception:
+        pass
+    return None
+
 router = APIRouter(prefix="/api/booking", tags=["booking"])
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -775,10 +795,12 @@ async def cancel_booking(
     booking_id: str,
     authorization: Optional[str] = Header(None),
 ):
-    """Customer cancels their own booking. Previously this only happened
-    client-side via a direct status update, which left an assigned
-    provider permanently marked as busy (is_available stayed false
-    forever, since nothing ever set it back to true on cancellation)."""
+    """Customer cancels their own booking. This does two things that
+    previously never happened anywhere: (1) releases an assigned provider
+    back to available instead of leaving them stuck as busy forever, and
+    (2) actually applies the late-cancellation fee the app's own
+    cancellation-policy text promises, instead of it being purely
+    decorative copy."""
     uid = await _user_id_from_token(authorization)
     if not uid:
         raise HTTPException(401, "Please sign in")
@@ -786,7 +808,7 @@ async def cancel_booking(
     async with httpx.AsyncClient(timeout=15.0) as client:
         b = await client.get(
             f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}&customer_id=eq.{uid}"
-            f"&select=id,status,provider_id",
+            f"&select=id,status,provider_id,scheduled_date,time_slot,price",
             headers=_sb_headers(),
         )
         rows = b.json() if b.status_code == 200 else []
@@ -796,10 +818,32 @@ async def cancel_booking(
         if booking.get("status") in ("completed", "cancelled"):
             raise HTTPException(400, f"Booking is already {booking['status']}")
 
+        # Work out the late-cancellation fee, if the admin has it enabled
+        # and this booking's slot is within the configured window.
+        fee = 0.0
+        try:
+            cfg = await get_billing_config()
+            if cfg.get("late_cancellation_fee_enabled"):
+                scheduled_dt = _parse_scheduled_datetime(
+                    booking.get("scheduled_date", ""), booking.get("time_slot", "")
+                )
+                if scheduled_dt is not None:
+                    hours_until = (scheduled_dt - datetime.now()).total_seconds() / 3600
+                    window = float(cfg.get("late_cancellation_window_hours", 12))
+                    if 0 <= hours_until <= window:
+                        pct = float(cfg.get("late_cancellation_fee_percent", 0)) / 100
+                        fee = round(float(booking.get("price") or 0) * pct, 2)
+        except Exception:
+            fee = 0.0  # Never let a fee-calculation hiccup block the cancellation itself.
+
         r = await client.patch(
             f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}",
             headers=_sb_headers(),
-            json={"status": "cancelled"},
+            json={
+                "status": "cancelled",
+                "cancellation_fee": fee,
+                "cancelled_at": datetime.now().isoformat(),
+            },
         )
         if r.status_code not in (200, 204):
             raise HTTPException(500, f"Failed to cancel: {r.text}")
@@ -811,5 +855,55 @@ async def cancel_booking(
                 headers=_sb_headers(),
                 json={"is_available": True},
             )
+
+        return {"ok": True, "cancellation_fee": fee}
+
+
+class RescheduleRequest(BaseModel):
+    scheduled_date: str  # YYYY-MM-DD
+    time_slot: str
+
+
+@router.post("/{booking_id}/reschedule")
+async def reschedule_booking(
+    booking_id: str,
+    payload: RescheduleRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """Customer moves their booking to a different date/slot instead of
+    having to cancel (losing any assigned provider + risking a
+    cancellation fee) and create a brand new booking from scratch."""
+    uid = await _user_id_from_token(authorization)
+    if not uid:
+        raise HTTPException(401, "Please sign in")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        b = await client.get(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}&customer_id=eq.{uid}"
+            f"&select=id,status,reschedule_count",
+            headers=_sb_headers(),
+        )
+        rows = b.json() if b.status_code == 200 else []
+        if not rows:
+            raise HTTPException(404, "Booking not found")
+        booking = rows[0]
+        if booking.get("status") not in ("pending", "confirmed", "assigned"):
+            raise HTTPException(
+                400,
+                f"A booking that's {booking.get('status')} can't be rescheduled — "
+                f"only upcoming, not-yet-started bookings can be.",
+            )
+
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/bookings?id=eq.{booking_id}",
+            headers=_sb_headers(),
+            json={
+                "scheduled_date": payload.scheduled_date,
+                "time_slot": payload.time_slot,
+                "reschedule_count": int(booking.get("reschedule_count") or 0) + 1,
+            },
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(500, f"Failed to reschedule: {r.text}")
 
         return {"ok": True}
