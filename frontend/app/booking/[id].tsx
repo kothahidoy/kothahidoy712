@@ -26,6 +26,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { ProviderTrackingCard } from "@/src/components/ProviderTrackingCard";
 import { useSession } from "@/src/context/SessionContext";
 import { dataService } from "@/src/data/service";
+import { bookingApi } from "@/src/data/bookingFlow";
 import { providerService } from "@/src/data/providerService";
 import { supabase } from "@/src/lib/supabase";
 import { runRazorpayCheckout } from "@/src/lib/razorpay";
@@ -82,7 +83,12 @@ export default function BookingDetail() {
       "Keep booking",
     );
     if (!ok) return;
-    await dataService.cancelBooking(booking.id);
+    try {
+      await bookingApi.cancelBooking(booking.id);
+    } catch (e: any) {
+      notify("Couldn't cancel", e?.message || "Please try again.");
+      return;
+    }
     await load();
   };
 
@@ -92,9 +98,18 @@ export default function BookingDetail() {
   };
 
   const submitReview = async () => {
-    await dataService.submitReview(booking.id, rating, "");
-    notify("Thank you!", "Your rating has been submitted.");
-    await load();
+    try {
+      const res = await bookingApi.rateBooking(booking.id, rating, "");
+      notify(
+        res.published ? "Thanks for the 5★!" : "Thank you!",
+        res.published
+          ? "Your review is now visible on the service page."
+          : "Your rating has been submitted. Our team will review it before it's shown publicly.",
+      );
+      await load();
+    } catch (e: any) {
+      notify("Couldn't submit", e?.message || "Please try again.");
+    }
   };
 
   const canCancel = ["pending", "confirmed", "assigned", "in_progress"].includes(
@@ -276,31 +291,36 @@ export default function BookingDetail() {
         {/* Rate */}
         {booking.status === "completed" ? (
           <View style={styles.rateBox} testID="bd-rate-box">
-            <Text style={styles.rateTitle}>How was your experience?</Text>
+            <Text style={styles.rateTitle}>
+              {booking.rating ? "Your rating" : "How was your experience?"}
+            </Text>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((i) => (
                 <TouchableOpacity
                   key={i}
-                  onPress={() => setRating(i)}
+                  onPress={() => !booking.rating && setRating(i)}
+                  disabled={!!booking.rating}
                   testID={`bd-star-${i}`}
                   activeOpacity={0.7}
                 >
                   <Star
                     size={32}
-                    color={i <= rating ? colors.star : colors.border}
-                    fill={i <= rating ? colors.star : "transparent"}
+                    color={i <= (booking.rating || rating) ? colors.star : colors.border}
+                    fill={i <= (booking.rating || rating) ? colors.star : "transparent"}
                     strokeWidth={2}
                   />
                 </TouchableOpacity>
               ))}
             </View>
-            <PrimaryButton
-              label={booking.rating ? "Update rating" : "Submit rating"}
-              onPress={submitReview}
-              size="md"
-              disabled={!rating}
-              testID="bd-submit-rating"
-            />
+            {!booking.rating && (
+              <PrimaryButton
+                label="Submit rating"
+                onPress={submitReview}
+                size="md"
+                disabled={!rating}
+                testID="bd-submit-rating"
+              />
+            )}
           </View>
         ) : null}
 
